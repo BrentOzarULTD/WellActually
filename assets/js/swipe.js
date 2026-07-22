@@ -194,8 +194,11 @@
 		appEl.innerHTML =
 			'<div class="wa-game">' +
 			'<div class="wa-header">' +
+			'<span class="wa-header-stats">' +
 			'<span class="wa-score">' + escapeHtml( waSwipeStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count ) ) + '</span>' +
 			'<span class="wa-deck-progress">' + escapeHtml( totalLabel ) + '</span>' +
+			'</span>' +
+			'<button type="button" class="wa-reset-link">Start over</button>' +
 			'</div>' +
 			'<div class="wa-card-area">' +
 			'<div class="wa-card" id="wa-card" tabindex="-1">' +
@@ -219,6 +222,11 @@
 				answer( btn.getAttribute( 'data-answer' ) );
 			} );
 		} );
+
+		var resetBtn = appEl.querySelector( '.wa-reset-link' );
+		if ( resetBtn ) {
+			resetBtn.addEventListener( 'click', handleResetClick );
+		}
 
 		if ( typeof window.waAttachGestures === 'function' ) {
 			window.waAttachGestures( document.getElementById( 'wa-card' ), answer );
@@ -404,6 +412,36 @@
 				answer( a );
 			}
 		} );
+	}
+
+	/**
+	 * Confirm, then reset all progress and restart the deck from scratch.
+	 */
+	function handleResetClick() {
+		if ( ! window.confirm( 'Start over? This clears your saved progress.' ) ) {
+			return;
+		}
+
+		if ( typeof window.waResetProgress === 'function' ) {
+			state.progress = window.waResetProgress();
+		} else {
+			state.progress = { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
+		}
+
+		state.deck = [];
+		state.currentIndex = 0;
+		state.phase = 'loading';
+		render();
+
+		fetchDeckBatch()
+			.then( function () {
+				state.phase = state.deck.length ? 'card' : 'done';
+				render();
+			} )
+			.catch( function () {
+				state.phase = 'error';
+				render();
+			} );
 	}
 
 	/**
@@ -854,5 +892,170 @@
 
 		continueBtn.addEventListener( 'click', dismiss );
 		overlay.addEventListener( 'keydown', onKeydown );
+	};
+} )();
+
+/**
+ * localStorage-backed progress persistence for anonymous visitors.
+ * Logged-in sync (issue #12) reads/writes through the same
+ * window.waLoadProgress/waSaveProgress hooks, merging with the server copy.
+ */
+( function () {
+	'use strict';
+
+	var STORAGE_KEY = 'wa_progress';
+	var memoryFallback = null; // Used when localStorage is unavailable.
+	var storageAvailable = isStorageAvailable();
+
+	/**
+	 * Feature-detect a usable localStorage (Safari private mode can throw
+	 * on write even though the object exists).
+	 *
+	 * @return {boolean}
+	 */
+	function isStorageAvailable() {
+		try {
+			var testKey = '__wa_test__';
+			window.localStorage.setItem( testKey, '1' );
+			window.localStorage.removeItem( testKey );
+			return true;
+		} catch ( e ) {
+			return false;
+		}
+	}
+
+	/**
+	 * A fresh, empty progress object.
+	 *
+	 * @return {Object}
+	 */
+	function freshProgress() {
+		return { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
+	}
+
+	/**
+	 * Validate and normalize a possibly-corrupt progress object.
+	 *
+	 * @param {*} raw Parsed (or otherwise obtained) candidate progress object.
+	 * @return {Object}
+	 */
+	function normalize( raw ) {
+		if ( ! raw || 'object' !== typeof raw ) {
+			return freshProgress();
+		}
+
+		var seen = Array.isArray( raw.seen ) ? raw.seen.filter( isPositiveInt ) : [];
+		var wrong = Array.isArray( raw.wrong ) ? raw.wrong.filter( isPositiveInt ) : [];
+
+		seen = uniqueInts( seen );
+		wrong = uniqueInts( wrong ).filter( function ( id ) {
+			return seen.indexOf( id ) !== -1;
+		} );
+
+		var answeredCount = Number.isFinite( raw.answered_count ) ? Math.max( 0, Math.floor( raw.answered_count ) ) : seen.length;
+		var correctCount = Number.isFinite( raw.correct_count ) ? Math.max( 0, Math.floor( raw.correct_count ) ) : Math.max( 0, seen.length - wrong.length );
+
+		return {
+			seen: seen,
+			wrong: wrong,
+			correct_count: Math.min( correctCount, answeredCount ),
+			answered_count: answeredCount,
+		};
+	}
+
+	/**
+	 * @param {*} val Candidate value.
+	 * @return {boolean}
+	 */
+	function isPositiveInt( val ) {
+		return Number.isInteger( val ) && val > 0;
+	}
+
+	/**
+	 * @param {number[]} arr Array of ints.
+	 * @return {number[]}
+	 */
+	function uniqueInts( arr ) {
+		var seenMap = {};
+		var out = [];
+		arr.forEach( function ( n ) {
+			if ( ! seenMap[ n ] ) {
+				seenMap[ n ] = true;
+				out.push( n );
+			}
+		} );
+		return out;
+	}
+
+	/**
+	 * Show a subtle one-time notice that progress won't persist.
+	 */
+	var noticeShown = false;
+	function maybeShowNoStorageNotice() {
+		if ( noticeShown || storageAvailable ) {
+			return;
+		}
+		noticeShown = true;
+
+		var notice = document.createElement( 'div' );
+		notice.className = 'wa-storage-notice';
+		notice.setAttribute( 'role', 'status' );
+		notice.textContent = 'Your progress won’t be saved in this browser.';
+		document.body.appendChild( notice );
+
+		setTimeout( function () {
+			notice.remove();
+		}, 5000 );
+	}
+
+	/**
+	 * Load progress from localStorage (or the in-memory fallback).
+	 *
+	 * @return {Object}
+	 */
+	window.waLoadProgress = function () {
+		if ( ! storageAvailable ) {
+			maybeShowNoStorageNotice();
+			return normalize( memoryFallback );
+		}
+
+		try {
+			var raw = window.localStorage.getItem( STORAGE_KEY );
+			return normalize( raw ? JSON.parse( raw ) : null );
+		} catch ( e ) {
+			return freshProgress();
+		}
+	};
+
+	/**
+	 * Persist progress to localStorage (or the in-memory fallback).
+	 *
+	 * @param {Object} progress Progress object to save.
+	 */
+	window.waSaveProgress = function ( progress ) {
+		var normalized = normalize( progress );
+
+		if ( ! storageAvailable ) {
+			memoryFallback = normalized;
+			maybeShowNoStorageNotice();
+			return;
+		}
+
+		try {
+			window.localStorage.setItem( STORAGE_KEY, JSON.stringify( normalized ) );
+		} catch ( e ) {
+			storageAvailable = false;
+			memoryFallback = normalized;
+			maybeShowNoStorageNotice();
+		}
+	};
+
+	/**
+	 * Reset all local progress to a fresh, empty state.
+	 */
+	window.waResetProgress = function () {
+		var fresh = freshProgress();
+		window.waSaveProgress( fresh );
+		return fresh;
 	};
 } )();
