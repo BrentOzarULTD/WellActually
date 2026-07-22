@@ -71,6 +71,58 @@ class WA_Rest {
 				),
 			)
 		);
+
+		register_rest_route(
+			self::NAMESPACE_NAME,
+			'/swipe',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'handle_post_swipe' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'post_id' => array(
+						'type'              => 'integer',
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+					'answer'  => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_key',
+					),
+					'replay'  => array(
+						'type'              => 'boolean',
+						'default'           => false,
+					),
+				),
+			)
+		);
+	}
+
+	/**
+	 * Check (and increment) a simple per-IP rate limit.
+	 *
+	 * @param string $bucket    Bucket name, so different endpoints don't share a budget.
+	 * @param int    $max_calls Max calls allowed per window.
+	 * @param int    $window    Window length in seconds.
+	 * @return bool True if within the limit (and the call is now counted), false if over.
+	 */
+	public static function check_rate_limit( $bucket, $max_calls, $window ) {
+		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
+		$key = 'wa_rl_' . $bucket . '_' . md5( $ip );
+
+		$count = get_transient( $key );
+		if ( false === $count ) {
+			set_transient( $key, 1, $window );
+			return true;
+		}
+
+		if ( (int) $count >= $max_calls ) {
+			return false;
+		}
+
+		set_transient( $key, (int) $count + 1, $window );
+		return true;
 	}
 
 	/**
@@ -198,5 +250,85 @@ class WA_Rest {
 			),
 			200
 		);
+	}
+
+	/**
+	 * POST /swipe handler.
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function handle_post_swipe( WP_REST_Request $request ) {
+		if ( ! self::check_rate_limit( 'swipe', 60, MINUTE_IN_SECONDS ) ) {
+			return new WP_Error( 'wa_rate_limited', __( 'Too many swipes, slow down.', 'well-actually' ), array( 'status' => 429 ) );
+		}
+
+		$post_id = (int) $request->get_param( 'post_id' );
+		$answer  = (string) $request->get_param( 'answer' );
+		$replay  = (bool) $request->get_param( 'replay' );
+
+		$valid_answers = array( 'agree', 'disagree', 'unsure' );
+		if ( ! in_array( $answer, $valid_answers, true ) ) {
+			return new WP_Error( 'wa_invalid_answer', __( 'Invalid answer.', 'well-actually' ), array( 'status' => 400 ) );
+		}
+
+		$post = get_post( $post_id );
+		if ( ! $post || 'publish' !== $post->post_status || 'post' !== $post->post_type ) {
+			return new WP_Error( 'wa_invalid_post', __( 'Post not found.', 'well-actually' ), array( 'status' => 404 ) );
+		}
+
+		$statement = get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true );
+		$verdict   = get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true );
+
+		if ( '' === $statement || ! in_array( $verdict, array( 'true', 'false', 'debatable' ), true ) ) {
+			return new WP_Error( 'wa_invalid_post', __( 'Post is not in the swipe deck.', 'well-actually' ), array( 'status' => 404 ) );
+		}
+
+		$correct = $this->is_correct( $verdict, $answer );
+		$show_post = ! $correct || 'debatable' === $verdict;
+
+		if ( ! $replay ) {
+			WA_Stats::record( $post_id, $answer );
+		}
+
+		$stats = WA_Stats::get( $post_id );
+
+		$excerpt = wp_strip_all_tags( strip_shortcodes( get_the_excerpt( $post ) ) );
+		$excerpt = wp_trim_words( $excerpt, 40, '…' );
+
+		$response = array(
+			'verdict'    => $verdict,
+			'correct'    => $correct,
+			'show_post'  => $show_post,
+			'title'      => get_the_title( $post ),
+			'excerpt'    => $excerpt,
+			'url'        => get_permalink( $post ),
+			'pct_agreed' => $stats['pct_agreed'],
+		);
+
+		$rest_response = new WP_REST_Response( $response, 200 );
+		$rest_response->header( 'Cache-Control', 'no-store' );
+
+		return $rest_response;
+	}
+
+	/**
+	 * Determine whether an answer is correct for a given verdict.
+	 *
+	 * @param string $verdict One of true|false|debatable.
+	 * @param string $answer  One of agree|disagree|unsure.
+	 * @return bool
+	 */
+	private function is_correct( $verdict, $answer ) {
+		if ( 'debatable' === $verdict ) {
+			return true;
+		}
+		if ( 'true' === $verdict ) {
+			return 'agree' === $answer;
+		}
+		if ( 'false' === $verdict ) {
+			return 'disagree' === $answer;
+		}
+		return false;
 	}
 }
