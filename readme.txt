@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 1.0.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -34,7 +34,26 @@ Any published post with both a Swipe Statement and a verdict (True, False, or De
 
 Yes — the swipe page itself can be cached, but all game state (deck contents, scoring) comes from REST endpoints marked non-cacheable.
 
+= What counts as "correct" on a Debatable statement? =
+
+Any answer (agree, disagree, or not sure) counts as correct, but the post is always shown afterward since the nuance is the point.
+
+= Does my score follow me between devices? =
+
+Only when you're logged in. Anonymous progress is stored in your browser's local storage; logging in merges it with your account's saved progress.
+
+= Can I see which statements fool the most readers? =
+
+Yes — the Posts list has a "Swipe stats" column showing the agree percentage and total swipe count for each post in the deck.
+
+== Screenshots ==
+
+1. Full-screen swipe card with keyboard/swipe hints.
+2. Reveal overlay after a wrong or unsure answer.
+3. End-of-deck score screen with replay option.
+4. The Swipe Statement meta box on the post edit screen.
+
 == Changelog ==
 
-= 0.1.0 =
-* Initial scaffold: settings page, plugin structure.
+= 1.0.0 =
+* Initial public release: full swipe mode experience, meta box, aggregate stats, anonymous + logged-in progress tracking, replay mode.
