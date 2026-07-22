@@ -202,6 +202,15 @@ class WA_Rest {
 	 */
 	public function invalidate_total_cache( $post_id ) {
 		unset( $post_id );
+		self::clear_total_cache();
+	}
+
+	/**
+	 * Clear the cached eligible-post total. Call this after changing swipe
+	 * meta outside of a normal post save (e.g. the bulk-setup screen, which
+	 * writes meta directly without firing save_post).
+	 */
+	public static function clear_total_cache() {
 		delete_transient( self::TOTAL_TRANSIENT );
 	}
 
