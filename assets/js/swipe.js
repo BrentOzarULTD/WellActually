@@ -322,9 +322,11 @@
 			recordAnswer( card, response, answerValue );
 			state.currentIndex++;
 			state.busy = false;
+			updateHeaderDisplay();
 
 			if ( typeof window.waShowReveal === 'function' && response ) {
-				window.waShowReveal( response, advanceAfterReveal );
+				state.phase = 'reveal';
+				window.waShowReveal( response, answerValue, advanceAfterReveal );
 			} else {
 				advanceAfterReveal();
 			}
@@ -358,6 +360,24 @@
 
 		if ( typeof window.waSaveProgress === 'function' ) {
 			window.waSaveProgress( state.progress );
+		}
+	}
+
+	/**
+	 * Update the score/progress header in place (used right after an
+	 * answer is recorded, before a reveal overlay opens over the card).
+	 */
+	function updateHeaderDisplay() {
+		var scoreEl = appEl && appEl.querySelector( '.wa-score' );
+		var progressEl = appEl && appEl.querySelector( '.wa-deck-progress' );
+
+		if ( scoreEl ) {
+			scoreEl.textContent = waSwipeStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count );
+		}
+		if ( progressEl ) {
+			var seenPosition = state.progress.answered_count;
+			var totalLabel = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
+			progressEl.textContent = totalLabel;
 		}
 	}
 
@@ -650,5 +670,189 @@
 				answerFn( answerValue );
 			}, FLY_OFF_MS );
 		}
+	};
+} )();
+
+/**
+ * Reveal overlay: quick "correct" flash for straightforward right answers,
+ * or a full overlay card (verdict, post excerpt/link, aggregate %) when
+ * the player was wrong, unsure, or the statement was debatable.
+ */
+( function () {
+	'use strict';
+
+	var prefersReducedMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+	var CORRECT_FLASH_MS = 600;
+	var TRANSITION_MS = prefersReducedMotion ? 0 : 300;
+
+	/**
+	 * Escape a string for safe HTML insertion.
+	 *
+	 * @param {string} str Raw string.
+	 * @return {string}
+	 */
+	function escapeHtml( str ) {
+		var div = document.createElement( 'div' );
+		div.textContent = str == null ? '' : String( str );
+		return div.innerHTML;
+	}
+
+	/**
+	 * Build the banner heading + sub-line for the overlay.
+	 *
+	 * @param {Object} response   The /swipe response.
+	 * @param {string} answerValue The answer the player gave.
+	 * @return {{heading: string, sub: string}}
+	 */
+	function bannerFor( response, answerValue ) {
+		if ( 'debatable' === response.verdict ) {
+			return { heading: '🤔 It’s debatable', sub: '' };
+		}
+
+		var verdictLabel = 'true' === response.verdict ? 'TRUE' : 'FALSE';
+		var sub = 'This one’s ' + verdictLabel + '.';
+
+		if ( 'unsure' === answerValue ) {
+			return { heading: 'Not sure? Here’s the answer', sub: sub };
+		}
+
+		return { heading: '✗ Well, actually…', sub: sub };
+	}
+
+	/**
+	 * Show either the quick correct-flash or the full reveal overlay.
+	 *
+	 * @param {Object}   response    The /swipe response.
+	 * @param {string}   answerValue The answer the player gave.
+	 * @param {Function} onContinue  Called once the player is ready to move on.
+	 */
+	window.waShowReveal = function ( response, answerValue, onContinue ) {
+		if ( ! response.show_post ) {
+			showCorrectFlash( onContinue );
+			return;
+		}
+		showOverlay( response, answerValue, onContinue );
+	};
+
+	/**
+	 * Brief inline "correct" acknowledgement, no overlay.
+	 *
+	 * @param {Function} onContinue Called after the flash.
+	 */
+	function showCorrectFlash( onContinue ) {
+		var flash = document.createElement( 'div' );
+		flash.className = 'wa-correct-flash';
+		flash.setAttribute( 'role', 'status' );
+		flash.textContent = '✓ Correct';
+		document.body.appendChild( flash );
+
+		setTimeout( function () {
+			flash.remove();
+			onContinue();
+		}, prefersReducedMotion ? 0 : CORRECT_FLASH_MS );
+	}
+
+	/**
+	 * Full reveal overlay with verdict, post details, and a continue action.
+	 *
+	 * @param {Object}   response    The /swipe response.
+	 * @param {string}   answerValue The answer the player gave.
+	 * @param {Function} onContinue  Called once the player dismisses the overlay.
+	 */
+	function showOverlay( response, answerValue, onContinue ) {
+		var previouslyFocused = document.activeElement;
+		var banner = bannerFor( response, answerValue );
+
+		var overlay = document.createElement( 'div' );
+		overlay.className = 'wa-reveal-overlay';
+		overlay.setAttribute( 'role', 'dialog' );
+		overlay.setAttribute( 'aria-modal', 'true' );
+		overlay.setAttribute( 'aria-labelledby', 'wa-reveal-heading' );
+
+		var pctLine = '';
+		if ( null !== response.pct_agreed && undefined !== response.pct_agreed ) {
+			pctLine = '<p class="wa-reveal-pct">' + escapeHtml( response.pct_agreed + '% of readers agreed.' ) + '</p>';
+		}
+
+		overlay.innerHTML =
+			'<div class="wa-reveal-card">' +
+			'<p class="wa-reveal-banner" id="wa-reveal-heading">' + escapeHtml( banner.heading ) + '</p>' +
+			( banner.sub ? '<p class="wa-reveal-sub">' + escapeHtml( banner.sub ) + '</p>' : '' ) +
+			'<div class="wa-reveal-post">' +
+			'<a class="wa-reveal-post-title" href="' + encodeURI( response.url || '#' ) + '" target="_blank" rel="noopener">' + escapeHtml( response.title ) + '</a>' +
+			'<p class="wa-reveal-excerpt">' + escapeHtml( response.excerpt ) + '</p>' +
+			'<a class="wa-reveal-read-btn" href="' + encodeURI( response.url || '#' ) + '" target="_blank" rel="noopener">Read the full post →</a>' +
+			'</div>' +
+			pctLine +
+			'<button type="button" class="wa-btn wa-reveal-continue">Continue</button>' +
+			'</div>';
+
+		document.body.appendChild( overlay );
+
+		var cardEl = overlay.querySelector( '.wa-reveal-card' );
+		var continueBtn = overlay.querySelector( '.wa-reveal-continue' );
+
+		// Force layout, then trigger the slide-up transition.
+		if ( ! prefersReducedMotion ) {
+			overlay.classList.add( 'wa-reveal-entering' );
+			// eslint-disable-next-line no-unused-expressions
+			cardEl.offsetHeight;
+			overlay.classList.remove( 'wa-reveal-entering' );
+		}
+
+		continueBtn.focus();
+
+		var dismissed = false;
+
+		/**
+		 * Dismiss the overlay and continue the game.
+		 */
+		function dismiss() {
+			if ( dismissed ) {
+				return;
+			}
+			dismissed = true;
+
+			overlay.removeEventListener( 'keydown', onKeydown );
+
+			if ( prefersReducedMotion ) {
+				cleanup();
+				return;
+			}
+
+			overlay.classList.add( 'wa-reveal-leaving' );
+			setTimeout( cleanup, TRANSITION_MS );
+		}
+
+		/**
+		 * Remove the overlay from the DOM and hand control back.
+		 */
+		function cleanup() {
+			overlay.remove();
+			if ( previouslyFocused && typeof previouslyFocused.focus === 'function' ) {
+				previouslyFocused.focus();
+			}
+			onContinue();
+		}
+
+		/**
+		 * @param {KeyboardEvent} e Keydown event.
+		 */
+		function onKeydown( e ) {
+			if ( 'Enter' === e.key || ' ' === e.key || 'ArrowDown' === e.key ) {
+				e.preventDefault();
+				dismiss();
+				return;
+			}
+
+			if ( 'Tab' === e.key ) {
+				// Single focusable target (Continue); keep focus trapped on it.
+				e.preventDefault();
+				continueBtn.focus();
+			}
+		}
+
+		continueBtn.addEventListener( 'click', dismiss );
+		overlay.addEventListener( 'keydown', onKeydown );
 	};
 } )();
