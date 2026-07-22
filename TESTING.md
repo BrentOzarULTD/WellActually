@@ -2,6 +2,35 @@
 
 Run through this before each release. Check items off in the PR description.
 
+## Verification status
+
+The full checklist below was executed end-to-end against a real WordPress
+7.0 install (PHP 8.5 / MariaDB) on 2026-07-22 with `WP_DEBUG` on. REST
+endpoints were exercised via scripted HTTP calls (9-case correctness matrix,
+leakage checks, rejections, tally/percentage math), and the swipe UI, admin
+screens, slug change, and logged-in cross-device merge were driven in a real
+browser. No PHP notices or console errors were observed.
+
+Four bugs were found and fixed during that pass:
+
+1. The `wp_wa_stats` table was never created — the `wa_activate` listener
+   wasn't registered at activation time and the `plugins_loaded` safety net
+   was dead code. (Fixed: boot components in the activation hook; move the
+   safety net to `init`.)
+2. `swipe.js` never booted — it was printed in `<head>` and ran before
+   `#wa-app` existed. (Fixed: print before `</body>`; gate on
+   `DOMContentLoaded`.)
+3. REST requests hit a malformed URL (`v1deck`) because the JS joined the
+   route onto a base with no trailing slash. (Fixed: a `restUrl()` join
+   helper.)
+4. Changing the swipe slug didn't flush rewrite rules, so the new URL 404'd.
+   (Fixed: a self-healing flush on `init` when stored rules lack the current
+   slug's rule.)
+
+Still worth a human pass before shipping: real iOS Safari / Android Chrome
+gesture feel, screen-reader output, and behavior with a production
+page-caching plugin active.
+
 ## Correctness matrix (POST /swipe)
 
 For each verdict × answer combination, confirm `correct` and `show_post` match:
