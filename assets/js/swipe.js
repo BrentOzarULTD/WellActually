@@ -422,18 +422,20 @@
 			return;
 		}
 
-		if ( typeof window.waResetProgress === 'function' ) {
-			state.progress = window.waResetProgress();
-		} else {
-			state.progress = { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
-		}
-
 		state.deck = [];
 		state.currentIndex = 0;
 		state.phase = 'loading';
 		render();
 
-		fetchDeckBatch()
+		var resetPromise = typeof window.waResetProgressAsync === 'function'
+			? window.waResetProgressAsync()
+			: Promise.resolve( typeof window.waResetProgress === 'function' ? window.waResetProgress() : freshLocalProgress() );
+
+		resetPromise
+			.then( function ( progress ) {
+				state.progress = progress;
+				return fetchDeckBatch();
+			} )
 			.then( function () {
 				state.phase = state.deck.length ? 'card' : 'done';
 				render();
@@ -445,14 +447,21 @@
 	}
 
 	/**
+	 * @return {Object} A fresh, empty progress object.
+	 */
+	function freshLocalProgress() {
+		return { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
+	}
+
+	/**
 	 * Bootstrap: load progress, fetch the first batch, show the first card.
 	 */
 	function boot() {
-		if ( typeof window.waLoadProgress === 'function' ) {
-			state.progress = window.waLoadProgress();
-		}
-
-		fetchDeckBatch()
+		getInitialProgress()
+			.then( function ( progress ) {
+				state.progress = progress;
+				return fetchDeckBatch();
+			} )
 			.then( function () {
 				state.phase = state.deck.length ? 'card' : 'done';
 				render();
@@ -461,6 +470,23 @@
 				state.phase = 'error';
 				render();
 			} );
+	}
+
+	/**
+	 * Load initial progress, preferring the async (server-merging) loader
+	 * from #12 when available and falling back to the sync localStorage
+	 * loader from #11.
+	 *
+	 * @return {Promise<Object>}
+	 */
+	function getInitialProgress() {
+		if ( typeof window.waLoadProgressAsync === 'function' ) {
+			return window.waLoadProgressAsync();
+		}
+		if ( typeof window.waLoadProgress === 'function' ) {
+			return Promise.resolve( window.waLoadProgress() );
+		}
+		return Promise.resolve( state.progress );
 	}
 
 	if ( appEl ) {
@@ -1057,5 +1083,163 @@
 		var fresh = freshProgress();
 		window.waSaveProgress( fresh );
 		return fresh;
+	};
+} )();
+
+/**
+ * Logged-in progress sync: merges localStorage with the server copy on
+ * load, and pushes local changes to the server (throttled) afterward.
+ * A no-op for anonymous visitors — makes no /progress requests.
+ */
+( function () {
+	'use strict';
+
+	var config = window.waSwipe || {};
+
+	if ( ! config.isLoggedIn ) {
+		return;
+	}
+
+	var localSave = window.waSaveProgress;
+	var localReset = window.waResetProgress;
+
+	var PUT_DEBOUNCE_MS = 2000;
+	var putTimer = null;
+	var pendingProgress = null;
+
+	/**
+	 * @param {string} path Path relative to the REST namespace root.
+	 * @param {Object} [opts] fetch() options.
+	 * @return {Promise<Object>}
+	 */
+	function apiFetch( path, opts ) {
+		opts = opts || {};
+		opts.headers = opts.headers || {};
+		opts.headers[ 'X-WP-Nonce' ] = config.nonce;
+		if ( opts.body ) {
+			opts.headers[ 'Content-Type' ] = 'application/json';
+		}
+		opts.credentials = 'same-origin';
+
+		return fetch( config.restUrl + path, opts ).then( function ( res ) {
+			if ( ! res.ok ) {
+				throw new Error( 'Request failed: ' + res.status );
+			}
+			return res.json();
+		} );
+	}
+
+	/**
+	 * Merge two progress objects: union of seen/wrong, recomputed counts.
+	 *
+	 * @param {Object} a First progress object.
+	 * @param {Object} b Second progress object.
+	 * @return {Object}
+	 */
+	function mergeProgress( a, b ) {
+		var seen = uniqueInts( ( a.seen || [] ).concat( b.seen || [] ) );
+		var wrongCandidates = uniqueInts( ( a.wrong || [] ).concat( b.wrong || [] ) );
+
+		// A card corrected on either side should not still show as wrong.
+		var wrong = wrongCandidates.filter( function ( id ) {
+			return seen.indexOf( id ) !== -1;
+		} );
+
+		return {
+			seen: seen,
+			wrong: wrong,
+			answered_count: seen.length,
+			correct_count: Math.max( 0, seen.length - wrong.length ),
+		};
+	}
+
+	/**
+	 * @param {number[]} arr Array of ints.
+	 * @return {number[]}
+	 */
+	function uniqueInts( arr ) {
+		var seenMap = {};
+		var out = [];
+		arr.forEach( function ( n ) {
+			if ( Number.isInteger( n ) && n > 0 && ! seenMap[ n ] ) {
+				seenMap[ n ] = true;
+				out.push( n );
+			}
+		} );
+		return out;
+	}
+
+	/**
+	 * Load local + server progress, merge, and persist the merged result
+	 * both places.
+	 *
+	 * @return {Promise<Object>}
+	 */
+	window.waLoadProgressAsync = function () {
+		var local = window.waLoadProgress ? window.waLoadProgress() : { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
+
+		return apiFetch( 'progress' )
+			.then( function ( server ) {
+				var merged = mergeProgress( local, server );
+				localSave( merged );
+				pushToServer( merged );
+				return merged;
+			} )
+			.catch( function () {
+				return local; // Server unreachable; carry on with local progress only.
+			} );
+	};
+
+	/**
+	 * Reset both local and server progress.
+	 *
+	 * @return {Promise<Object>}
+	 */
+	window.waResetProgressAsync = function () {
+		var fresh = localReset();
+		return apiFetch( 'progress', {
+			method: 'PUT',
+			body: JSON.stringify( fresh ),
+		} ).catch( function () {
+			// Best-effort; local reset already happened.
+		} ).then( function () {
+			return fresh;
+		} );
+	};
+
+	/**
+	 * Push progress to the server, debounced so fast swipers don't spam it.
+	 *
+	 * @param {Object} progress Progress object to push.
+	 */
+	function pushToServer( progress ) {
+		pendingProgress = progress;
+
+		if ( putTimer ) {
+			return;
+		}
+
+		putTimer = setTimeout( function () {
+			var toSend = pendingProgress;
+			putTimer = null;
+			pendingProgress = null;
+
+			apiFetch( 'progress', {
+				method: 'PUT',
+				body: JSON.stringify( toSend ),
+			} ).catch( function () {
+				// One retry on failure; otherwise give up silently until the next save.
+				apiFetch( 'progress', {
+					method: 'PUT',
+					body: JSON.stringify( toSend ),
+				} ).catch( function () {} );
+			} );
+		}, PUT_DEBOUNCE_MS );
+	}
+
+	// Wrap the local save so every local write also queues a server push.
+	window.waSaveProgress = function ( progress ) {
+		localSave( progress );
+		pushToServer( progress );
 	};
 } )();
