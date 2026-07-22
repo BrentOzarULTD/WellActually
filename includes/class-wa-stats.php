@@ -41,7 +41,13 @@ class WA_Stats {
 	 */
 	private function __construct() {
 		add_action( 'wa_activate', array( $this, 'create_table' ) );
-		add_action( 'plugins_loaded', array( $this, 'maybe_upgrade_table' ) );
+
+		// Deliberately `init` and not `plugins_loaded`: this callback is
+		// registered from wa_init(), which itself runs on plugins_loaded
+		// priority 10. WP_Hook iterates a copy of each priority's callback
+		// array, so anything appended to the priority currently running is
+		// skipped — on plugins_loaded this would never fire at all.
+		add_action( 'init', array( $this, 'maybe_upgrade_table' ) );
 
 		add_filter( 'manage_post_posts_columns', array( $this, 'add_column' ) );
 		add_action( 'manage_post_posts_custom_column', array( $this, 'render_column' ), 10, 2 );

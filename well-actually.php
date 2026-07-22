@@ -52,8 +52,13 @@ add_action( 'plugins_loaded', 'wa_init' );
  * components (e.g. the stats table) hook in their own setup.
  */
 function wa_activate() {
+	// plugins_loaded has already fired by the time WordPress includes and
+	// activates a plugin, so wa_init() has not run and none of the
+	// components have registered their hooks yet. Boot them by hand first,
+	// or the wa_activate action below fires into the void.
+	wa_init();
+
 	// Make sure the rewrite rule exists before we flush.
-	require_once WA_PLUGIN_DIR . 'includes/class-wa-template.php';
 	WA_Template::instance()->register_rewrite_rule();
 
 	/**

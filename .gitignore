@@ -1,5 +1,15 @@
+# Local test WordPress install
+#
+# `.wp-local/` holds a throwaway WordPress site used to manually test this
+# plugin (see TESTING.md). The plugin is symlinked into its plugins dir, so
+# nothing in here is source — never commit it.
+/.wp-local/
+
 # Wordpress - ignore core, configuration, examples, uploads and logs.
 # https://github.com/github/gitignore/blob/main/WordPress.gitignore
+#
+# Note: this repo is a *plugin*, not a WordPress root, so most of the rules
+# below never match anything here. Kept as-is from the GitHub template.
 
 # Core
 #

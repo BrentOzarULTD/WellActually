@@ -17,6 +17,12 @@ class WA_Template {
 	const QUERY_VAR = 'wa_swipe';
 
 	/**
+	 * REST namespace handed to the frontend. The JS joins routes onto this,
+	 * so it must not carry a trailing slash of its own.
+	 */
+	const NAMESPACE_ROUTE = 'well-actually/v1';
+
+	/**
 	 * Singleton instance.
 	 *
 	 * @var WA_Template|null
@@ -111,29 +117,56 @@ class WA_Template {
 	}
 
 	/**
-	 * Enqueue the swipe page's assets and inline config.
+	 * Register the swipe page's assets and their inline config.
 	 *
 	 * Called directly by the template (not hooked to wp_enqueue_scripts,
 	 * since the template intentionally skips wp_head()/wp_footer() to
 	 * avoid theme asset bleed).
 	 */
-	public function print_assets() {
+	private function register_assets() {
+		static $registered = false;
+		if ( $registered ) {
+			return;
+		}
+		$registered = true;
+
 		wp_register_style( 'wa-swipe', WA_PLUGIN_URL . 'assets/css/swipe.css', array(), WA_VERSION );
-		wp_register_script( 'wa-swipe', WA_PLUGIN_URL . 'assets/js/swipe.js', array(), WA_VERSION, true );
+		wp_register_script(
+			'wa-swipe',
+			WA_PLUGIN_URL . 'assets/js/swipe.js',
+			array(),
+			WA_VERSION,
+			array( 'in_footer' => true )
+		);
 
 		wp_localize_script(
 			'wa-swipe',
 			'waSwipe',
 			array(
-				'restUrl'    => esc_url_raw( rest_url( 'well-actually/v1' ) ),
+				'restUrl'    => esc_url_raw( rest_url( self::NAMESPACE_ROUTE ) ),
 				'nonce'      => wp_create_nonce( 'wp_rest' ),
 				'isLoggedIn' => is_user_logged_in(),
 				'homeUrl'    => esc_url_raw( home_url( '/' ) ),
 				'siteName'   => get_bloginfo( 'name' ),
 			)
 		);
+	}
 
+	/**
+	 * Print the stylesheet. Called from the template's <head>.
+	 */
+	public function print_head_assets() {
+		$this->register_assets();
 		wp_print_styles( array( 'wa-swipe' ) );
+	}
+
+	/**
+	 * Print the script. Called from the template just before </body> — the
+	 * script queries #wa-app on load, so it must not run before the body
+	 * has been parsed.
+	 */
+	public function print_footer_assets() {
+		$this->register_assets();
 		wp_print_scripts( array( 'wa-swipe' ) );
 	}
 }
