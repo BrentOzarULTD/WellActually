@@ -1,0 +1,77 @@
+<?php
+/**
+ * Plugin Name:       WellActually
+ * Plugin URI:        https://github.com/BrentOzarULTD/WellActually
+ * Description:       Swipe mode for your blog. Show readers a statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong.
+ * Version:           0.1.0
+ * Requires at least: 6.0
+ * Requires PHP:      7.4
+ * Author:            Brent Ozar
+ * License:            MIT
+ * License URI:       https://opensource.org/licenses/MIT
+ * Text Domain:       well-actually
+ * Domain Path:       /languages
+ *
+ * @package WellActually
+ */
+
+// Exit if accessed directly.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+define( 'WA_VERSION', '0.1.0' );
+define( 'WA_PLUGIN_FILE', __FILE__ );
+define( 'WA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'WA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+
+require_once WA_PLUGIN_DIR . 'includes/class-wa-settings.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-meta.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-template.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-stats.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-rest.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-user-progress.php';
+
+/**
+ * Boot the plugin.
+ */
+function wa_init() {
+	load_plugin_textdomain( 'well-actually', false, dirname( plugin_basename( WA_PLUGIN_FILE ) ) . '/languages' );
+
+	WA_Settings::instance();
+	WA_Meta::instance();
+	WA_Template::instance();
+	WA_Stats::instance();
+	WA_Rest::instance();
+	WA_User_Progress::instance();
+}
+add_action( 'plugins_loaded', 'wa_init' );
+
+/**
+ * Plugin activation: register rewrite rules, flush them, and let other
+ * components (e.g. the stats table) hook in their own setup.
+ */
+function wa_activate() {
+	// Make sure the rewrite rule exists before we flush.
+	require_once WA_PLUGIN_DIR . 'includes/class-wa-template.php';
+	WA_Template::instance()->register_rewrite_rule();
+
+	/**
+	 * Fires on plugin activation, after the rewrite rule is registered
+	 * but before rewrite rules are flushed. Other components (e.g. the
+	 * stats table) hook in their own setup here.
+	 */
+	do_action( 'wa_activate' );
+
+	flush_rewrite_rules();
+}
+register_activation_hook( __FILE__, 'wa_activate' );
+
+/**
+ * Plugin deactivation: clean up rewrite rules only. Data is preserved;
+ * see uninstall.php for full removal.
+ */
+function wa_deactivate() {
+	flush_rewrite_rules();
+}
+register_deactivation_hook( __FILE__, 'wa_deactivate' );
