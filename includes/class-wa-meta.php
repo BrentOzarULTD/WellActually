@@ -14,10 +14,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WA_Meta {
 
-	const STATEMENT_KEY = '_wa_statement';
-	const VERDICT_KEY   = '_wa_verdict';
-	const NONCE_ACTION  = 'wa_save_meta';
-	const NONCE_NAME    = 'wa_meta_nonce';
+	const STATEMENT_KEY   = '_wa_statement';
+	const VERDICT_KEY     = '_wa_verdict';
+	const VERDICT_EXCLUDED = 'excluded';
+	const NONCE_ACTION    = 'wa_save_meta';
+	const NONCE_NAME      = 'wa_meta_nonce';
 
 	/**
 	 * Singleton instance.
@@ -39,17 +40,27 @@ class WA_Meta {
 	}
 
 	/**
-	 * Get the allowed verdict values, keyed by stored value.
+	 * Get the meta-box verdict dropdown options, keyed by stored value.
 	 *
 	 * @return array
 	 */
 	public static function verdict_choices() {
 		return array(
-			''          => __( '— Not in swipe deck —', 'well-actually' ),
-			'true'      => __( 'True (agree is correct)', 'well-actually' ),
-			'false'     => __( 'False (disagree is correct)', 'well-actually' ),
-			'debatable' => __( 'Debatable (any answer is fine)', 'well-actually' ),
+			''                     => __( '— Not set up yet —', 'well-actually' ),
+			'true'                 => __( 'True (agree is correct)', 'well-actually' ),
+			'false'                => __( 'False (disagree is correct)', 'well-actually' ),
+			'debatable'            => __( 'Debatable (any answer is fine)', 'well-actually' ),
+			self::VERDICT_EXCLUDED => __( 'Never — exclude from swipe', 'well-actually' ),
 		);
+	}
+
+	/**
+	 * The verdict values that place a post in the swipe deck.
+	 *
+	 * @return string[]
+	 */
+	public static function deck_verdicts() {
+		return array( 'true', 'false', 'debatable' );
 	}
 
 	/**
@@ -147,14 +158,59 @@ class WA_Meta {
 			$verdict = '';
 		}
 
-		if ( '' === $statement || '' === $verdict ) {
+		self::apply_meta( $post_id, $statement, $verdict );
+	}
+
+	/**
+	 * Apply a statement/verdict pair to a post, normalizing the four
+	 * possible states. Shared by the meta box and the bulk-setup screen.
+	 *
+	 * - Excluded: verdict is stored, statement cleared (no statement needed).
+	 * - Configured: a deck verdict plus a non-empty statement stores both.
+	 * - Anything else (blank, or incomplete): both keys are removed, so the
+	 *   post falls back to the "not set up yet" state.
+	 *
+	 * @param int    $post_id   Post ID.
+	 * @param string $statement Sanitized statement text.
+	 * @param string $verdict   Sanitized verdict value.
+	 * @return string One of 'excluded' | 'configured' | 'cleared' | 'incomplete' | 'unchanged'.
+	 */
+	public static function apply_meta( $post_id, $statement, $verdict ) {
+		if ( self::VERDICT_EXCLUDED === $verdict ) {
+			update_post_meta( $post_id, self::VERDICT_KEY, self::VERDICT_EXCLUDED );
 			delete_post_meta( $post_id, self::STATEMENT_KEY );
-			delete_post_meta( $post_id, self::VERDICT_KEY );
-			return;
+			return 'excluded';
 		}
 
-		update_post_meta( $post_id, self::STATEMENT_KEY, $statement );
-		update_post_meta( $post_id, self::VERDICT_KEY, $verdict );
+		$has_statement   = '' !== $statement;
+		$has_deck_verdict = in_array( $verdict, self::deck_verdicts(), true );
+
+		if ( $has_statement && $has_deck_verdict ) {
+			update_post_meta( $post_id, self::STATEMENT_KEY, $statement );
+			update_post_meta( $post_id, self::VERDICT_KEY, $verdict );
+			return 'configured';
+		}
+
+		// A statement without a verdict (or vice versa) is incomplete: don't
+		// silently discard a half-entered row — report it and leave the post
+		// as it was.
+		if ( $has_statement || $has_deck_verdict ) {
+			return 'incomplete';
+		}
+
+		// Nothing entered. Clear any existing swipe meta, but only report a
+		// "clear" when there was actually something to remove — an untouched
+		// blank row on the Needs-setup screen is a no-op, not a change.
+		$had_meta = ( '' !== (string) get_post_meta( $post_id, self::STATEMENT_KEY, true ) )
+			|| ( '' !== (string) get_post_meta( $post_id, self::VERDICT_KEY, true ) );
+
+		if ( ! $had_meta ) {
+			return 'unchanged';
+		}
+
+		delete_post_meta( $post_id, self::STATEMENT_KEY );
+		delete_post_meta( $post_id, self::VERDICT_KEY );
+		return 'cleared';
 	}
 
 	/**
@@ -187,9 +243,10 @@ class WA_Meta {
 
 		$statement = get_post_meta( $post_id, self::STATEMENT_KEY, true );
 		$icons     = array(
-			'true'      => '&#10003; ' . __( 'True', 'well-actually' ),
-			'false'     => '&#10007; ' . __( 'False', 'well-actually' ),
-			'debatable' => '~ ' . __( 'Debatable', 'well-actually' ),
+			'true'                 => '&#10003; ' . __( 'True', 'well-actually' ),
+			'false'                => '&#10007; ' . __( 'False', 'well-actually' ),
+			'debatable'            => '~ ' . __( 'Debatable', 'well-actually' ),
+			self::VERDICT_EXCLUDED => '&#8856; ' . __( 'Excluded', 'well-actually' ),
 		);
 		$label     = isset( $icons[ $verdict ] ) ? $icons[ $verdict ] : $verdict;
 
@@ -242,11 +299,13 @@ class WA_Meta {
 		$current = isset( $_GET['wa_swipe_filter'] ) ? sanitize_text_field( wp_unslash( $_GET['wa_swipe_filter'] ) ) : '';
 
 		$options = array(
-			''          => __( 'All swipe statuses', 'well-actually' ),
-			'in_deck'   => __( 'In swipe deck', 'well-actually' ),
-			'true'      => __( 'True', 'well-actually' ),
-			'false'     => __( 'False', 'well-actually' ),
-			'debatable' => __( 'Debatable', 'well-actually' ),
+			''            => __( 'All swipe statuses', 'well-actually' ),
+			'needs_setup' => __( 'Needs setup', 'well-actually' ),
+			'in_deck'     => __( 'In swipe deck', 'well-actually' ),
+			'true'        => __( 'True', 'well-actually' ),
+			'false'       => __( 'False', 'well-actually' ),
+			'debatable'   => __( 'Debatable', 'well-actually' ),
+			'excluded'    => __( 'Excluded', 'well-actually' ),
 		);
 		?>
 		<select name="wa_swipe_filter">
@@ -275,27 +334,64 @@ class WA_Meta {
 
 		$filter = sanitize_text_field( wp_unslash( $_GET['wa_swipe_filter'] ) );
 
-		if ( 'in_deck' === $filter ) {
-			$query->set(
-				'meta_query',
-				array(
+		$meta_query = self::status_meta_query( $filter );
+		if ( ! empty( $meta_query ) ) {
+			$query->set( 'meta_query', $meta_query );
+		}
+	}
+
+	/**
+	 * Build a meta_query for a given swipe status. Shared by the Posts list
+	 * filter and the bulk-setup screen so both agree on what each status means.
+	 *
+	 * @param string $status One of needs_setup|in_deck|true|false|debatable|excluded.
+	 * @return array A WP_Query 'meta_query' array, or empty array for "all".
+	 */
+	public static function status_meta_query( $status ) {
+		switch ( $status ) {
+			case 'needs_setup':
+				// No verdict at all yet (neither a deck verdict nor excluded).
+				return array(
+					'relation' => 'OR',
 					array(
 						'key'     => self::VERDICT_KEY,
-						'value'   => array( 'true', 'false', 'debatable' ),
+						'compare' => 'NOT EXISTS',
+					),
+					array(
+						'key'     => self::VERDICT_KEY,
+						'value'   => '',
+						'compare' => '=',
+					),
+				);
+
+			case 'in_deck':
+				return array(
+					array(
+						'key'     => self::VERDICT_KEY,
+						'value'   => self::deck_verdicts(),
 						'compare' => 'IN',
 					),
-				)
-			);
-		} elseif ( in_array( $filter, array( 'true', 'false', 'debatable' ), true ) ) {
-			$query->set(
-				'meta_query',
-				array(
+				);
+
+			case 'excluded':
+				return array(
 					array(
 						'key'   => self::VERDICT_KEY,
-						'value' => $filter,
+						'value' => self::VERDICT_EXCLUDED,
 					),
-				)
-			);
+				);
+
+			case 'true':
+			case 'false':
+			case 'debatable':
+				return array(
+					array(
+						'key'   => self::VERDICT_KEY,
+						'value' => $status,
+					),
+				);
 		}
+
+		return array();
 	}
 }
