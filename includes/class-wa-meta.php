@@ -187,9 +187,9 @@ class WA_Meta {
 
 		$statement = get_post_meta( $post_id, self::STATEMENT_KEY, true );
 		$icons     = array(
-			'true'      => '&#10003; True',
-			'false'     => '&#10007; False',
-			'debatable' => '~ Debatable',
+			'true'      => '&#10003; ' . __( 'True', 'well-actually' ),
+			'false'     => '&#10007; ' . __( 'False', 'well-actually' ),
+			'debatable' => '~ ' . __( 'Debatable', 'well-actually' ),
 		);
 		$label     = isset( $icons[ $verdict ] ) ? $icons[ $verdict ] : $verdict;
 

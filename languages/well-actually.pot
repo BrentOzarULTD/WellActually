@@ -1,0 +1,161 @@
+# Copyright (C) 2026 Brent Ozar
+# This file is distributed under the MIT.
+msgid ""
+msgstr ""
+"Project-Id-Version: WellActually 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/BrentOzarULTD/WellActually/issues\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-22T21:36:04+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: well-actually\n"
+
+#. Plugin Name of the plugin
+#: well-actually.php
+#: includes/class-wa-settings.php:76
+#: includes/class-wa-settings.php:77
+#: includes/class-wa-settings.php:174
+msgid "WellActually"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: well-actually.php
+msgid "https://github.com/BrentOzarULTD/WellActually"
+msgstr ""
+
+#. Description of the plugin
+#: well-actually.php
+msgid "Swipe mode for your blog. Show readers a statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong."
+msgstr ""
+
+#. Author of the plugin
+#: well-actually.php
+msgid "Brent Ozar"
+msgstr ""
+
+#: includes/class-wa-meta.php:48
+msgid "— Not in swipe deck —"
+msgstr ""
+
+#: includes/class-wa-meta.php:49
+msgid "True (agree is correct)"
+msgstr ""
+
+#: includes/class-wa-meta.php:50
+msgid "False (disagree is correct)"
+msgstr ""
+
+#: includes/class-wa-meta.php:51
+msgid "Debatable (any answer is fine)"
+msgstr ""
+
+#: includes/class-wa-meta.php:77
+msgid "WellActually Swipe"
+msgstr ""
+
+#: includes/class-wa-meta.php:97
+msgid "Swipe Statement"
+msgstr ""
+
+#: includes/class-wa-meta.php:103
+msgid "A one-line statement readers will agree or disagree with, e.g. Temp tables are faster than CTEs."
+msgstr ""
+
+#: includes/class-wa-meta.php:107
+msgid "Verdict"
+msgstr ""
+
+#: includes/class-wa-meta.php:167
+msgid "Swipe"
+msgstr ""
+
+#: includes/class-wa-meta.php:190
+#: includes/class-wa-meta.php:247
+msgid "True"
+msgstr ""
+
+#: includes/class-wa-meta.php:191
+#: includes/class-wa-meta.php:248
+msgid "False"
+msgstr ""
+
+#: includes/class-wa-meta.php:192
+#: includes/class-wa-meta.php:249
+msgid "Debatable"
+msgstr ""
+
+#: includes/class-wa-meta.php:245
+msgid "All swipe statuses"
+msgstr ""
+
+#: includes/class-wa-meta.php:246
+msgid "In swipe deck"
+msgstr ""
+
+#: includes/class-wa-rest.php:263
+msgid "Too many swipes, slow down."
+msgstr ""
+
+#: includes/class-wa-rest.php:272
+msgid "Invalid answer."
+msgstr ""
+
+#: includes/class-wa-rest.php:277
+msgid "Post not found."
+msgstr ""
+
+#: includes/class-wa-rest.php:284
+msgid "Post is not in the swipe deck."
+msgstr ""
+
+#: includes/class-wa-settings.php:107
+msgid "Swipe page slug"
+msgstr ""
+
+#. translators: %s: example URL
+#: includes/class-wa-settings.php:157
+#, php-format
+msgid "Visitors will play swipe mode at %s."
+msgstr ""
+
+#: includes/class-wa-stats.php:179
+msgid "Swipe stats"
+msgstr ""
+
+#: includes/class-wa-stats.php:203
+msgid "No swipes yet"
+msgstr ""
+
+#. translators: 1: percent agreed, 2: total swipe count
+#: includes/class-wa-stats.php:210
+#, php-format
+msgid "%1$d%% agree · %2$d swipes"
+msgstr ""
+
+#. translators: %d: total swipe count
+#: includes/class-wa-stats.php:217
+#, php-format
+msgid "%d swipes"
+msgstr ""
+
+#: includes/class-wa-user-progress.php:126
+msgid "Too many updates, slow down."
+msgstr ""
+
+#. translators: %s: site name
+#: templates/swipe-page.php:22
+#, php-format
+msgid "Swipe – %s"
+msgstr ""
+
+#: templates/swipe-page.php:33
+msgid "Loading…"
+msgstr ""
+
+#: templates/swipe-page.php:37
+msgid "Swipe mode needs JavaScript."
+msgstr ""
