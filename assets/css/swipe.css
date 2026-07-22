@@ -321,7 +321,43 @@ body {
 
 .wa-done {
 	text-align: center;
-	font-size: 1.4rem;
+	max-width: 480px;
+	padding: 24px;
+}
+
+.wa-done-score {
+	font-size: 2rem;
+	font-weight: 800;
+	margin: 0 0 8px;
+}
+
+.wa-done-tier {
+	font-size: 1.1rem;
+	color: #c8c8d0;
+	margin: 0 0 28px;
+}
+
+.wa-done-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin-bottom: 24px;
+}
+
+.wa-share-row {
+	display: flex;
+	gap: 8px;
+}
+
+.wa-share-text {
+	flex: 1;
+	min-width: 0;
+	background: #262933;
+	border: 1px solid #383c49;
+	border-radius: 8px;
+	color: #c8c8d0;
+	padding: 10px 12px;
+	font-size: 0.85rem;
 }
 
 /* Correct flash */

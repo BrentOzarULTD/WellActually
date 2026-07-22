@@ -22,12 +22,13 @@
 	 */
 	var state = {
 		phase: 'loading', // loading | card | reveal | done | error
-		deck: [], // array of { id, statement }
+		deck: [], // array of { id, statement, replay? }
 		currentIndex: 0,
 		total: 0,
 		progress: { seen: [], wrong: [], correct_count: 0, answered_count: 0 },
 		busy: false, // true while animating or a request is in flight
 		fetchingMore: false,
+		replay: false, // true while working through a "replay wrong ones" round
 	};
 
 	/**
@@ -106,13 +107,91 @@
 	}
 
 	/**
-	 * Prefetch more cards if the deck is running low.
+	 * Prefetch more cards if the deck is running low. Replay rounds fetch
+	 * their whole (bounded) set up front, so no prefetch is needed there.
 	 */
 	function maybePrefetch() {
+		if ( state.replay ) {
+			return;
+		}
 		var remaining = state.deck.length - state.currentIndex;
 		if ( remaining <= PREFETCH_THRESHOLD ) {
 			fetchDeckBatch().then( render );
 		}
+	}
+
+	/**
+	 * Fisher-Yates shuffle (new array, doesn't mutate the input).
+	 *
+	 * @param {Array} arr Array to shuffle.
+	 * @return {Array}
+	 */
+	function shuffleArray( arr ) {
+		var out = arr.slice();
+		for ( var i = out.length - 1; i > 0; i-- ) {
+			var j = Math.floor( Math.random() * ( i + 1 ) );
+			var tmp = out[ i ];
+			out[ i ] = out[ j ];
+			out[ j ] = tmp;
+		}
+		return out;
+	}
+
+	/**
+	 * Start a replay round covering every currently-wrong statement.
+	 * Fetches in chunks of 20 (the /deck batch size) up front, since a
+	 * replay set is bounded and doesn't need lazy prefetching.
+	 */
+	function startReplay() {
+		var wrongIds = state.progress.wrong.slice();
+		if ( ! wrongIds.length ) {
+			return;
+		}
+
+		state.phase = 'loading';
+		render();
+
+		var chunks = [];
+		for ( var i = 0; i < wrongIds.length; i += 20 ) {
+			chunks.push( wrongIds.slice( i, i + 20 ) );
+		}
+
+		Promise.all(
+			chunks.map( function ( chunk ) {
+				return apiFetch( 'deck?include=' + encodeURIComponent( chunk.join( ',' ) ) );
+			} )
+		)
+			.then( function ( results ) {
+				var cards = [];
+				results.forEach( function ( data ) {
+					( data.cards || [] ).forEach( function ( card ) {
+						card.replay = true;
+						cards.push( card );
+					} );
+				} );
+
+				cards = shuffleArray( cards );
+
+				state.deck = cards;
+				state.currentIndex = 0;
+				state.replay = true;
+				state.phase = cards.length ? 'card' : 'done';
+				render();
+			} )
+			.catch( function () {
+				state.phase = 'error';
+				render();
+			} );
+	}
+
+	/**
+	 * Check for newly-published deck posts the player hasn't seen, useful
+	 * on the done screen when the deck grew after they finished it.
+	 *
+	 * @return {number} Count of new, not-yet-fetched eligible posts (best-effort).
+	 */
+	function newStatementsAvailable() {
+		return Math.max( 0, state.total - state.progress.seen.length );
 	}
 
 	/**
@@ -185,8 +264,13 @@
 			return;
 		}
 
-		var seenPosition = state.progress.answered_count + 1;
-		var totalLabel = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
+		var totalLabel;
+		if ( state.replay ) {
+			totalLabel = 'Replay: ' + ( state.currentIndex + 1 ) + ' of ' + state.deck.length;
+		} else {
+			var seenPosition = state.progress.answered_count + 1;
+			totalLabel = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
+		}
 		var hintText = isCoarsePointer
 			? waSwipeStrings().hintTouch
 			: waSwipeStrings().hintKeyboard;
@@ -234,13 +318,133 @@
 	}
 
 	/**
-	 * Placeholder for the end-of-deck screen (built out in issue #13).
+	 * End-of-deck screen: final score, a tier line, and options to replay
+	 * the wrong ones, start over, or (if the deck grew) fetch what's new.
 	 */
 	function renderDone() {
+		state.replay = false;
+
+		var answered = state.progress.answered_count;
+		var correct = state.progress.correct_count;
+		var wrongCount = state.progress.wrong.length;
+		var newCount = newStatementsAvailable();
+
+		if ( 0 === answered ) {
+			appEl.innerHTML =
+				'<div class="wa-done">' +
+				'<p class="wa-done-score">' + escapeHtml( 'No swipe statements yet — check back soon.' ) + '</p>' +
+				'</div>';
+			return;
+		}
+
+		var pct = Math.round( ( correct / answered ) * 100 );
+		var tier = tierLine( pct );
+		var shareText = 'I scored ' + correct + '/' + answered + ' (' + pct + '%) on the WellActually swipe quiz on ' + ( config.siteName || 'this blog' ) + '.';
+
+		var actions = '';
+
+		if ( wrongCount > 0 ) {
+			actions += '<button type="button" class="wa-btn wa-btn-agree wa-replay-btn">Replay the ones you got wrong (' + wrongCount + ')</button>';
+		}
+
+		if ( newCount > 0 ) {
+			actions += '<button type="button" class="wa-btn wa-more-btn">New statements have been added — ' + newCount + ' more await</button>';
+		}
+
+		actions += '<button type="button" class="wa-btn wa-reset-btn">Start over</button>';
+
 		appEl.innerHTML =
 			'<div class="wa-done">' +
-			'<p>' + escapeHtml( waSwipeStrings().doneStub( state.progress.correct_count, state.progress.answered_count ) ) + '</p>' +
+			'<p class="wa-done-score">' + escapeHtml( correct + '/' + answered + ' correct (' + pct + '%)' ) + '</p>' +
+			'<p class="wa-done-tier">' + escapeHtml( tier ) + '</p>' +
+			'<div class="wa-done-actions">' + actions + '</div>' +
+			'<div class="wa-share-row">' +
+			'<input type="text" class="wa-share-text" readonly value="' + escapeHtml( shareText ) + '" aria-label="Share text" />' +
+			'<button type="button" class="wa-btn wa-copy-btn">Copy</button>' +
+			'</div>' +
 			'</div>';
+
+		var replayBtn = appEl.querySelector( '.wa-replay-btn' );
+		if ( replayBtn ) {
+			replayBtn.addEventListener( 'click', startReplay );
+		}
+
+		var moreBtn = appEl.querySelector( '.wa-more-btn' );
+		if ( moreBtn ) {
+			moreBtn.addEventListener( 'click', function () {
+				state.phase = 'loading';
+				render();
+				fetchDeckBatch().then( function () {
+					state.phase = state.deck.length ? 'card' : 'done';
+					render();
+				} );
+			} );
+		}
+
+		var resetBtn = appEl.querySelector( '.wa-reset-btn' );
+		if ( resetBtn ) {
+			resetBtn.addEventListener( 'click', handleResetClick );
+		}
+
+		var copyBtn = appEl.querySelector( '.wa-copy-btn' );
+		var shareInput = appEl.querySelector( '.wa-share-text' );
+		if ( copyBtn && shareInput ) {
+			copyBtn.addEventListener( 'click', function () {
+				copyShareText( shareInput, copyBtn );
+			} );
+		}
+	}
+
+	/**
+	 * Copy the share text to the clipboard, with a textarea+execCommand
+	 * fallback for browsers without the async Clipboard API.
+	 *
+	 * @param {HTMLInputElement} inputEl Share text input.
+	 * @param {HTMLButtonElement} btnEl  Copy button (label flashes "Copied!").
+	 */
+	function copyShareText( inputEl, btnEl ) {
+		var text = inputEl.value;
+		var done = function () {
+			var original = btnEl.textContent;
+			btnEl.textContent = 'Copied!';
+			setTimeout( function () {
+				btnEl.textContent = original;
+			}, 1500 );
+		};
+
+		if ( navigator.clipboard && navigator.clipboard.writeText ) {
+			navigator.clipboard.writeText( text ).then( done ).catch( function () {
+				inputEl.select();
+			} );
+			return;
+		}
+
+		inputEl.select();
+		try {
+			document.execCommand( 'copy' );
+			done();
+		} catch ( e ) {
+			// Selection is still visible for a manual copy.
+		}
+	}
+
+	/**
+	 * Pick a fun tier line for a final percentage.
+	 *
+	 * @param {number} pct Percentage correct (0-100).
+	 * @return {string}
+	 */
+	function tierLine( pct ) {
+		if ( pct >= 90 ) {
+			return 'Well, actually… you should be writing this blog.';
+		}
+		if ( pct >= 70 ) {
+			return 'Solid instincts. A few well-actuallys to go.';
+		}
+		if ( pct >= 50 ) {
+			return 'Halfway there — the archives are calling.';
+		}
+		return 'Time to hit the archives.';
 	}
 
 	/**
@@ -327,7 +531,7 @@
 
 		Promise.all( [ request, animationDone ] ).then( function ( results ) {
 			var response = results[ 0 ];
-			recordAnswer( card, response, answerValue );
+			recordAnswer( card, response, isReplay );
 			state.currentIndex++;
 			state.busy = false;
 			updateHeaderDisplay();
@@ -344,25 +548,32 @@
 	/**
 	 * Update progress bookkeeping for an answered card.
 	 *
+	 * During a replay round (card.replay / isReplay), the card was already
+	 * counted in seen/answered_count on its first pass, so we only ever
+	 * adjust the wrong list (removing it once corrected) rather than
+	 * inflating answered_count/correct_count a second time.
+	 *
 	 * @param {Object}      card     The card that was answered.
 	 * @param {Object|null} response The /swipe response, if the request succeeded.
+	 * @param {boolean}     isReplay Whether this answer was part of a replay round.
 	 */
-	function recordAnswer( card, response ) {
+	function recordAnswer( card, response, isReplay ) {
 		var correct = response ? !! response.correct : false;
 
-		state.progress.answered_count++;
-		if ( correct ) {
-			state.progress.correct_count++;
-		}
-
-		if ( state.progress.seen.indexOf( card.id ) === -1 ) {
-			state.progress.seen.push( card.id );
+		if ( ! isReplay ) {
+			state.progress.answered_count++;
+			if ( correct ) {
+				state.progress.correct_count++;
+			}
+			if ( state.progress.seen.indexOf( card.id ) === -1 ) {
+				state.progress.seen.push( card.id );
+			}
 		}
 
 		var wrongIndex = state.progress.wrong.indexOf( card.id );
 		if ( correct && wrongIndex !== -1 ) {
 			state.progress.wrong.splice( wrongIndex, 1 );
-		} else if ( ! correct && wrongIndex === -1 ) {
+		} else if ( ! isReplay && ! correct && wrongIndex === -1 ) {
 			state.progress.wrong.push( card.id );
 		}
 
@@ -383,9 +594,12 @@
 			scoreEl.textContent = waSwipeStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count );
 		}
 		if ( progressEl ) {
-			var seenPosition = state.progress.answered_count;
-			var totalLabel = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
-			progressEl.textContent = totalLabel;
+			if ( state.replay ) {
+				progressEl.textContent = 'Replay: ' + state.currentIndex + ' of ' + state.deck.length;
+			} else {
+				var seenPosition = state.progress.answered_count;
+				progressEl.textContent = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
+			}
 		}
 	}
 
