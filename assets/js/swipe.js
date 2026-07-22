@@ -297,9 +297,10 @@
 		state.busy = true;
 
 		var cardEl = document.getElementById( 'wa-card' );
+		var gestureHandledExit = !! ( cardEl && cardEl.classList.contains( 'wa-gesture-exiting' ) );
 		var exitClass = 'wa-exit-' + ( 'agree' === answerValue ? 'right' : 'disagree' === answerValue ? 'left' : 'up' );
 
-		if ( cardEl && ! prefersReducedMotion ) {
+		if ( cardEl && ! prefersReducedMotion && ! gestureHandledExit ) {
 			cardEl.classList.add( exitClass );
 		}
 
@@ -313,7 +314,7 @@
 		} );
 
 		var animationDone = new Promise( function ( resolve ) {
-			setTimeout( resolve, EXIT_ANIMATION_MS );
+			setTimeout( resolve, gestureHandledExit ? 0 : EXIT_ANIMATION_MS );
 		} );
 
 		Promise.all( [ request, animationDone ] ).then( function ( results ) {
@@ -412,4 +413,242 @@
 	// Exposed for later issues (reveal overlay, gestures, storage) and for debugging.
 	window.waSwipeState = state;
 	window.waSwipeAnswer = answer;
+} )();
+
+/**
+ * Touch/mouse swipe gestures. Attached to the card element by the main
+ * render loop via window.waAttachGestures( cardEl, answerFn ).
+ */
+( function () {
+	'use strict';
+
+	var prefersReducedMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
+
+	var COMMIT_DISTANCE_RATIO = 0.35; // Fraction of viewport dimension to auto-commit.
+	var COMMIT_VELOCITY = 0.6; // px/ms flick velocity to auto-commit even under threshold.
+	var MAX_ROTATION_DEG = 12;
+	var FLY_OFF_MS = 220;
+	var SPRING_BACK_MS = 200;
+
+	/**
+	 * Attach pointer-based swipe gestures to a card element.
+	 *
+	 * @param {HTMLElement} cardEl   The card element to make draggable.
+	 * @param {Function}    answerFn Called with 'agree'|'disagree'|'unsure' once a drag commits.
+	 */
+	window.waAttachGestures = function ( cardEl, answerFn ) {
+		if ( ! cardEl ) {
+			return;
+		}
+
+		var activePointerId = null;
+		var startX = 0;
+		var startY = 0;
+		var lastX = 0;
+		var lastY = 0;
+		var lastT = 0;
+		var velocityX = 0;
+		var velocityY = 0;
+		var dragging = false;
+
+		var agreeLabel = cardEl.querySelector( '.wa-drag-label-agree' );
+		var disagreeLabel = cardEl.querySelector( '.wa-drag-label-disagree' );
+		var unsureLabel = cardEl.querySelector( '.wa-drag-label-unsure' );
+
+		cardEl.style.touchAction = 'none';
+
+		cardEl.addEventListener( 'pointerdown', onPointerDown );
+
+		/**
+		 * @param {PointerEvent} e Pointer event.
+		 */
+		function onPointerDown( e ) {
+			if ( null !== activePointerId ) {
+				return; // Ignore a second simultaneous pointer.
+			}
+			if ( e.button !== undefined && e.button !== 0 ) {
+				return; // Left-click / primary touch only.
+			}
+
+			activePointerId = e.pointerId;
+			dragging = true;
+			startX = lastX = e.clientX;
+			startY = lastY = e.clientY;
+			lastT = performance.now();
+			velocityX = 0;
+			velocityY = 0;
+
+			cardEl.setPointerCapture( activePointerId );
+			cardEl.style.transition = 'none';
+
+			cardEl.addEventListener( 'pointermove', onPointerMove );
+			cardEl.addEventListener( 'pointerup', onPointerUp );
+			cardEl.addEventListener( 'pointercancel', onPointerCancel );
+		}
+
+		/**
+		 * @param {PointerEvent} e Pointer event.
+		 */
+		function onPointerMove( e ) {
+			if ( ! dragging || e.pointerId !== activePointerId ) {
+				return;
+			}
+
+			var now = performance.now();
+			var dt = Math.max( 1, now - lastT );
+
+			var dx = e.clientX - startX;
+			var dy = e.clientY - startY;
+
+			velocityX = ( e.clientX - lastX ) / dt;
+			velocityY = ( e.clientY - lastY ) / dt;
+			lastX = e.clientX;
+			lastY = e.clientY;
+			lastT = now;
+
+			applyDragTransform( dx, dy );
+		}
+
+		/**
+		 * @param {number} dx Horizontal offset from drag start.
+		 * @param {number} dy Vertical offset from drag start.
+		 */
+		function applyDragTransform( dx, dy ) {
+			var rotation = Math.max( -MAX_ROTATION_DEG, Math.min( MAX_ROTATION_DEG, ( dx / window.innerWidth ) * MAX_ROTATION_DEG * 2 ) );
+			cardEl.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + rotation + 'deg)';
+
+			var horizontalRatio = Math.min( 1, Math.abs( dx ) / ( window.innerWidth * COMMIT_DISTANCE_RATIO ) );
+			var verticalRatio = Math.min( 1, Math.abs( dy ) / ( window.innerHeight * COMMIT_DISTANCE_RATIO ) );
+
+			var dominant = getDominantDirection( dx, dy );
+
+			setLabelOpacity( agreeLabel, 'right' === dominant ? horizontalRatio : 0 );
+			setLabelOpacity( disagreeLabel, 'left' === dominant ? horizontalRatio : 0 );
+			setLabelOpacity( unsureLabel, 'up' === dominant ? verticalRatio : 0 );
+		}
+
+		/**
+		 * @param {HTMLElement|null} el      Label element.
+		 * @param {number}           opacity Target opacity (0-1).
+		 */
+		function setLabelOpacity( el, opacity ) {
+			if ( el ) {
+				el.style.opacity = String( opacity );
+			}
+		}
+
+		/**
+		 * Determine the dominant drag direction, or null if downward/negligible.
+		 *
+		 * @param {number} dx Horizontal offset.
+		 * @param {number} dy Vertical offset.
+		 * @return {string|null} 'right'|'left'|'up'|null
+		 */
+		function getDominantDirection( dx, dy ) {
+			if ( Math.abs( dx ) >= Math.abs( dy ) ) {
+				return dx > 0 ? 'right' : 'left';
+			}
+			return dy < 0 ? 'up' : null; // Downward drags don't commit to anything.
+		}
+
+		/**
+		 * @param {PointerEvent} e Pointer event.
+		 */
+		function onPointerUp( e ) {
+			if ( e.pointerId !== activePointerId ) {
+				return;
+			}
+			endDrag( e.clientX - startX, e.clientY - startY );
+		}
+
+		/**
+		 * Cancel the drag and spring back without committing.
+		 */
+		function onPointerCancel() {
+			springBack();
+			cleanupListeners();
+		}
+
+		/**
+		 * @param {number} dx Final horizontal offset.
+		 * @param {number} dy Final vertical offset.
+		 */
+		function endDrag( dx, dy ) {
+			cleanupListeners();
+
+			var direction = getDominantDirection( dx, dy );
+			var horizontalRatio = Math.abs( dx ) / ( window.innerWidth * COMMIT_DISTANCE_RATIO );
+			var verticalRatio = Math.abs( dy ) / ( window.innerHeight * COMMIT_DISTANCE_RATIO );
+			var pastThreshold = ( 'up' === direction ) ? verticalRatio >= 1 : horizontalRatio >= 1;
+			var flicked = Math.abs( velocityX ) >= COMMIT_VELOCITY || Math.abs( velocityY ) >= COMMIT_VELOCITY;
+
+			if ( direction && ( pastThreshold || flicked ) ) {
+				commit( direction );
+			} else {
+				springBack();
+			}
+		}
+
+		/**
+		 * Remove per-drag listeners and release the pointer.
+		 */
+		function cleanupListeners() {
+			dragging = false;
+			cardEl.removeEventListener( 'pointermove', onPointerMove );
+			cardEl.removeEventListener( 'pointerup', onPointerUp );
+			cardEl.removeEventListener( 'pointercancel', onPointerCancel );
+			if ( null !== activePointerId ) {
+				try {
+					cardEl.releasePointerCapture( activePointerId );
+				} catch ( err ) {
+					// Pointer may already be released; ignore.
+				}
+			}
+			activePointerId = null;
+		}
+
+		/**
+		 * Animate the card back to its resting position.
+		 */
+		function springBack() {
+			if ( prefersReducedMotion ) {
+				cardEl.style.transition = 'none';
+				cardEl.style.transform = '';
+			} else {
+				cardEl.style.transition = 'transform ' + SPRING_BACK_MS + 'ms ease';
+				cardEl.style.transform = '';
+			}
+			setLabelOpacity( agreeLabel, 0 );
+			setLabelOpacity( disagreeLabel, 0 );
+			setLabelOpacity( unsureLabel, 0 );
+		}
+
+		/**
+		 * Fly the card off screen in the committed direction, then answer.
+		 *
+		 * @param {string} direction 'right'|'left'|'up'.
+		 */
+		function commit( direction ) {
+			var answerValue = 'right' === direction ? 'agree' : 'left' === direction ? 'disagree' : 'unsure';
+
+			cardEl.classList.add( 'wa-gesture-exiting' );
+
+			if ( prefersReducedMotion ) {
+				answerFn( answerValue );
+				return;
+			}
+
+			var flyX = 'right' === direction ? window.innerWidth * 1.5 : 'left' === direction ? -window.innerWidth * 1.5 : lastX - startX;
+			var flyY = 'up' === direction ? -window.innerHeight * 1.5 : lastY - startY;
+			var rotation = 'right' === direction ? MAX_ROTATION_DEG * 1.5 : 'left' === direction ? -MAX_ROTATION_DEG * 1.5 : 0;
+
+			cardEl.style.transition = 'transform ' + FLY_OFF_MS + 'ms ease-in, opacity ' + FLY_OFF_MS + 'ms ease-in';
+			cardEl.style.transform = 'translate(' + flyX + 'px, ' + flyY + 'px) rotate(' + rotation + 'deg)';
+			cardEl.style.opacity = '0';
+
+			setTimeout( function () {
+				answerFn( answerValue );
+			}, FLY_OFF_MS );
+		}
+	};
 } )();
