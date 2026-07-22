@@ -45,23 +45,58 @@ class WA_Template {
 	 * Constructor.
 	 */
 	private function __construct() {
-		add_action( 'init', array( $this, 'register_rewrite_rule' ) );
+		add_action( 'init', array( $this, 'register_rewrite_rule' ), 10 );
+		add_action( 'init', array( $this, 'maybe_flush_rewrite_rules' ), 11 );
 		add_filter( 'query_vars', array( $this, 'add_query_var' ) );
 		add_action( 'template_include', array( $this, 'maybe_take_over_template' ) );
 		add_filter( 'wp_robots', array( $this, 'maybe_noindex' ) );
 	}
 
 	/**
+	 * The rewrite-rule pattern for the current slug.
+	 *
+	 * @return string
+	 */
+	private function rule_pattern() {
+		$slug = wa_get_setting( 'slug', 'swipe' );
+		return '^' . preg_quote( $slug, '#' ) . '/?$';
+	}
+
+	/**
+	 * Self-healing flush: if the persisted rewrite rules don't yet contain
+	 * the current slug's rule, flush so they do. Runs on init at priority 11,
+	 * after register_rewrite_rule() has added the rule to the in-memory
+	 * rewrite object at priority 10.
+	 *
+	 * This intentionally does not depend on catching the settings-change
+	 * event. Whenever the slug changes (or rules are otherwise stale — after
+	 * activation, an import, or another plugin flushing), the next request
+	 * notices the mismatch and flushes exactly once; subsequent requests find
+	 * the rule already present and do nothing.
+	 */
+	public function maybe_flush_rewrite_rules() {
+		$rules = get_option( 'rewrite_rules' );
+
+		// If rules haven't been generated yet, WordPress will build them
+		// (including ours) on demand; nothing to heal.
+		if ( ! is_array( $rules ) || empty( $rules ) ) {
+			return;
+		}
+
+		if ( ! isset( $rules[ $this->rule_pattern() ] ) ) {
+			flush_rewrite_rules();
+		}
+	}
+
+	/**
 	 * Register the rewrite rule for the swipe page slug.
 	 *
-	 * Called on init and whenever the slug setting changes (and once
-	 * during plugin activation before the initial flush).
+	 * Called on init and once during plugin activation before the initial
+	 * flush. The self-healing check above handles slug changes.
 	 */
 	public function register_rewrite_rule() {
-		$slug = wa_get_setting( 'slug', 'swipe' );
-
 		add_rewrite_rule(
-			'^' . preg_quote( $slug, '#' ) . '/?$',
+			$this->rule_pattern(),
 			'index.php?' . self::QUERY_VAR . '=1',
 			'top'
 		);

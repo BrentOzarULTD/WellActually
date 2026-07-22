@@ -41,7 +41,6 @@ class WA_Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_action( 'update_option_' . self::OPTION_NAME, array( $this, 'maybe_flush_rewrite_rules' ), 10, 2 );
 	}
 
 	/**
@@ -125,22 +124,6 @@ class WA_Settings {
 		$output['slug']  = ( '' !== $slug ) ? $slug : $defaults['slug'];
 
 		return $output;
-	}
-
-	/**
-	 * When the option changes, flush rewrite rules if the slug changed.
-	 *
-	 * @param array $old_value Previous option value.
-	 * @param array $new_value New option value.
-	 */
-	public function maybe_flush_rewrite_rules( $old_value, $new_value ) {
-		$old_slug = isset( $old_value['slug'] ) ? $old_value['slug'] : '';
-		$new_slug = isset( $new_value['slug'] ) ? $new_value['slug'] : '';
-
-		if ( $old_slug !== $new_slug ) {
-			WA_Template::instance()->register_rewrite_rule();
-			flush_rewrite_rules();
-		}
 	}
 
 	/**
