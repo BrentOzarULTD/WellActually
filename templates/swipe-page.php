@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		__( 'Swipe – %s', 'well-actually' ),
 		get_bloginfo( 'name' )
 	) ); ?></title>
-	<?php WA_Template::instance()->print_assets(); ?>
+	<?php WA_Template::instance()->print_head_assets(); ?>
 </head>
 <body class="wa-swipe-body">
 	<a class="wa-home-link" href="<?php echo esc_url( home_url( '/' ) ); ?>">
@@ -36,5 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<noscript>
 		<p class="wa-noscript"><?php esc_html_e( 'Swipe mode needs JavaScript.', 'well-actually' ); ?></p>
 	</noscript>
+
+	<?php WA_Template::instance()->print_footer_assets(); ?>
 </body>
 </html>

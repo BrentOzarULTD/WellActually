@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wp-local",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "localhost:8080", "-t", ".wp-local", ".wp-local/wa-router.php"],
+      "port": 8080
+    }
+  ]
+}

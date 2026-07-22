@@ -10,7 +10,9 @@
 	'use strict';
 
 	var config = window.waSwipe || {};
-	var appEl = document.getElementById( 'wa-app' );
+	// Resolved in start() rather than here: this script may be parsed before
+	// #wa-app exists in the DOM.
+	var appEl = null;
 	var prefersReducedMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 	var isCoarsePointer = window.matchMedia && window.matchMedia( '(pointer: coarse)' ).matches;
 
@@ -32,13 +34,36 @@
 	};
 
 	/**
+	 * Join a route onto the REST base, with an optional query string.
+	 *
+	 * config.restUrl has no trailing slash, and on sites using plain
+	 * permalinks it is itself a query string (…/?rest_route=/well-actually/v1),
+	 * so the query separator has to be chosen rather than assumed.
+	 *
+	 * @param {string} path    Route relative to the namespace root, e.g. 'deck'.
+	 * @param {string} [query] Query string without a leading ? or &.
+	 * @return {string}
+	 */
+	function restUrl( path, query ) {
+		var base = String( config.restUrl || '' ).replace( /\/+$/, '' );
+		var url = base + '/' + String( path ).replace( /^\/+/, '' );
+
+		if ( query ) {
+			url += ( url.indexOf( '?' ) === -1 ? '?' : '&' ) + query;
+		}
+
+		return url;
+	}
+
+	/**
 	 * Minimal REST helper.
 	 *
-	 * @param {string} path   Path relative to the REST namespace root.
-	 * @param {Object} [opts] fetch() options.
+	 * @param {string} path    Route relative to the REST namespace root.
+	 * @param {Object} [opts]  fetch() options.
+	 * @param {string} [query] Query string without a leading ? or &.
 	 * @return {Promise<Object>}
 	 */
-	function apiFetch( path, opts ) {
+	function apiFetch( path, opts, query ) {
 		opts = opts || {};
 		var headers = opts.headers || {};
 		headers[ 'X-WP-Nonce' ] = config.nonce;
@@ -48,7 +73,7 @@
 		opts.headers = headers;
 		opts.credentials = 'same-origin';
 
-		return fetch( config.restUrl + path, opts ).then( function ( res ) {
+		return fetch( restUrl( path, query ), opts ).then( function ( res ) {
 			if ( ! res.ok ) {
 				return res.json().catch( function () {
 					return {};
@@ -82,7 +107,7 @@
 		}
 		state.fetchingMore = true;
 
-		return apiFetch( 'deck?exclude=' + encodeURIComponent( excludeParam() ) )
+		return apiFetch( 'deck', null, 'exclude=' + encodeURIComponent( excludeParam() ) )
 			.then( function ( data ) {
 				state.total = data.total || 0;
 
@@ -158,7 +183,7 @@
 
 		Promise.all(
 			chunks.map( function ( chunk ) {
-				return apiFetch( 'deck?include=' + encodeURIComponent( chunk.join( ',' ) ) );
+				return apiFetch( 'deck', null, 'include=' + encodeURIComponent( chunk.join( ',' ) ) );
 			} )
 		)
 			.then( function ( results ) {
@@ -703,9 +728,25 @@
 		return Promise.resolve( state.progress );
 	}
 
-	if ( appEl ) {
+	/**
+	 * Entry point. Deferred until the DOM is ready for two reasons: #wa-app
+	 * may not be parsed yet, and the storage/sync modules further down this
+	 * file must have registered their window hooks before boot() reads
+	 * saved progress.
+	 */
+	function start() {
+		appEl = document.getElementById( 'wa-app' );
+		if ( ! appEl ) {
+			return;
+		}
 		attachKeyboardHandler();
 		boot();
+	}
+
+	if ( 'loading' === document.readyState ) {
+		document.addEventListener( 'DOMContentLoaded', start );
+	} else {
+		start();
 	}
 
 	// Exposed for later issues (reveal overlay, gestures, storage) and for debugging.
@@ -1322,7 +1363,19 @@
 	var pendingProgress = null;
 
 	/**
-	 * @param {string} path Path relative to the REST namespace root.
+	 * Join a route onto the REST base. See the matching helper in the main
+	 * module — duplicated rather than shared to keep each IIFE self-contained.
+	 *
+	 * @param {string} path Route relative to the namespace root.
+	 * @return {string}
+	 */
+	function restUrl( path ) {
+		var base = String( config.restUrl || '' ).replace( /\/+$/, '' );
+		return base + '/' + String( path ).replace( /^\/+/, '' );
+	}
+
+	/**
+	 * @param {string} path Route relative to the REST namespace root.
 	 * @param {Object} [opts] fetch() options.
 	 * @return {Promise<Object>}
 	 */
@@ -1335,7 +1388,7 @@
 		}
 		opts.credentials = 'same-origin';
 
-		return fetch( config.restUrl + path, opts ).then( function ( res ) {
+		return fetch( restUrl( path ), opts ).then( function ( res ) {
 			if ( ! res.ok ) {
 				throw new Error( 'Request failed: ' + res.status );
 			}
