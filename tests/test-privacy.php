@@ -12,7 +12,7 @@
 /**
  * Covers the exporter, eraser, and their registration.
  */
-class Test_WA_Privacy extends WP_UnitTestCase {
+class Test_WellActually_Privacy extends WP_UnitTestCase {
 
 	/**
 	 * A progress blob as the plugin stores it.
@@ -44,7 +44,7 @@ class Test_WA_Privacy extends WP_UnitTestCase {
 			if ( ! $had_admin_init ) {
 				$GLOBALS['wp_actions']['admin_init'] = 1;
 			}
-			WA_Privacy::instance()->add_privacy_policy_content();
+			WellActually_Privacy::instance()->add_privacy_policy_content();
 
 			$ref = new ReflectionProperty( 'WP_Privacy_Policy_Content', 'policy_content' );
 			if ( PHP_VERSION_ID < 80100 ) {
@@ -88,9 +88,9 @@ class Test_WA_Privacy extends WP_UnitTestCase {
 	 */
 	public function test_export_includes_stored_progress() {
 		$user_id = self::factory()->user->create( array( 'user_email' => 'player@example.org' ) );
-		update_user_meta( $user_id, WA_User_Progress::META_KEY, $this->sample_progress() );
+		update_user_meta( $user_id, WellActually_User_Progress::META_KEY, $this->sample_progress() );
 
-		$export = WA_Privacy::instance()->export_progress( 'player@example.org' );
+		$export = WellActually_Privacy::instance()->export_progress( 'player@example.org' );
 
 		$this->assertTrue( $export['done'] );
 		$this->assertCount( 1, $export['data'] );
@@ -109,8 +109,8 @@ class Test_WA_Privacy extends WP_UnitTestCase {
 	public function test_export_is_empty_without_progress() {
 		self::factory()->user->create( array( 'user_email' => 'fresh@example.org' ) );
 
-		$this->assertSame( array(), WA_Privacy::instance()->export_progress( 'fresh@example.org' )['data'] );
-		$this->assertSame( array(), WA_Privacy::instance()->export_progress( 'nobody@example.org' )['data'] );
+		$this->assertSame( array(), WellActually_Privacy::instance()->export_progress( 'fresh@example.org' )['data'] );
+		$this->assertSame( array(), WellActually_Privacy::instance()->export_progress( 'nobody@example.org' )['data'] );
 	}
 
 	/**
@@ -121,19 +121,19 @@ class Test_WA_Privacy extends WP_UnitTestCase {
 		$player = self::factory()->user->create( array( 'user_email' => 'erase-me@example.org' ) );
 		$other  = self::factory()->user->create( array( 'user_email' => 'bystander@example.org' ) );
 
-		update_user_meta( $player, WA_User_Progress::META_KEY, $this->sample_progress() );
+		update_user_meta( $player, WellActually_User_Progress::META_KEY, $this->sample_progress() );
 		update_user_meta( $player, 'unrelated_meta', 'keep me' );
-		update_user_meta( $other, WA_User_Progress::META_KEY, $this->sample_progress() );
+		update_user_meta( $other, WellActually_User_Progress::META_KEY, $this->sample_progress() );
 
-		$result = WA_Privacy::instance()->erase_progress( 'erase-me@example.org' );
+		$result = WellActually_Privacy::instance()->erase_progress( 'erase-me@example.org' );
 
 		$this->assertTrue( $result['items_removed'] );
 		$this->assertTrue( $result['done'] );
-		$this->assertFalse( metadata_exists( 'user', $player, WA_User_Progress::META_KEY ), 'The progress meta must be gone.' );
+		$this->assertFalse( metadata_exists( 'user', $player, WellActually_User_Progress::META_KEY ), 'The progress meta must be gone.' );
 		$this->assertSame( 'keep me', get_user_meta( $player, 'unrelated_meta', true ), 'Unrelated meta must survive.' );
-		$this->assertTrue( metadata_exists( 'user', $other, WA_User_Progress::META_KEY ), "Another user's progress must survive." );
+		$this->assertTrue( metadata_exists( 'user', $other, WellActually_User_Progress::META_KEY ), "Another user's progress must survive." );
 
 		// A second pass has nothing to remove and says so.
-		$this->assertFalse( WA_Privacy::instance()->erase_progress( 'erase-me@example.org' )['items_removed'] );
+		$this->assertFalse( WellActually_Privacy::instance()->erase_progress( 'erase-me@example.org' )['items_removed'] );
 	}
 }

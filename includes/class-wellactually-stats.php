@@ -10,24 +10,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Handles the wa_stats table and tally API.
+ * Handles the wellactually_stats table and tally API.
  */
-class WA_Stats {
+class WellActually_Stats {
 
-	const DB_VERSION_OPTION = 'wa_db_version';
+	const DB_VERSION_OPTION = 'wellactually_db_version';
 	const DB_VERSION        = '1.0';
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Stats|null
+	 * @var WellActually_Stats|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Stats
+	 * @return WellActually_Stats
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -40,10 +40,10 @@ class WA_Stats {
 	 * Constructor.
 	 */
 	private function __construct() {
-		add_action( 'wa_activate', array( $this, 'create_table' ) );
+		add_action( 'wellactually_activate', array( $this, 'create_table' ) );
 
 		// Deliberately `init` and not `plugins_loaded`: this callback is
-		// registered from wa_init(), which itself runs on plugins_loaded
+		// registered from wellactually_init(), which itself runs on plugins_loaded
 		// priority 10. WP_Hook iterates a copy of each priority's callback
 		// array, so anything appended to the priority currently running is
 		// skipped — on plugins_loaded this would never fire at all.
@@ -60,7 +60,7 @@ class WA_Stats {
 	 */
 	public static function table_name() {
 		global $wpdb;
-		return $wpdb->prefix . 'wa_stats';
+		return $wpdb->prefix . 'wellactually_stats';
 	}
 
 	/**
@@ -236,7 +236,7 @@ class WA_Stats {
 	 * @return array
 	 */
 	public function add_column( $columns ) {
-		$columns['wa_swipe_stats'] = __( 'Swipe stats', 'wellactually' );
+		$columns['wellactually_swipe_stats'] = __( 'Swipe stats', 'wellactually' );
 		return $columns;
 	}
 
@@ -247,11 +247,11 @@ class WA_Stats {
 	 * @param int    $post_id Post ID.
 	 */
 	public function render_column( $column, $post_id ) {
-		if ( 'wa_swipe_stats' !== $column ) {
+		if ( 'wellactually_swipe_stats' !== $column ) {
 			return;
 		}
 
-		$verdict = get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true );
+		$verdict = get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true );
 		if ( '' === $verdict ) {
 			echo '&#8212;';
 			return;

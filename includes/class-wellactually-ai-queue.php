@@ -30,10 +30,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Atomic queue for AI drafting work items.
  */
-class WA_AI_Queue {
+class WellActually_AI_Queue {
 
 	const DB_VERSION        = '1';
-	const DB_VERSION_OPTION = 'wa_ai_queue_db_version';
+	const DB_VERSION_OPTION = 'wellactually_ai_queue_db_version';
 
 	const STATUS_QUEUED     = 'queued';
 	const STATUS_PROCESSING = 'processing';
@@ -45,7 +45,7 @@ class WA_AI_Queue {
 	 */
 	public static function table_name() {
 		global $wpdb;
-		return $wpdb->prefix . 'wa_ai_queue';
+		return $wpdb->prefix . 'wellactually_ai_queue';
 	}
 
 	/**
@@ -165,7 +165,7 @@ class WA_AI_Queue {
 		global $wpdb;
 
 		$table = self::table_name();
-		$lock  = 'wa_ai_claim_' . substr( md5( $table ), 0, 16 );
+		$lock  = 'wellactually_ai_claim_' . substr( md5( $table ), 0, 16 );
 
 		// A short wait: if another claim is mid-flight we'd rather queue
 		// briefly than give up and report the batch finished.
@@ -180,7 +180,7 @@ class WA_AI_Queue {
 		// ours, change no queue state and report 'busy'; the caller retries,
 		// the same way it does for the ceiling itself.
 		if ( 1 !== (int) $got_lock ) {
-			if ( WA_Settings::debug_logging_enabled() ) {
+			if ( WellActually_Settings::debug_logging_enabled() ) {
 				error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 					sprintf(
 						'[wellactually] AI queue claim could not acquire lock %s (GET_LOCK returned %s); reporting busy.',

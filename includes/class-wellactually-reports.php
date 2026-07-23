@@ -12,21 +12,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Builds the Reports tab and handles its inline editing.
  */
-class WA_Reports {
+class WellActually_Reports {
 
 	const PER_PAGE = 20;
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Reports|null
+	 * @var WellActually_Reports|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Reports
+	 * @return WellActually_Reports
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -64,23 +64,23 @@ class WA_Reports {
 	 * @param string $hook_suffix The current admin page's hook suffix.
 	 */
 	public function enqueue_assets( $hook_suffix ) {
-		$settings = WA_Settings::instance();
+		$settings = WellActually_Settings::instance();
 		if ( ! $settings->hook() || $hook_suffix !== $settings->hook() || 'reports' !== $settings->current_tab() ) {
 			return;
 		}
 
 		wp_enqueue_style(
 			'wa-admin-reports',
-			WA_PLUGIN_URL . 'assets/css/admin-reports.css',
+			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-reports.css',
 			array(),
-			WA_VERSION
+			WELLACTUALLY_VERSION
 		);
 
 		wp_enqueue_script(
 			'wa-admin-reports',
-			WA_PLUGIN_URL . 'assets/js/admin-reports.js',
+			WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-reports.js',
 			array(),
-			WA_VERSION,
+			WELLACTUALLY_VERSION,
 			array( 'in_footer' => true )
 		);
 
@@ -149,35 +149,35 @@ class WA_Reports {
 		// The route-level check covers "can edit posts at all"; this covers
 		// "can edit *this* post".
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return new WP_Error( 'wa_forbidden', __( 'You are not allowed to edit that post.', 'wellactually' ), array( 'status' => 403 ) );
+			return new WP_Error( 'wellactually_forbidden', __( 'You are not allowed to edit that post.', 'wellactually' ), array( 'status' => 403 ) );
 		}
 
 		$post = get_post( $post_id );
 		if ( ! $post || 'post' !== $post->post_type ) {
-			return new WP_Error( 'wa_invalid_post', __( 'Post not found.', 'wellactually' ), array( 'status' => 404 ) );
+			return new WP_Error( 'wellactually_invalid_post', __( 'Post not found.', 'wellactually' ), array( 'status' => 404 ) );
 		}
 
 		$statement = (string) $request->get_param( 'statement' );
 		$verdict   = (string) $request->get_param( 'verdict' );
 
-		if ( ! in_array( $verdict, WA_Meta::deck_verdicts(), true ) ) {
-			return new WP_Error( 'wa_invalid_verdict', __( 'Pick True, False, or Debatable.', 'wellactually' ), array( 'status' => 400 ) );
+		if ( ! in_array( $verdict, WellActually_Meta::deck_verdicts(), true ) ) {
+			return new WP_Error( 'wellactually_invalid_verdict', __( 'Pick True, False, or Debatable.', 'wellactually' ), array( 'status' => 400 ) );
 		}
 
 		if ( '' === trim( $statement ) ) {
-			return new WP_Error( 'wa_empty_statement', __( 'The swipe headline can\'t be empty.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_empty_statement', __( 'The swipe headline can\'t be empty.', 'wellactually' ), array( 'status' => 400 ) );
 		}
 
-		$result = WA_Meta::apply_meta( $post_id, $statement, $verdict );
+		$result = WellActually_Meta::apply_meta( $post_id, $statement, $verdict );
 
 		// Deck eligibility can change here, so drop the cached total the
 		// swipe page uses for its progress count.
-		WA_Rest::clear_total_cache();
+		WellActually_Rest::clear_total_cache();
 
 		$response = new WP_REST_Response(
 			array(
 				'result'    => $result,
-				'statement' => WA_Meta::plain_text( $statement ),
+				'statement' => WellActually_Meta::plain_text( $statement ),
 				'verdict'   => $verdict,
 			),
 			200
@@ -192,12 +192,12 @@ class WA_Reports {
 	 * @return array
 	 */
 	private function current_args() {
-		$orderby = isset( $_GET['wa_rep_orderby'] ) ? sanitize_key( wp_unslash( $_GET['wa_rep_orderby'] ) ) : 'swipes';
+		$orderby = isset( $_GET['wellactually_rep_orderby'] ) ? sanitize_key( wp_unslash( $_GET['wellactually_rep_orderby'] ) ) : 'swipes';
 		if ( ! in_array( $orderby, array( 'swipes', 'pct_right', 'pct_wrong', 'title' ), true ) ) {
 			$orderby = 'swipes';
 		}
 
-		$order = isset( $_GET['wa_rep_order'] ) && 'ASC' === strtoupper( sanitize_text_field( wp_unslash( $_GET['wa_rep_order'] ) ) ) ? 'ASC' : 'DESC';
+		$order = isset( $_GET['wellactually_rep_order'] ) && 'ASC' === strtoupper( sanitize_text_field( wp_unslash( $_GET['wellactually_rep_order'] ) ) ) ? 'ASC' : 'DESC';
 
 		return array(
 			'orderby' => $orderby,
@@ -222,7 +222,7 @@ class WA_Reports {
 	private function get_page( $args ) {
 		global $wpdb;
 
-		$stats_table = WA_Stats::table_name();
+		$stats_table = WellActually_Stats::table_name();
 
 		// correct = the answer that matches the verdict; a debatable card
 		// counts every answer as correct, which is how scoring works in the
@@ -272,10 +272,10 @@ class WA_Reports {
 		";
 
 		$params = array(
-			WA_Meta::STATUS_KEY,
-			WA_Meta::STATUS_CONFIGURED,
-			WA_Meta::VERDICT_KEY,
-			WA_Meta::STATEMENT_KEY,
+			WellActually_Meta::STATUS_KEY,
+			WellActually_Meta::STATUS_CONFIGURED,
+			WellActually_Meta::VERDICT_KEY,
+			WellActually_Meta::STATEMENT_KEY,
 			$stats_table,
 		);
 
@@ -324,8 +324,8 @@ class WA_Reports {
 			array(
 				'page'           => 'wellactually',
 				'tab'            => 'reports',
-				'wa_rep_orderby' => $key,
-				'wa_rep_order'   => $next_order,
+				'wellactually_rep_orderby' => $key,
+				'wellactually_rep_order'   => $next_order,
 			),
 			admin_url( 'options-general.php' )
 		);
@@ -380,7 +380,7 @@ class WA_Reports {
 					$post_id   = (int) $row->ID;
 					$swipes    = (int) $row->swipes;
 					$correct   = (int) $row->correct;
-					$statement = WA_Meta::plain_text( (string) $row->statement );
+					$statement = WellActually_Meta::plain_text( (string) $row->statement );
 					$verdict   = (string) $row->verdict;
 
 					$pct_right = $swipes > 0 ? (int) round( ( $correct / $swipes ) * 100 ) : null;
@@ -390,7 +390,7 @@ class WA_Reports {
 						<td class="wa-col-post">
 							<strong>
 								<a href="<?php echo esc_url( get_permalink( $post_id ) ); ?>" target="_blank" rel="noopener">
-									<?php echo esc_html( WA_Meta::plain_text( get_the_title( $post_id ) ) ); ?>
+									<?php echo esc_html( WellActually_Meta::plain_text( get_the_title( $post_id ) ) ); ?>
 								</a>
 							</strong>
 							<div class="row-actions">
@@ -434,8 +434,8 @@ class WA_Reports {
 			array(
 				'page'           => 'wellactually',
 				'tab'            => 'reports',
-				'wa_rep_orderby' => $args['orderby'],
-				'wa_rep_order'   => $args['order'],
+				'wellactually_rep_orderby' => $args['orderby'],
+				'wellactually_rep_order'   => $args['order'],
 				'paged'          => '%#%',
 			),
 			admin_url( 'options-general.php' )

@@ -12,9 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Handles the swipe page rewrite rule and template takeover.
  */
-class WA_Template {
+class WellActually_Template {
 
-	const QUERY_VAR = 'wa_swipe';
+	const QUERY_VAR = 'wellactually_swipe';
 
 	/**
 	 * REST namespace handed to the frontend. The JS joins routes onto this,
@@ -25,14 +25,14 @@ class WA_Template {
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Template|null
+	 * @var WellActually_Template|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Template
+	 * @return WellActually_Template
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -58,7 +58,7 @@ class WA_Template {
 	 * @return string
 	 */
 	private function rule_pattern() {
-		$slug = wa_get_setting( 'slug', 'swipe' );
+		$slug = wellactually_get_setting( 'slug', 'swipe' );
 		return '^' . preg_quote( $slug, '#' ) . '/?$';
 	}
 
@@ -83,7 +83,17 @@ class WA_Template {
 			return;
 		}
 
-		if ( ! isset( $rules[ $this->rule_pattern() ] ) ) {
+		$pattern = $this->rule_pattern();
+
+		// Both halves matter. A missing pattern is the slug having changed;
+		// a pattern whose target names a different query var is a stored rule
+		// from an older version of this plugin (the query var was renamed in
+		// 1.8.0). The second case still matches the URL, so without this
+		// check it would look healthy while serving a 404.
+		$stale = ! isset( $rules[ $pattern ] )
+			|| false === strpos( (string) $rules[ $pattern ], self::QUERY_VAR . '=' );
+
+		if ( $stale ) {
 			flush_rewrite_rules();
 		}
 	}
@@ -135,7 +145,7 @@ class WA_Template {
 
 		status_header( 200 );
 
-		return WA_PLUGIN_DIR . 'templates/swipe-page.php';
+		return WELLACTUALLY_PLUGIN_DIR . 'templates/swipe-page.php';
 	}
 
 	/**
@@ -165,12 +175,12 @@ class WA_Template {
 		}
 		$registered = true;
 
-		wp_register_style( 'wa-swipe', WA_PLUGIN_URL . 'assets/css/swipe.css', array(), WA_VERSION );
+		wp_register_style( 'wa-swipe', WELLACTUALLY_PLUGIN_URL . 'assets/css/swipe.css', array(), WELLACTUALLY_VERSION );
 		wp_register_script(
 			'wa-swipe',
-			WA_PLUGIN_URL . 'assets/js/swipe.js',
+			WELLACTUALLY_PLUGIN_URL . 'assets/js/swipe.js',
 			array(),
-			WA_VERSION,
+			WELLACTUALLY_VERSION,
 			array( 'in_footer' => true )
 		);
 

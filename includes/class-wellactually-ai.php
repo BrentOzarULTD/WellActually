@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Builds prompts, calls the AI provider, and stores draft suggestions.
  */
-class WA_AI {
+class WellActually_AI {
 
 	const STATUS_QUEUED     = 'queued';
 	const STATUS_PROCESSING = 'processing';
@@ -39,14 +39,14 @@ class WA_AI {
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_AI|null
+	 * @var WellActually_AI|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_AI
+	 * @return WellActually_AI
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -61,11 +61,11 @@ class WA_AI {
 	private function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
 
-		// Same reasoning as WA_Meta's backfill: activation-only setup misses
+		// Same reasoning as WellActually_Meta's backfill: activation-only setup misses
 		// sites that were updated by copying files, so check cheaply on
 		// admin_init (the option compare is a single cached lookup).
-		add_action( 'admin_init', array( 'WA_AI_Queue', 'maybe_upgrade_table' ) );
-		add_action( 'wa_activate', array( 'WA_AI_Queue', 'create_table' ) );
+		add_action( 'admin_init', array( 'WellActually_AI_Queue', 'maybe_upgrade_table' ) );
+		add_action( 'wellactually_activate', array( 'WellActually_AI_Queue', 'create_table' ) );
 	}
 
 	/**
@@ -134,14 +134,14 @@ class WA_AI {
 		// Put back anything a previous run left mid-flight, and clear out
 		// batches whose browser never returned — their rows would otherwise
 		// block those posts from ever being drafted again.
-		WA_AI_Queue::release_stale( self::CLAIM_TIMEOUT );
-		WA_AI_Queue::collect_abandoned( self::BATCH_TIMEOUT );
+		WellActually_AI_Queue::release_stale( self::CLAIM_TIMEOUT );
+		WellActually_AI_Queue::collect_abandoned( self::BATCH_TIMEOUT );
 
 		// Resuming: if the caller still has a batch with outstanding work,
 		// carry on with it instead of starting a new one and orphaning it.
 		$resume = (string) $request->get_param( 'batch' );
 		if ( '' !== $resume ) {
-			$counts = WA_AI_Queue::batch_counts( $resume );
+			$counts = WellActually_AI_Queue::batch_counts( $resume );
 			if ( $counts['remaining'] > 0 ) {
 				$response = new WP_REST_Response(
 					array(
@@ -157,7 +157,7 @@ class WA_AI {
 			}
 		}
 
-		$batch_id = WA_AI_Queue::new_batch_id();
+		$batch_id = WellActually_AI_Queue::new_batch_id();
 
 		// Keep looking until the batch is full or the archive genuinely runs
 		// out of eligible posts.
@@ -172,7 +172,7 @@ class WA_AI {
 		// and a fixed page budget could exhaust its scan among held posts while
 		// thousands of eligible ones sat further down the archive (issue #28).
 		$admitted = array();
-		$tried    = WA_AI_Queue::queued_post_ids();
+		$tried    = WellActually_AI_Queue::queued_post_ids();
 
 		// Each round adds its candidates to $tried, so the next round returns
 		// strictly new posts — the loop makes guaranteed progress and stops
@@ -196,10 +196,10 @@ class WA_AI {
 			}
 
 			$tried    = array_merge( $tried, $candidates );
-			$admitted = array_merge( $admitted, WA_AI_Queue::admit( $candidates, $batch_id ) );
+			$admitted = array_merge( $admitted, WellActually_AI_Queue::admit( $candidates, $batch_id ) );
 		}
 
-		if ( $max_rounds === $round && WA_Settings::debug_logging_enabled() ) {
+		if ( $max_rounds === $round && WellActually_Settings::debug_logging_enabled() ) {
 			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 				sprintf(
 					'[wellactually] AI enqueue hit the %d-round safety cap with %d of %d admitted; investigate before raising it.',
@@ -239,10 +239,10 @@ class WA_AI {
 	private static function release_unused( $batch_id, array $keep ) {
 		global $wpdb;
 
-		$table = WA_AI_Queue::table_name();
+		$table = WellActually_AI_Queue::table_name();
 
 		if ( empty( $keep ) ) {
-			WA_AI_Queue::clear_batch( $batch_id );
+			WellActually_AI_Queue::clear_batch( $batch_id );
 			return;
 		}
 
@@ -268,12 +268,12 @@ class WA_AI {
 	 */
 	private static function mark_queued( array $post_ids ) {
 		foreach ( $post_ids as $post_id ) {
-			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
-			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
-			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
+			update_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
+			delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY );
+			delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_TIME_KEY );
 			// A post being re-queued may have had a ready suggestion, which
 			// this supersedes.
-			WA_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_QUEUED ) );
+			WellActually_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_QUEUED ) );
 		}
 	}
 
@@ -287,10 +287,10 @@ class WA_AI {
 		$batch_id = (string) $request->get_param( 'batch' );
 
 		if ( '' === $batch_id ) {
-			return new WP_Error( 'wa_missing_batch', __( 'A batch id is required.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_missing_batch', __( 'A batch id is required.', 'wellactually' ), array( 'status' => 400 ) );
 		}
 
-		$claim = WA_AI_Queue::claim( $batch_id, WA_Settings::ai_concurrency() );
+		$claim = WellActually_AI_Queue::claim( $batch_id, WellActually_Settings::ai_concurrency() );
 
 		// Ceiling reached (other tabs, other users, retries), or the claim
 		// lock was momentarily held by another request ('busy'). Either way
@@ -300,7 +300,7 @@ class WA_AI {
 			$response = new WP_REST_Response(
 				array(
 					'status' => 'busy',
-					'counts' => WA_AI_Queue::batch_counts( $batch_id ),
+					'counts' => WellActually_AI_Queue::batch_counts( $batch_id ),
 				),
 				429
 			);
@@ -318,7 +318,7 @@ class WA_AI {
 			$processed = array_merge(
 				array(
 					'post_id' => $post_id,
-					'title'   => WA_Meta::plain_text( get_the_title( $post_id ) ),
+					'title'   => WellActually_Meta::plain_text( get_the_title( $post_id ) ),
 					'url'     => get_edit_post_link( $post_id, 'raw' ),
 				),
 				$result
@@ -327,7 +327,7 @@ class WA_AI {
 
 		$payload = array(
 			'processed' => $processed,
-			'counts'    => WA_AI_Queue::batch_counts( $batch_id ),
+			'counts'    => WellActually_AI_Queue::batch_counts( $batch_id ),
 		);
 
 		// Deliberately a field rather than an HTTP 429: this endpoint already
@@ -357,8 +357,8 @@ class WA_AI {
 		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
 			$available = false;
 		} else {
-			$provider  = wa_get_setting( 'ai_provider', '' );
-			$available = '' !== $provider && WA_Settings::is_ai_provider_configured( $provider );
+			$provider  = wellactually_get_setting( 'ai_provider', '' );
+			$available = '' !== $provider && WellActually_Settings::is_ai_provider_configured( $provider );
 		}
 
 		/**
@@ -367,7 +367,7 @@ class WA_AI {
 		 *
 		 * @param bool $available Whether drafting is available.
 		 */
-		return (bool) apply_filters( 'wa_ai_available', $available );
+		return (bool) apply_filters( 'wellactually_ai_available', $available );
 	}
 
 
@@ -390,10 +390,10 @@ class WA_AI {
 			'order'               => 'DESC',
 			'no_found_rows'       => true,
 			'ignore_sticky_posts' => true,
-			'meta_query'          => WA_Meta::status_meta_query( 'needs_setup' ),
+			'meta_query'          => WellActually_Meta::status_meta_query( 'needs_setup' ),
 			// Always read live: this filters on a meta-backed status, which
 			// WP's post-query cache doesn't invalidate on (see the same note
-			// in WA_Bulk_Setup::build_query()). A stale list here would spend
+			// in WellActually_Bulk_Setup::build_query()). A stale list here would spend
 			// real AI calls re-drafting posts that were just set up.
 			'cache_results'       => false,
 		);
@@ -408,7 +408,7 @@ class WA_AI {
 
 		// Via the helper, not the raw setting: it expands a skipped category
 		// to its descendants, which the bulk-setup screen also relies on.
-		$excluded_cats = WA_Settings::excluded_categories();
+		$excluded_cats = WellActually_Settings::excluded_categories();
 		if ( ! empty( $excluded_cats ) ) {
 			$args['category__not_in'] = $excluded_cats;
 		}
@@ -445,7 +445,7 @@ class WA_AI {
 		// advertise suggestions the grid won't show: skipped posts are out,
 		// skipped categories are out, and nothing is served from a cached
 		// result set.
-		$excluded_cats = WA_Settings::excluded_categories();
+		$excluded_cats = WellActually_Settings::excluded_categories();
 
 		foreach ( $values as $status => $meta_values ) {
 			$args = array(
@@ -458,16 +458,16 @@ class WA_AI {
 				'meta_query'     => array(
 					'relation' => 'AND',
 					array(
-						'key'     => WA_Meta::AI_STATUS_KEY,
+						'key'     => WellActually_Meta::AI_STATUS_KEY,
 						'value'   => $meta_values,
 						'compare' => 'IN',
 					),
 					array(
-						'key'     => WA_Meta::SKIP_KEY,
+						'key'     => WellActually_Meta::SKIP_KEY,
 						'compare' => 'NOT EXISTS',
 					),
 					array(
-						'key'     => WA_Meta::VERDICT_KEY,
+						'key'     => WellActually_Meta::VERDICT_KEY,
 						'compare' => 'NOT EXISTS',
 					),
 				),
@@ -560,7 +560,7 @@ class WA_AI {
 	 * @return string
 	 */
 	public static function effective_model( $provider ) {
-		$model = (string) wa_get_setting( 'ai_model', '' );
+		$model = (string) wellactually_get_setting( 'ai_model', '' );
 		if ( '' !== $model ) {
 			return $model;
 		}
@@ -643,7 +643,7 @@ class WA_AI {
 		// later run picks it up untouched.
 		if ( ! empty( $outcome['rate_limited'] ) ) {
 			if ( null !== $claim_token ) {
-				WA_AI_Queue::release( $post_id, $claim_token );
+				WellActually_AI_Queue::release( $post_id, $claim_token );
 			}
 
 			return array(
@@ -657,7 +657,7 @@ class WA_AI {
 		// flight — in which case someone else owns it now and this result is
 		// stale. Give up the claim first and only store if we still held it,
 		// so a late worker can never overwrite a newer result.
-		if ( null !== $claim_token && ! WA_AI_Queue::complete( $post_id, $claim_token ) ) {
+		if ( null !== $claim_token && ! WellActually_AI_Queue::complete( $post_id, $claim_token ) ) {
 			return array(
 				'status' => 'stale',
 				'error'  => __( 'This post was reassigned to another drafting run; result discarded.', 'wellactually' ),
@@ -688,8 +688,8 @@ class WA_AI {
 			return array( 'error' => __( 'Invalid post.', 'wellactually' ) );
 		}
 
-		$provider = wa_get_setting( 'ai_provider', '' );
-		$model    = wa_get_setting( 'ai_model', '' );
+		$provider = wellactually_get_setting( 'ai_provider', '' );
+		$model    = wellactually_get_setting( 'ai_model', '' );
 
 		/**
 		 * Short-circuit the AI call with a pre-built result. Return an array
@@ -701,7 +701,7 @@ class WA_AI {
 		 * @param string     $provider Selected provider id.
 		 * @param string     $model    Selected model id.
 		 */
-		$pre = apply_filters( 'wa_ai_pre_draft', null, $post, $provider, $model );
+		$pre = apply_filters( 'wellactually_ai_pre_draft', null, $post, $provider, $model );
 		if ( is_array( $pre ) ) {
 			return array( 'data' => $pre );
 		}
@@ -820,19 +820,19 @@ class WA_AI {
 		$statement = isset( $data['statement'] ) ? sanitize_textarea_field( $data['statement'] ) : '';
 		$verdict   = isset( $data['verdict'] ) ? sanitize_text_field( $data['verdict'] ) : '';
 
-		if ( '' === $statement || ! in_array( $verdict, WA_Meta::deck_verdicts(), true ) ) {
+		if ( '' === $statement || ! in_array( $verdict, WellActually_Meta::deck_verdicts(), true ) ) {
 			return self::store_error( $post_id, __( 'The AI returned an incomplete draft.', 'wellactually' ) );
 		}
 
-		update_post_meta( $post_id, WA_Meta::AI_STATEMENT_KEY, $statement );
-		update_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY, $verdict );
-		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_READY );
-		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
-		delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
+		update_post_meta( $post_id, WellActually_Meta::AI_STATEMENT_KEY, $statement );
+		update_post_meta( $post_id, WellActually_Meta::AI_VERDICT_KEY, $verdict );
+		update_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, self::STATUS_READY );
+		delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY );
+		delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_TIME_KEY );
 		// Hand the status we just wrote to recompute rather than letting it
 		// read the value back — a lagging read here would persist the wrong
 		// derived status and hide this suggestion from review for good.
-		WA_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_READY ) );
+		WellActually_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_READY ) );
 
 		return array(
 			'status'    => self::STATUS_READY,
@@ -850,10 +850,10 @@ class WA_AI {
 	 */
 	private static function store_error( $post_id, $message ) {
 		$message = sanitize_text_field( $message );
-		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_ERROR );
-		update_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, $message );
-		update_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY, time() );
-		WA_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_ERROR ) );
+		update_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, self::STATUS_ERROR );
+		update_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY, $message );
+		update_post_meta( $post_id, WellActually_Meta::AI_ERROR_TIME_KEY, time() );
+		WellActually_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_ERROR ) );
 
 		return array(
 			'status' => self::STATUS_ERROR,
@@ -878,16 +878,16 @@ class WA_AI {
 				'fields'         => 'ids',
 				'posts_per_page' => 200,
 				'orderby'        => 'meta_value_num',
-				'meta_key'       => WA_Meta::AI_ERROR_TIME_KEY,
+				'meta_key'       => WellActually_Meta::AI_ERROR_TIME_KEY,
 				'order'          => 'DESC',
 				'no_found_rows'  => true,
 				'meta_query'     => array(
 					array(
-						'key'   => WA_Meta::AI_STATUS_KEY,
+						'key'   => WellActually_Meta::AI_STATUS_KEY,
 						'value' => self::STATUS_ERROR,
 					),
 					array(
-						'key'     => WA_Meta::AI_ERROR_TIME_KEY,
+						'key'     => WellActually_Meta::AI_ERROR_TIME_KEY,
 						'value'   => $cutoff,
 						'compare' => '>=',
 						'type'    => 'NUMERIC',
@@ -902,8 +902,8 @@ class WA_AI {
 				'post_id'  => $post_id,
 				'title'    => get_the_title( $post_id ),
 				'edit_url' => get_edit_post_link( $post_id, 'raw' ),
-				'error'    => get_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, true ),
-				'time'     => (int) get_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY, true ),
+				'error'    => get_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY, true ),
+				'time'     => (int) get_post_meta( $post_id, WellActually_Meta::AI_ERROR_TIME_KEY, true ),
 			);
 		}
 
@@ -931,11 +931,11 @@ class WA_AI {
 				'no_found_rows'  => true,
 				'meta_query'     => array(
 					array(
-						'key'   => WA_Meta::AI_STATUS_KEY,
+						'key'   => WellActually_Meta::AI_STATUS_KEY,
 						'value' => self::STATUS_ERROR,
 					),
 					array(
-						'key'     => WA_Meta::AI_ERROR_TIME_KEY,
+						'key'     => WellActually_Meta::AI_ERROR_TIME_KEY,
 						'value'   => $cutoff,
 						'compare' => '<',
 						'type'    => 'NUMERIC',
@@ -945,10 +945,10 @@ class WA_AI {
 		);
 
 		foreach ( $query->posts as $post_id ) {
-			delete_post_meta( $post_id, WA_Meta::AI_STATUS_KEY );
-			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
-			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
-			WA_Meta::recompute_status( $post_id );
+			delete_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY );
+			delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY );
+			delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_TIME_KEY );
+			WellActually_Meta::recompute_status( $post_id );
 		}
 	}
 
@@ -958,7 +958,7 @@ class WA_AI {
 	 * @return string
 	 */
 	private static function system_instruction() {
-		$guidance = (string) wa_get_setting( 'ai_system_prompt', '' );
+		$guidance = (string) wellactually_get_setting( 'ai_system_prompt', '' );
 
 		if ( '' === trim( $guidance ) ) {
 			$guidance = self::default_system_prompt();
@@ -975,7 +975,7 @@ class WA_AI {
 		 *
 		 * @param string $instruction The system instruction.
 		 */
-		return (string) apply_filters( 'wa_ai_system_instruction', $instruction );
+		return (string) apply_filters( 'wellactually_ai_system_instruction', $instruction );
 	}
 
 	/**

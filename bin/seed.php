@@ -52,8 +52,8 @@ for ( $i = 0; $i < $count; $i++ ) {
 		continue;
 	}
 
-	update_post_meta( $seeded_id, '_wa_statement', $statement );
-	update_post_meta( $seeded_id, '_wa_verdict', $verdict );
+	update_post_meta( $seeded_id, '_wellactually_statement', $statement );
+	update_post_meta( $seeded_id, '_wellactually_verdict', $verdict );
 
 	if ( 0 === $i % 500 ) {
 		WP_CLI::log( "…{$i} posts created" );

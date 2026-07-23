@@ -8,7 +8,7 @@
 /**
  * Covers candidate selection, prompt assembly, and rate-limit handling.
  */
-class Test_WA_Drafting extends WP_UnitTestCase {
+class Test_WellActually_Drafting extends WP_UnitTestCase {
 
 	/**
 	 * Reach a private static method for testing.
@@ -34,7 +34,7 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 	public function set_up() {
 		parent::set_up();
 		global $wpdb;
-		$wpdb->query( 'TRUNCATE ' . WA_AI_Queue::table_name() ); // phpcs:ignore WordPress.DB
+		$wpdb->query( 'TRUNCATE ' . WellActually_AI_Queue::table_name() ); // phpcs:ignore WordPress.DB
 	}
 
 	/**
@@ -43,7 +43,7 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 	 * whole run, the other is recorded against that post and moves on.
 	 */
 	public function test_rate_limit_detection() {
-		$method = $this->private_method( 'WA_AI', 'is_rate_limit_error' );
+		$method = $this->private_method( 'WellActually_AI', 'is_rate_limit_error' );
 
 		$rate_limited = array(
 			'Too Many Requests (429) - Rate limit exceeded. Please try again later.',
@@ -73,22 +73,22 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 	 * own voice can't accidentally stop drafts being parsed.
 	 */
 	public function test_custom_prompt_keeps_the_response_contract() {
-		$method = $this->private_method( 'WA_AI', 'system_instruction' );
+		$method = $this->private_method( 'WellActually_AI', 'system_instruction' );
 
-		$settings = WA_Settings::get_settings();
+		$settings = WellActually_Settings::get_settings();
 
 		// Default when unset.
-		update_option( 'wa_settings', array_merge( $settings, array( 'ai_system_prompt' => '' ) ) );
+		update_option( 'wellactually_settings', array_merge( $settings, array( 'ai_system_prompt' => '' ) ) );
 		$this->assertStringContainsString( 'swipe statements', $method->invoke( null ) );
-		$this->assertStringContainsString( WA_AI::response_contract(), $method->invoke( null ) );
+		$this->assertStringContainsString( WellActually_AI::response_contract(), $method->invoke( null ) );
 
 		// A complete rewrite still carries the contract.
-		update_option( 'wa_settings', array_merge( $settings, array( 'ai_system_prompt' => 'Write like a grumpy DBA.' ) ) );
+		update_option( 'wellactually_settings', array_merge( $settings, array( 'ai_system_prompt' => 'Write like a grumpy DBA.' ) ) );
 		$instruction = $method->invoke( null );
 
 		$this->assertStringContainsString( 'grumpy DBA', $instruction );
 		$this->assertStringNotContainsString( 'swipe statements', $instruction );
-		$this->assertStringContainsString( WA_AI::response_contract(), $instruction );
+		$this->assertStringContainsString( WellActually_AI::response_contract(), $instruction );
 	}
 
 	/**
@@ -97,11 +97,11 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 	 */
 	public function test_previously_errored_posts_stay_eligible() {
 		$post_id = self::factory()->post->create();
-		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, 'error' );
-		update_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, 'an earlier failure' );
-		WA_Meta::recompute_status( $post_id, array( 'ai_status' => 'error' ) );
+		update_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, 'error' );
+		update_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY, 'an earlier failure' );
+		WellActually_Meta::recompute_status( $post_id, array( 'ai_status' => 'error' ) );
 
-		$this->assertContains( $post_id, WA_AI::select_candidates( 100 ) );
+		$this->assertContains( $post_id, WellActually_AI::select_candidates( 100 ) );
 	}
 
 	/**
@@ -112,16 +112,16 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 		$needs_setup = self::factory()->post->create();
 
 		$configured = self::factory()->post->create();
-		WA_Meta::apply_meta( $configured, 'Already written', 'true' );
+		WellActually_Meta::apply_meta( $configured, 'Already written', 'true' );
 
 		$excluded = self::factory()->post->create();
-		WA_Meta::apply_meta( $excluded, '', WA_Meta::VERDICT_EXCLUDED );
+		WellActually_Meta::apply_meta( $excluded, '', WellActually_Meta::VERDICT_EXCLUDED );
 
 		$skipped = self::factory()->post->create();
-		update_post_meta( $skipped, WA_Meta::SKIP_KEY, '1' );
-		WA_Meta::recompute_status( $skipped, array( 'skipped' => true ) );
+		update_post_meta( $skipped, WellActually_Meta::SKIP_KEY, '1' );
+		WellActually_Meta::recompute_status( $skipped, array( 'skipped' => true ) );
 
-		$candidates = WA_AI::select_candidates( 100 );
+		$candidates = WellActually_AI::select_candidates( 100 );
 
 		$this->assertContains( $needs_setup, $candidates );
 		$this->assertNotContains( $configured, $candidates );
@@ -139,14 +139,14 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 
 		// An earlier run still holds 25 of them.
 		$stale = array_slice( $posts, 0, 25 );
-		WA_AI_Queue::admit( $stale, WA_AI_Queue::new_batch_id() );
+		WellActually_AI_Queue::admit( $stale, WellActually_AI_Queue::new_batch_id() );
 
 		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
 		$request->set_param( 'count', 10 );
 		$request->set_param( 'cat', 0 );
 		$request->set_param( 'batch', '' );
 
-		$data = WA_AI::instance()->handle_enqueue( $request )->get_data();
+		$data = WellActually_AI::instance()->handle_enqueue( $request )->get_data();
 
 		$this->assertSame( 10, $data['queued'], 'The batch should be topped up past posts another run holds.' );
 		$this->assertEmpty( array_intersect( $data['ids'], $stale ), 'It must not take posts another run is holding.' );
@@ -163,7 +163,7 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 		$request->set_param( 'cat', 0 );
 		$request->set_param( 'batch', '' );
 
-		$data = WA_AI::instance()->handle_enqueue( $request )->get_data();
+		$data = WellActually_AI::instance()->handle_enqueue( $request )->get_data();
 
 		$this->assertGreaterThan( 0, $data['queued'] );
 		$this->assertLessThanOrEqual( 50, $data['queued'] );
@@ -197,14 +197,14 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 		// Hold the newest 170 in another batch, leaving only the 10 oldest
 		// eligible — beyond the old 160-candidate scan depth for count=10.
 		$held = array_slice( $posts, 10 );
-		WA_AI_Queue::admit( $held, WA_AI_Queue::new_batch_id() );
+		WellActually_AI_Queue::admit( $held, WellActually_AI_Queue::new_batch_id() );
 
 		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
 		$request->set_param( 'count', 10 );
 		$request->set_param( 'cat', 0 );
 		$request->set_param( 'batch', '' );
 
-		$data = WA_AI::instance()->handle_enqueue( $request )->get_data();
+		$data = WellActually_AI::instance()->handle_enqueue( $request )->get_data();
 
 		$this->assertSame( 10, $data['queued'], 'Every eligible post should be reachable regardless of how many newer ones are held.' );
 		$this->assertEmpty( array_intersect( $data['ids'], $held ), 'It must not take posts another run is holding.' );
@@ -220,14 +220,14 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 		$posts = self::factory()->post->create_many( 5 );
 
 		// Two of the five are already held elsewhere, leaving three eligible.
-		WA_AI_Queue::admit( array_slice( $posts, 0, 2 ), WA_AI_Queue::new_batch_id() );
+		WellActually_AI_Queue::admit( array_slice( $posts, 0, 2 ), WellActually_AI_Queue::new_batch_id() );
 
 		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
 		$request->set_param( 'count', 20 );
 		$request->set_param( 'cat', 0 );
 		$request->set_param( 'batch', '' );
 
-		$data = WA_AI::instance()->handle_enqueue( $request )->get_data();
+		$data = WellActually_AI::instance()->handle_enqueue( $request )->get_data();
 
 		$this->assertSame( 3, $data['queued'], 'Only the three genuinely eligible posts should be queued.' );
 	}
@@ -245,13 +245,13 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 		$first->set_param( 'count', 10 );
 		$first->set_param( 'cat', 0 );
 		$first->set_param( 'batch', '' );
-		$first_ids = WA_AI::instance()->handle_enqueue( $first )->get_data()['ids'];
+		$first_ids = WellActually_AI::instance()->handle_enqueue( $first )->get_data()['ids'];
 
 		$second = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
 		$second->set_param( 'count', 10 );
 		$second->set_param( 'cat', 0 );
 		$second->set_param( 'batch', '' );
-		$second_ids = WA_AI::instance()->handle_enqueue( $second )->get_data()['ids'];
+		$second_ids = WellActually_AI::instance()->handle_enqueue( $second )->get_data()['ids'];
 
 		$this->assertCount( 10, $first_ids );
 		$this->assertCount( 10, $second_ids );

@@ -8,7 +8,7 @@
 /**
  * Covers the deck, swipe scoring, and Quick Edit REST routes.
  */
-class Test_WA_Rest extends WP_UnitTestCase {
+class Test_WellActually_Rest extends WP_UnitTestCase {
 
 	/**
 	 * Reach a private static method for testing.
@@ -38,7 +38,7 @@ class Test_WA_Rest extends WP_UnitTestCase {
 		$wp_rest_server = new WP_REST_Server();
 		do_action( 'rest_api_init' );
 
-		WA_Rest::clear_total_cache();
+		WellActually_Rest::clear_total_cache();
 	}
 
 	/**
@@ -50,7 +50,7 @@ class Test_WA_Rest extends WP_UnitTestCase {
 	 */
 	private function make_card( $verdict = 'true', $statement = 'A statement' ) {
 		$post_id = self::factory()->post->create();
-		WA_Meta::apply_meta( $post_id, $statement, $verdict );
+		WellActually_Meta::apply_meta( $post_id, $statement, $verdict );
 		return $post_id;
 	}
 
@@ -83,7 +83,7 @@ class Test_WA_Rest extends WP_UnitTestCase {
 	 * would always be 0% and so give the verdict away.
 	 */
 	public function test_pct_wrong_rules() {
-		$method = $this->private_method( 'WA_Rest', 'pct_wrong' );
+		$method = $this->private_method( 'WellActually_Rest', 'pct_wrong' );
 
 		// true verdict: wrong = disagree + unsure = 9 of 12.
 		$this->assertSame(
@@ -201,7 +201,7 @@ class Test_WA_Rest extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( 401, rest_do_request( $request )->get_status() );
-		$this->assertSame( 'Original headline', get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true ) );
+		$this->assertSame( 'Original headline', get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true ) );
 	}
 
 	/**
@@ -221,8 +221,8 @@ class Test_WA_Rest extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( 200, rest_do_request( $request )->get_status() );
-		$this->assertSame( 'Edited headline', get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true ) );
-		$this->assertSame( 'debatable', get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true ) );
+		$this->assertSame( 'Edited headline', get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true ) );
+		$this->assertSame( 'debatable', get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true ) );
 
 		// A verdict outside the allowed set must not be stored.
 		$bad = new WP_REST_Request( 'POST', '/wellactually/v1/report/quick-edit' );
@@ -235,7 +235,7 @@ class Test_WA_Rest extends WP_UnitTestCase {
 		);
 
 		$this->assertSame( 400, rest_do_request( $bad )->get_status() );
-		$this->assertSame( 'debatable', get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true ) );
+		$this->assertSame( 'debatable', get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true ) );
 	}
 
 	/**
@@ -244,7 +244,7 @@ class Test_WA_Rest extends WP_UnitTestCase {
 	public function test_skipped_posts_are_not_dealt() {
 		$kept    = $this->make_card( 'true', 'Kept in the deck' );
 		$skipped = $this->make_card( 'true', 'Set aside for now' );
-		update_post_meta( $skipped, WA_Meta::SKIP_KEY, '1' );
+		update_post_meta( $skipped, WellActually_Meta::SKIP_KEY, '1' );
 
 		$data = rest_do_request( new WP_REST_Request( 'GET', '/wellactually/v1/deck' ) )->get_data();
 		$ids  = wp_list_pluck( $data['cards'], 'id' );

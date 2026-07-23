@@ -7,11 +7,11 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 header=$(grep -m1 -E '^\s*\*\s*Version:' wellactually.php | sed -E 's/.*Version:[[:space:]]*//' | tr -d '[:space:]')
-constant=$(grep -m1 "define( 'WA_VERSION'" wellactually.php | sed -E "s/.*'WA_VERSION',[[:space:]]*'([^']+)'.*/\1/")
+constant=$(grep -m1 "define( 'WELLACTUALLY_VERSION'" wellactually.php | sed -E "s/.*'WELLACTUALLY_VERSION',[[:space:]]*'([^']+)'.*/\1/")
 stable=$(grep -m1 -E '^Stable tag:' readme.txt | sed -E 's/Stable tag:[[:space:]]*//' | tr -d '[:space:]')
 
 echo "  plugin header : ${header}"
-echo "  WA_VERSION    : ${constant}"
+echo "  WELLACTUALLY_VERSION    : ${constant}"
 echo "  readme.txt    : ${stable}"
 
 if [ "$header" != "$constant" ] || [ "$header" != "$stable" ]; then

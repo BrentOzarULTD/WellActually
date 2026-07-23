@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,6 +74,11 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.8.0 =
+* Internal rename, no change to how the plugin works. Everything the plugin owns behind the scenes — its settings, its database tables, the data stored against each post, and the names other plugins can hook into — moved from the two-letter "wa" prefix to the full "wellactually" one, because WordPress.org asks plugins to use a name that can't collide with anyone else's.
+* Upgrading carries your data across automatically the first time the site loads after the update: settings, swipe statements and verdicts, swipe scores, AI drafts still waiting for review, and every player's saved progress. Nothing to click, and it only runs once.
+* If you (or a developer) hook into this plugin's actions and filters, they've been renamed too, e.g. `wa_ai_pre_draft` is now `wellactually_ai_pre_draft`.
 
 = 1.7.0 =
 * You can now edit the instructions sent to the AI, under Settings → "Well, Actually..." → Drafting instructions, so statements can be written in your own voice and for your own subject matter. Leave it blank to use the wording the plugin ships with, which is shown in the box as a starting point. The technical bit that tells the AI how to format its reply is added automatically and isn't part of what you edit, so rewriting the instructions can't stop drafts being saved.
