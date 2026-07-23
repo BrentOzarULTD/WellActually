@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,9 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.2.2 =
+* Add a "Settings" quick link to this plugin's row on the Plugins list page.
 
 = 1.2.1 =
 * Fix: a failed swipe request (network hiccup, expired nonce, rate limit) no longer records a wrong answer and skips the card — progress is left untouched and the same card stays up to retry.
