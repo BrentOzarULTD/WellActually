@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Cheap checks first, so an obvious mistake fails in seconds rather than
+  # after the test matrix has spun up databases.
+  static:
+    name: Lint and standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: WordPress coding standards
+        run: composer run lint
+
+      - name: JavaScript syntax
+        run: node --check assets/js/swipe.js
+
+      - name: Version numbers agree
+        run: bin/check-versions.sh
+
+  # The plugin header claims PHP 7.4. Nothing here has ever run on it, so
+  # prove the claim on every change rather than discovering it from a user.
+  syntax:
+    name: PHP ${{ matrix.php }} syntax
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.1', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Lint every shipped PHP file
+        run: |
+          find . -name '*.php' \
+            -not -path './vendor/*' \
+            -not -path './node_modules/*' \
+            -not -path './.wp-local/*' \
+            -print0 | xargs -0 -n1 -P4 php -l
+
+  test:
+    name: Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '7.4'
+            wp: '6.5'
+          - php: '8.2'
+            wp: 'latest'
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: wordpress_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mysqli
+          tools: composer
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Install the WordPress test library
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+        run: bin/install-wp-tests.sh wordpress_test root '' 127.0.0.1 ${{ matrix.wp }}
+
+      - name: PHPUnit
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-tests-lib
+        run: vendor/bin/phpunit --configuration phpunit.xml.dist

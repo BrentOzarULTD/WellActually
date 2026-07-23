@@ -145,10 +145,10 @@ class WA_AI {
 			if ( $counts['remaining'] > 0 ) {
 				$response = new WP_REST_Response(
 					array(
-						'batch'    => $resume,
-						'queued'   => $counts['remaining'],
-						'ids'      => array(),
-						'resumed'  => true,
+						'batch'   => $resume,
+						'queued'  => $counts['remaining'],
+						'ids'     => array(),
+						'resumed' => true,
 					),
 					200
 				);
@@ -171,8 +171,11 @@ class WA_AI {
 		$admitted = array();
 		$tried    = array();
 
-		for ( $round = 0; $round < 8 && count( $admitted ) < $count; $round++ ) {
+		for ( $round = 0; $round < 8; $round++ ) {
 			$still_needed = $count - count( $admitted );
+			if ( $still_needed <= 0 ) {
+				break;
+			}
 
 			$candidates = self::select_candidates( $still_needed * 2, $cat, $tried );
 			if ( empty( $candidates ) ) {
@@ -222,9 +225,9 @@ class WA_AI {
 
 		$placeholders = implode( ',', array_fill( 0, count( $keep ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input; ids are placeheld.
 		$wpdb->query(
 			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input; ids are placeheld.
 				"DELETE FROM {$table} WHERE batch_id = %s AND post_id NOT IN ( {$placeholders} )",
 				array_merge( array( $batch_id ), $keep )
 			)
@@ -253,6 +256,7 @@ class WA_AI {
 	/**
 	 * REST: process the next queued post (one per call).
 	 *
+	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public function handle_process( WP_REST_Request $request ) {
@@ -345,8 +349,9 @@ class WA_AI {
 	 * Select up to $limit "needs setup" post IDs to draft, optionally within a
 	 * category. Skips posts that already have a queued or ready suggestion.
 	 *
-	 * @param int $limit Maximum number of posts.
-	 * @param int $cat   Category term id, or 0 for all.
+	 * @param int   $limit   Maximum number of posts.
+	 * @param int   $cat     Category term id, or 0 for all.
+	 * @param int[] $exclude Post IDs to leave out.
 	 * @return int[]
 	 */
 	public static function select_candidates( $limit, $cat = 0, array $exclude = array() ) {
@@ -600,7 +605,8 @@ class WA_AI {
 	 * Draft a suggestion for a single post: build the prompt, call the AI, and
 	 * store the result (or an error) in the post's AI meta.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int         $post_id     Post ID.
+	 * @param string|null $claim_token Queue claim to fence the write with.
 	 * @return array { status: 'ready'|'error', statement?: string, verdict?: string, error?: string }
 	 */
 	public static function draft_for_post( $post_id, $claim_token = null ) {
@@ -958,7 +964,7 @@ class WA_AI {
 			. "- \"true\": the statement is accurate and the post supports it.\n"
 			. "- \"false\": the statement is a common misconception that the post debunks or corrects.\n"
 			. "- \"debatable\": reasonable experts disagree, or the honest answer is \"it depends\".\n"
-			. "Choose whichever makes the most engaging swipe for THIS post; a varied mix across posts is good. "
+			. 'Choose whichever makes the most engaging swipe for THIS post; a varied mix across posts is good. '
 			. 'Keep the statement concrete and under about 15 words, with no hedging and no question marks. '
 			. 'Base it only on the post content.';
 	}
@@ -1074,5 +1080,4 @@ class WA_AI {
 			'additionalProperties' => false,
 		);
 	}
-
 }

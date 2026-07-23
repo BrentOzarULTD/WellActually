@@ -18,11 +18,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<meta charset="<?php bloginfo( 'charset' ); ?>" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<?php WA_Template::instance()->print_robots_meta(); ?>
-	<title><?php echo esc_html( sprintf(
-		/* translators: %s: site name */
-		__( 'Swipe – %s', 'wellactually' ),
-		get_bloginfo( 'name' )
-	) ); ?></title>
+	<?php
+	/* translators: %s: site name */
+	$wa_title = sprintf( __( 'Swipe – %s', 'wellactually' ), get_bloginfo( 'name' ) );
+	?>
+	<title><?php echo esc_html( $wa_title ); ?></title>
 	<?php WA_Template::instance()->print_head_assets(); ?>
 </head>
 <body class="wa-swipe-body">

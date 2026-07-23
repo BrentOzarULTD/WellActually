@@ -245,7 +245,8 @@ class WA_Bulk_Setup {
 	 * Handle the bulk save (PRG): process, then redirect back to the same view.
 	 */
 	public function handle_save() {
-		if ( 'POST' !== ( isset( $_SERVER['REQUEST_METHOD'] ) ? $_SERVER['REQUEST_METHOD'] : '' ) ) {
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) : '';
+		if ( 'POST' !== $method ) {
 			return;
 		}
 
@@ -258,6 +259,7 @@ class WA_Bulk_Setup {
 			wp_die( esc_html__( 'You are not allowed to edit posts.', 'wellactually' ) );
 		}
 
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each field is sanitized at the point of use below, and the verdict is allow-listed.
 		$rows = isset( $_POST['wa_bulk'] ) && is_array( $_POST['wa_bulk'] ) ? wp_unslash( $_POST['wa_bulk'] ) : array();
 
 		$counts = array(
@@ -292,7 +294,7 @@ class WA_Bulk_Setup {
 			if ( $skip && ! $exclude ) {
 				update_post_meta( $post_id, WA_Meta::SKIP_KEY, '1' );
 				WA_Meta::recompute_status( $post_id, array( 'skipped' => true ) );
-				$counts['skipped']++;
+				++$counts['skipped'];
 				$handled[] = $post_id;
 				continue;
 			}
@@ -319,7 +321,7 @@ class WA_Bulk_Setup {
 			$result = WA_Meta::apply_meta( $post_id, $statement, $verdict );
 
 			if ( isset( $counts[ $result ] ) ) {
-				$counts[ $result ]++;
+				++$counts[ $result ];
 			}
 
 			if ( in_array( $result, array( 'configured', 'excluded', 'cleared' ), true ) ) {
@@ -555,11 +557,11 @@ class WA_Bulk_Setup {
 
 		// Config for the drafting JS.
 		$config = array(
-			'restUrl'  => esc_url_raw( rest_url( 'wellactually/v1' ) ),
-			'nonce'    => wp_create_nonce( 'wp_rest' ),
-			'cat'      => (int) $args['cat'],
+			'restUrl'     => esc_url_raw( rest_url( 'wellactually/v1' ) ),
+			'nonce'       => wp_create_nonce( 'wp_rest' ),
+			'cat'         => (int) $args['cat'],
 			'concurrency' => WA_Settings::ai_concurrency(),
-			'reviewUrl' => esc_url_raw(
+			'reviewUrl'   => esc_url_raw(
 				add_query_arg(
 					array(
 						'page'      => self::MENU_SLUG,
@@ -624,11 +626,20 @@ class WA_Bulk_Setup {
 
 			<?php
 			$order_labels = array(
-				'date'          => array( 'DESC' => __( 'Newest first', 'wellactually' ), 'ASC' => __( 'Oldest first', 'wellactually' ) ),
-				'modified'      => array( 'DESC' => __( 'Recently updated first', 'wellactually' ), 'ASC' => __( 'Least recently updated first', 'wellactually' ) ),
-				'comment_count' => array( 'DESC' => __( 'Most comments first', 'wellactually' ), 'ASC' => __( 'Fewest comments first', 'wellactually' ) ),
+				'date'          => array(
+					'DESC' => __( 'Newest first', 'wellactually' ),
+					'ASC'  => __( 'Oldest first', 'wellactually' ),
+				),
+				'modified'      => array(
+					'DESC' => __( 'Recently updated first', 'wellactually' ),
+					'ASC'  => __( 'Least recently updated first', 'wellactually' ),
+				),
+				'comment_count' => array(
+					'DESC' => __( 'Most comments first', 'wellactually' ),
+					'ASC'  => __( 'Fewest comments first', 'wellactually' ),
+				),
 			);
-			$labels = $order_labels[ $args['orderby'] ];
+			$labels       = $order_labels[ $args['orderby'] ];
 			?>
 			<label for="wa_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
 			<select name="wa_order" id="wa_order">
@@ -692,7 +703,7 @@ class WA_Bulk_Setup {
 					<?php
 					while ( $query->have_posts() ) :
 						$query->the_post();
-						$post_id   = get_the_ID();
+						$post_id = get_the_ID();
 						// Decoded for editing: an author should see (and save) a
 						// real apostrophe, not a stored "&#8217;".
 						$statement = WA_Meta::plain_text( get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true ) );

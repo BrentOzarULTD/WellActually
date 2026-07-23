@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<ruleset name="WellActually">
+	<description>Coding standards for the Well, Actually... plugin.</description>
+
+	<file>.</file>
+
+	<!-- Never scan dependencies, build output, or the local test site. -->
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+	<exclude-pattern>/dist/*</exclude-pattern>
+	<exclude-pattern>/build/*</exclude-pattern>
+	<exclude-pattern>/.wp-local/*</exclude-pattern>
+	<exclude-pattern>/languages/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<rule ref="WordPress">
+		<!-- The plugin ships as one file set with no build step; short array
+		     syntax and file naming are deliberate choices, not oversights. -->
+		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
+		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+	</rule>
+
+	<!-- The plugin header claims PHP 7.4, so hold the code to it. -->
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array" value="wellactually"/>
+		</properties>
+	</rule>
+
+	<!-- Tests legitimately do things production code shouldn't. -->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<!-- These files are gateways to this plugin's own tables. MySQL cannot
+	     parameterize an identifier, so the table name is always interpolated
+	     into the SQL; no user-supplied value ever is. The sniff stays on
+	     everywhere else, where it would catch a real injection. -->
+	<rule ref="WordPress.DB.PreparedSQL">
+		<exclude-pattern>/includes/class-wa-ai-queue.php</exclude-pattern>
+		<exclude-pattern>/includes/class-wa-stats.php</exclude-pattern>
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+
+	<!-- Errors block a merge; warnings are advice and shouldn't. Most of the
+	     warnings here are inherent to the design (custom tables mean direct
+	     queries, and read-only admin filters read $_GET without a nonce). -->
+	<config name="ignore_warnings_on_exit" value="1"/>
+</ruleset>

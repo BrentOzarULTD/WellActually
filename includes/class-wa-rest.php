@@ -91,8 +91,8 @@ class WA_Rest {
 						'sanitize_callback' => 'sanitize_key',
 					),
 					'replay'  => array(
-						'type'              => 'boolean',
-						'default'           => false,
+						'type'    => 'boolean',
+						'default' => false,
 					),
 				),
 			)
@@ -133,11 +133,11 @@ class WA_Rest {
 	 */
 	public static function eligible_query_args() {
 		return array(
-			'post_type'      => 'post',
-			'post_status'    => 'publish',
-			'fields'         => 'ids',
-			'no_found_rows'  => true,
-			'meta_query'     => array(
+			'post_type'     => 'post',
+			'post_status'   => 'publish',
+			'fields'        => 'ids',
+			'no_found_rows' => true,
+			'meta_query'    => array(
 				'relation' => 'AND',
 				array(
 					'key'     => WA_Meta::STATEMENT_KEY,
@@ -196,8 +196,8 @@ class WA_Rest {
 			return (int) $cached;
 		}
 
-		$args                  = self::eligible_query_args();
-		$args['no_found_rows'] = false;
+		$args                   = self::eligible_query_args();
+		$args['no_found_rows']  = false;
 		$args['posts_per_page'] = 1;
 
 		$query = new WP_Query( $args );
@@ -245,7 +245,7 @@ class WA_Rest {
 			$args['post__not_in'] = $exclude;
 		}
 
-		$args['orderby'] = 'rand';
+		$args['orderby']        = 'rand';
 		$args['posts_per_page'] = self::BATCH_SIZE;
 
 		$query = new WP_Query( $args );
@@ -323,7 +323,7 @@ class WA_Rest {
 			return new WP_Error( 'wa_invalid_post', __( 'Post is not in the swipe deck.', 'wellactually' ), array( 'status' => 404 ) );
 		}
 
-		$correct = $this->is_correct( $verdict, $answer );
+		$correct   = $this->is_correct( $verdict, $answer );
 		$show_post = ! $correct || 'debatable' === $verdict;
 
 		if ( ! $replay ) {

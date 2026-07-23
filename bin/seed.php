@@ -38,7 +38,7 @@ for ( $i = 0; $i < $count; $i++ ) {
 	$statement = $statements[ array_rand( $statements ) ] . ' (test #' . ( $i + 1 ) . ')';
 	$verdict   = $verdicts[ array_rand( $verdicts ) ];
 
-	$post_id = wp_insert_post(
+	$seeded_id = wp_insert_post(
 		array(
 			'post_title'   => 'WellActually seed post ' . ( $i + 1 ),
 			'post_content' => '<p>This is seeded test content for load-testing WellActually swipe mode.</p>',
@@ -48,12 +48,12 @@ for ( $i = 0; $i < $count; $i++ ) {
 		)
 	);
 
-	if ( is_wp_error( $post_id ) || ! $post_id ) {
+	if ( is_wp_error( $seeded_id ) || ! $seeded_id ) {
 		continue;
 	}
 
-	update_post_meta( $post_id, '_wa_statement', $statement );
-	update_post_meta( $post_id, '_wa_verdict', $verdict );
+	update_post_meta( $seeded_id, '_wa_statement', $statement );
+	update_post_meta( $seeded_id, '_wa_verdict', $verdict );
 
 	if ( 0 === $i % 500 ) {
 		WP_CLI::log( "…{$i} posts created" );
