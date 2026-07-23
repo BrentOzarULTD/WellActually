@@ -291,9 +291,11 @@ class WA_AI {
 
 		$claim = WA_AI_Queue::claim( $batch_id, WA_Settings::ai_concurrency() );
 
-		// Ceiling reached (other tabs, other users, retries). This is a
-		// "come back shortly", not a failure — the work is still queued.
-		if ( 'at_capacity' === $claim ) {
+		// Ceiling reached (other tabs, other users, retries), or the claim
+		// lock was momentarily held by another request ('busy'). Either way
+		// this is a "come back shortly", not a failure — the work is still
+		// queued and no state changed.
+		if ( 'at_capacity' === $claim || 'busy' === $claim ) {
 			$response = new WP_REST_Response(
 				array(
 					'status' => 'busy',
