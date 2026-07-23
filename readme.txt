@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.6
+Stable tag: 1.4.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,13 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.4.0 =
+* Drafting with AI is several times faster. Nearly all of the time was spent waiting on the AI provider — about 2.2 seconds per post, of which under 10 milliseconds was this plugin — and posts were being sent one at a time. Several are now drafted at once: in testing, 10 posts went from roughly 22 seconds to under 6.
+* Add a "Parallel requests" setting (Settings → "Well, Actually...", default 5) controlling how many posts are drafted simultaneously. Lower it if your provider starts rejecting requests for arriving too quickly. Going much above 5 gave little further gain in testing — the provider becomes the limit.
+* Posts are now handed to workers with an atomic claim, so running several at once can never make two of them draft the same post and pay for it twice. If a batch is interrupted (tab closed, request times out), the posts it had claimed are released back to the queue when you next start drafting.
+* Drop a redundant set of database queries that ran on every drafted post to recalculate counts the progress display never used while running.
+* Tip: the model matters as much as the settings here. In testing, google/gemini-3.5-flash averaged 2.2 seconds per post while openai/gpt-oss-120b averaged 7.3 — over three times slower for the same one-line result.
 
 = 1.3.6 =
 * The diagnostic logging switch is now a checkbox under Settings → "Well, Actually..." → Setup, instead of needing a line added to wp-config.php — which isn't practical on managed hosting where that file isn't readily editable.

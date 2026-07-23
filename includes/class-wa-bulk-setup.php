@@ -606,6 +606,7 @@ class WA_Bulk_Setup {
 			'restUrl'  => esc_url_raw( rest_url( 'wellactually/v1' ) ),
 			'nonce'    => wp_create_nonce( 'wp_rest' ),
 			'cat'      => (int) $args['cat'],
+			'concurrency' => WA_Settings::ai_concurrency(),
 			'reviewUrl' => esc_url_raw(
 				add_query_arg(
 					array(
@@ -1035,29 +1036,52 @@ class WA_Bulk_Setup {
 
 					var done = 0, errors = 0;
 
-					function step() {
+					function report() {
+						progress.textContent = 'Drafting… ' + done + ' of ' + total +
+							' done' + ( errors ? ' (' + errors + ' error' + ( errors > 1 ? 's' : '' ) + ')' : '' );
+					}
+
+					function finish() {
+						progress.innerHTML = 'Done — ' + ( done - errors ) + ' drafted' +
+							( errors ? ', ' + errors + ' error' + ( errors > 1 ? 's' : '' ) : '' ) +
+							'. <a href="' + cfg.reviewUrl + '">Review suggestions</a>';
+						running = false;
+						btn.disabled = false;
+					}
+
+					// Drafting is almost entirely waiting on the AI provider, so
+					// run several requests at once instead of one after another.
+					// Each worker pulls the next post itself and keeps going
+					// until the queue is empty; the server hands out posts with
+					// an atomic claim, so two workers never get the same one.
+					var workers = Math.max( 1, Math.min( 20, parseInt( cfg.concurrency, 10 ) || 5 ) );
+					var alive = Math.min( workers, total );
+
+					function worker() {
 						api( 'ai/process' ).then( function ( out ) {
 							if ( out.processed ) {
 								done++;
 								if ( out.processed.status === 'error' ) { errors++; }
-								progress.textContent = 'Drafting… ' + done + ' of ' + total +
-									' done' + ( errors ? ' (' + errors + ' error' + ( errors > 1 ? 's' : '' ) + ')' : '' );
-								step();
+								report();
+								worker();
 							} else {
-								progress.innerHTML = 'Done — ' + ( done - errors ) + ' drafted' +
-									( errors ? ', ' + errors + ' error' + ( errors > 1 ? 's' : '' ) : '' ) +
-									'. <a href="' + cfg.reviewUrl + '">Review suggestions</a>';
-								running = false;
-								btn.disabled = false;
+								// Queue drained — this worker is finished.
+								alive--;
+								if ( alive <= 0 ) { finish(); }
 							}
 						} ).catch( function () {
-							progress.textContent = 'Something went wrong while drafting. Please try again.';
-							running = false;
-							btn.disabled = false;
+							// Don't strand the whole batch on one failed
+							// request; count it and retire this worker.
+							errors++;
+							alive--;
+							report();
+							if ( alive <= 0 ) { finish(); }
 						} );
 					}
 
-					step();
+					for ( var w = 0; w < alive; w++ ) {
+						worker();
+					}
 				} ).catch( function () {
 					progress.textContent = 'Could not start drafting. Please try again.';
 					running = false;
