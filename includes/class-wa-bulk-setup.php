@@ -186,9 +186,10 @@ class WA_Bulk_Setup {
 				continue;
 			}
 
-			// Stale — correct the stored value so future queries don't
-			// need to re-check this post.
-			update_post_meta( $post_id, WA_Meta::STATUS_KEY, $actual );
+			// Stale — correct the stored value (and bump the posts cache
+			// marker, via recompute_status()) so future queries don't need
+			// to re-check this post.
+			WA_Meta::recompute_status( $post_id );
 			$dropped++;
 		}
 

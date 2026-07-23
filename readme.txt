@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.3.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,9 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.3.2 =
+* Fix: saving a page of the "Well, Actually..." screen and landing back on the same filtered view could show "No posts match this filter" even though the post count at the top was correct and nonzero. On sites with a persistent object cache (common on managed hosting), WordPress caches a query's matching post IDs and only invalidates that cache when a post itself changes — not when post meta does, which is all our status field is. Saving changed the meta but left the cached ID list stale, so the very next page load re-served the posts that were *just* handled; this plugin's own stale-status safety net then (correctly) recognized every one of them as no longer belonging and dropped them all, emptying the page. Every place that changes a post's swipe status now also invalidates that cache, so the next query is always fresh.
 
 = 1.3.1 =
 * On the "Well, Actually..." screen, add "Date modified" and "Comment count" as sort options alongside "Date published" — all three are indexed core columns, so they stay cheap even on a large archive.
