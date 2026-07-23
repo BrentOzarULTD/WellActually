@@ -156,8 +156,10 @@ class WA_AI_Queue {
 	 * @param string $batch_id Batch to claim from.
 	 * @param int    $limit    Maximum simultaneous in-flight items.
 	 * @return array|string {post_id, token} on success, 'at_capacity' when the
-	 *                      ceiling is reached, or 'empty' when the batch has
-	 *                      no queued work left.
+	 *                      ceiling is reached, 'busy' when the claim lock could
+	 *                      not be acquired (retry), or 'empty' when the batch
+	 *                      has no queued work left. 'at_capacity' and 'busy' are
+	 *                      both retryable; 'empty' is terminal for the batch.
 	 */
 	public static function claim( $batch_id, $limit ) {
 		global $wpdb;
@@ -168,6 +170,27 @@ class WA_AI_Queue {
 		// A short wait: if another claim is mid-flight we'd rather queue
 		// briefly than give up and report the batch finished.
 		$got_lock = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK( %s, %d )', $lock, 3 ) );
+
+		// MySQL returns 1 when the lock is ours, 0 on timeout, and NULL on a
+		// server/connection error. The count-and-claim below is only atomic
+		// while we hold the lock: without it, two callers that both failed to
+		// acquire it would each count the same in-flight rows, each see spare
+		// capacity, and each claim another — which is exactly the concurrency
+		// ceiling this lock exists to enforce, defeated. So if the lock isn't
+		// ours, change no queue state and report 'busy'; the caller retries,
+		// the same way it does for the ceiling itself.
+		if ( 1 !== (int) $got_lock ) {
+			if ( WA_Settings::debug_logging_enabled() ) {
+				error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+					sprintf(
+						'[wellactually] AI queue claim could not acquire lock %s (GET_LOCK returned %s); reporting busy.',
+						$lock,
+						null === $got_lock ? 'NULL (error)' : "'" . (string) $got_lock . "'"
+					)
+				);
+			}
+			return 'busy';
+		}
 
 		try {
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
@@ -217,9 +240,10 @@ class WA_AI_Queue {
 				'token'   => $token,
 			);
 		} finally {
-			if ( $got_lock ) {
-				$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $lock ) );
-			}
+			// We only reach here holding the lock (a failed acquire returned
+			// above), so always release it — on success, on an empty batch,
+			// and if the critical section threw.
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK( %s )', $lock ) );
 		}
 	}
 
