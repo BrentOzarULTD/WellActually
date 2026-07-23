@@ -273,16 +273,23 @@ class WA_AI {
 			);
 		}
 
+		$payload = array(
+			'processed' => $processed,
+			'counts'    => WA_AI_Queue::batch_counts( $batch_id ),
+		);
+
+		// Deliberately a field rather than an HTTP 429: this endpoint already
+		// answers 429 for its own concurrency ceiling, which the browser is
+		// meant to wait out and retry. A provider rate limit is the opposite
+		// instruction — stop the run — so it must not look the same.
+		if ( is_array( $processed ) && isset( $processed['status'] ) && 'rate_limited' === $processed['status'] ) {
+			$payload['abort'] = 'rate_limited';
+		}
+
 		// Batch state comes from the server, so the browser never has to infer
 		// whether a run is finished from its own tally of responses (which a
 		// lost response would silently corrupt).
-		$response = new WP_REST_Response(
-			array(
-				'processed' => $processed,
-				'counts'    => WA_AI_Queue::batch_counts( $batch_id ),
-			),
-			200
-		);
+		$response = new WP_REST_Response( $payload, 200 );
 		$response->header( 'Cache-Control', 'no-store' );
 		return $response;
 	}
@@ -447,6 +454,47 @@ class WA_AI {
 	}
 
 	/**
+	 * Whether a provider error is a rate limit ("you're sending too many
+	 * requests"), as opposed to something wrong with this particular post.
+	 *
+	 * The AI client flattens the provider's HTTP failure into a message, so
+	 * this matches on what those messages contain. Nano-GPT produces
+	 * "Too Many Requests (429) - Rate limit exceeded…"; the other spellings
+	 * cover the common phrasings from other providers.
+	 *
+	 * @param string $message Error message from the provider call.
+	 * @return bool
+	 */
+	private static function is_rate_limit_error( $message ) {
+		$message = strtolower( (string) $message );
+
+		foreach ( array( '429', 'too many requests', 'rate limit', 'rate_limit', 'ratelimit' ) as $needle ) {
+			if ( false !== strpos( $message, $needle ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Wrap a provider failure, marking the ones that mean "slow down" rather
+	 * than "this post can't be drafted".
+	 *
+	 * @param string $message Error message.
+	 * @return array
+	 */
+	private static function describe_failure( $message ) {
+		$out = array( 'error' => $message );
+
+		if ( self::is_rate_limit_error( $message ) ) {
+			$out['rate_limited'] = true;
+		}
+
+		return $out;
+	}
+
+	/**
 	 * The model id drafting will actually request for a provider: this
 	 * plugin's own setting when set, otherwise the provider's published
 	 * default. Empty string when neither is available.
@@ -531,6 +579,20 @@ class WA_AI {
 	 */
 	public static function draft_for_post( $post_id, $claim_token = null ) {
 		$outcome = self::generate_draft( $post_id );
+
+		// A rate limit says nothing about this post, so don't consume the
+		// claim or record a drafting error against it — hand it back so a
+		// later run picks it up untouched.
+		if ( ! empty( $outcome['rate_limited'] ) ) {
+			if ( null !== $claim_token ) {
+				WA_AI_Queue::release( $post_id, $claim_token );
+			}
+
+			return array(
+				'status' => 'rate_limited',
+				'error'  => $outcome['error'],
+			);
+		}
 
 		// Ownership fence. When drafting is running as queue work, a stale
 		// sweep may have reclaimed this item while the provider call was in
@@ -636,11 +698,11 @@ class WA_AI {
 			}
 			$json = $builder->generate_text();
 		} catch ( \Throwable $e ) {
-			return array( 'error' => $e->getMessage() );
+			return self::describe_failure( $e->getMessage() );
 		}
 
 		if ( is_wp_error( $json ) ) {
-			return array( 'error' => $json->get_error_message() );
+			return self::describe_failure( $json->get_error_message() );
 		}
 		if ( ! is_string( $json ) ) {
 			return array( 'error' => __( 'The AI returned an unexpected response type.', 'wellactually' ) );

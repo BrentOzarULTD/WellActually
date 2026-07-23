@@ -253,6 +253,39 @@ class WA_AI_Queue {
 	}
 
 	/**
+	 * Hand an item back to the queue without consuming it.
+	 *
+	 * Used when the work couldn't be done for a reason that isn't the post's
+	 * fault — a provider rate limit — so it stays available for a later run
+	 * instead of being recorded as a failed draft. Fenced by the claim token,
+	 * like complete(), so a caller that already lost ownership can't disturb
+	 * whoever holds it now.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $token   The token handed out by claim().
+	 * @return bool True if this caller still owned the item and released it.
+	 */
+	public static function release( $post_id, $token ) {
+		global $wpdb;
+
+		$table = self::table_name();
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
+		$released = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table}
+				 SET status = %s, claim_token = '', claimed_at = 0
+				 WHERE post_id = %d AND claim_token = %s",
+				self::STATUS_QUEUED,
+				absint( $post_id ),
+				$token
+			)
+		);
+
+		return (bool) $released;
+	}
+
+	/**
 	 * Return abandoned claims to the queue.
 	 *
 	 * A single conditional statement, so there's no window between deciding a

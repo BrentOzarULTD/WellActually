@@ -997,6 +997,10 @@ class WA_Bulk_Setup {
 					// a lost response is not a failed draft, and inferring one
 					// from the other is what produced negative totals before.
 					var drafted = 0, failed = 0, unknown = 0;
+					// Set when the provider tells us we're going too fast.
+					// Every worker checks it, so one refusal stops the run
+					// rather than each worker discovering it separately.
+					var abortedByRateLimit = false;
 
 					function summary() {
 						var parts = [ drafted + ' drafted' ];
@@ -1010,6 +1014,16 @@ class WA_Bulk_Setup {
 					}
 
 					function finish( remaining ) {
+						if ( abortedByRateLimit ) {
+							try { window.sessionStorage.setItem( 'waAiBatch', batch ); } catch ( e ) {}
+							progress.innerHTML = 'Your AI provider said you\u2019re sending too many requests at a time, ' +
+								'so we stopped here. Try again later. ' +
+								'<a href="' + cfg.reviewUrl + '">Review suggestions</a>';
+							running = false;
+							btn.disabled = false;
+							return;
+						}
+
 						if ( remaining > 0 ) {
 							// The server still holds work for this batch, so
 							// this run stopped short rather than finished.
@@ -1035,6 +1049,8 @@ class WA_Bulk_Setup {
 					}
 
 					function worker() {
+						if ( abortedByRateLimit ) { retire(); return; }
+
 						fetch( cfg.restUrl + '/ai/process', {
 							method: 'POST',
 							credentials: 'same-origin',
@@ -1059,6 +1075,16 @@ class WA_Bulk_Setup {
 
 							if ( out.counts && typeof out.counts.remaining !== 'undefined' ) {
 								lastRemaining = out.counts.remaining;
+							}
+
+							// Provider rate limit: stop the whole run. Note
+							// this arrives as a field, not a 429 — a 429 here
+							// is our own concurrency ceiling, which is a
+							// "wait and retry", not a "stop".
+							if ( 'rate_limited' === out.abort ) {
+								abortedByRateLimit = true;
+								retire();
+								return;
 							}
 
 							if ( out.processed ) {
