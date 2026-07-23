@@ -29,6 +29,14 @@ Plain PHP + vanilla ES6/CSS, no build step. See [TESTING.md](TESTING.md) for the
 wp eval-file wp-content/plugins/wellactually/bin/seed.php
 ```
 
+## Building a release
+
+```bash
+bin/build-release.sh
+```
+
+Copies just the files a live site needs (main plugin file, `includes/`, `templates/`, `assets/`, `languages/`, `uninstall.php`, `readme.txt`, `LICENSE`) into a `wellactually/` folder and zips it as `dist/wellactually-<version>.zip` — version read straight from the plugin header. Dev-only files (this repo's `.git`, `TESTING.md`, `bin/seed.php`, the local test harness, etc.) are never included. Unzipping the result into `wp-content/plugins/` drops the plugin in as `wp-content/plugins/wellactually`. `build/` and `dist/` are gitignored; nothing there is source.
+
 ## License
 
 MIT

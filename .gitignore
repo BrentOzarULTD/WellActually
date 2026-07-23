@@ -11,6 +11,10 @@
 /*.zip
 ai-provider-for-nano-gpt/
 
+# Release build output (bin/build-release.sh) — generated, not source.
+/build/
+/dist/
+
 # Local test WordPress install
 #
 # `.wp-local/` holds a throwaway WordPress site used to manually test this
