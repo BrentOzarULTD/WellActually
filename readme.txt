@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.6.1
+Stable tag: 1.7.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,12 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.7.0 =
+* You can now edit the instructions sent to the AI, under Settings → "Well, Actually..." → Drafting instructions, so statements can be written in your own voice and for your own subject matter. Leave it blank to use the wording the plugin ships with, which is shown in the box as a starting point. The technical bit that tells the AI how to format its reply is added automatically and isn't part of what you edit, so rewriting the instructions can't stop drafts being saved.
+* Fix: asking to draft a given number of posts could quietly draft fewer — ask for 100 and get 53. Posts still held by an earlier drafting run (a tab closed mid-run, or a run stopped by a rate limit) were skipped, and those skips came straight off the total instead of being made up from the thousands of other eligible posts. It now keeps looking until the batch is full. Posts that failed to draft in the past were never the cause; they've always been eligible to try again.
+* Work left behind by an abandoned drafting run is now released after 15 minutes rather than an hour, so it stops holding those posts back sooner.
+* Fix: "0 suggestions ready to review" no longer appears on the "Well, Actually..." screen when there's nothing to review.
 
 = 1.6.1 =
 * If your AI provider refuses a request for being too frequent (a "Too Many Requests" rate limit), drafting now stops the whole run straight away and tells you: "Your AI provider said you're sending too many requests at a time, so we stopped here. Try again later." Previously each post would fail separately and be recorded as a drafting error, so a rate limit looked like a batch of broken posts.

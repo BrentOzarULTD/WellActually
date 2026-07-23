@@ -532,7 +532,10 @@ class WA_Bulk_Setup {
 			<span class="wa-ai-progress" id="wa-ai-progress" aria-live="polite"></span>
 		</div>
 		<?php
-		if ( $counts['ready'] > 0 || $counts['error'] > 0 ) {
+		// Only when there's actually something to review — the line used to
+		// appear on any error count too, which read as "0 suggestions ready
+		// to review" with a link to an empty screen.
+		if ( $counts['ready'] > 0 ) {
 			$review_url = add_query_arg(
 				array(
 					'page'      => self::MENU_SLUG,

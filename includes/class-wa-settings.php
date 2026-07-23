@@ -68,6 +68,7 @@ class WA_Settings {
 			'slug'                => 'swipe',
 			'ai_provider'         => '',
 			'ai_model'            => '',
+			'ai_system_prompt'    => '',
 			'excluded_categories' => array(),
 			'ai_concurrency'      => 5,
 			'debug_logging'       => false,
@@ -277,6 +278,14 @@ class WA_Settings {
 		);
 
 		add_settings_field(
+			'wa_ai_system_prompt',
+			__( 'Drafting instructions', 'wellactually' ),
+			array( $this, 'render_ai_system_prompt_field' ),
+			'wellactually_setup',
+			'wa_ai_section'
+		);
+
+		add_settings_field(
 			'wa_ai_concurrency',
 			__( 'Parallel requests', 'wellactually' ),
 			array( $this, 'render_ai_concurrency_field' ),
@@ -360,6 +369,29 @@ class WA_Settings {
 		<p class="description">
 			<?php esc_html_e( 'The "Well, Actually..." screen sorts posts into its Needs to be set up / Has AI suggestions / In swipe deck views using a summary field kept alongside each post. If that summary ever gets out of step — a post showing up as needing setup when it\'s already excluded, say, or a drafted suggestion you can\'t reach — this rebuilds it from scratch. Safe to run at any time.', 'wellactually' ); ?>
 		</p>
+		<?php
+	}
+
+	/**
+	 * Render the editable drafting instructions.
+	 */
+	public function render_ai_system_prompt_field() {
+		$settings = self::get_settings();
+		$default  = WA_AI::default_system_prompt();
+		?>
+		<textarea
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_system_prompt]"
+			rows="9"
+			class="large-text code"
+			placeholder="<?php echo esc_attr( $default ); ?>"
+		><?php echo esc_textarea( $settings['ai_system_prompt'] ); ?></textarea>
+		<p class="description">
+			<?php esc_html_e( 'What the AI is told before it sees each post — the place to describe your own voice, subject matter, and what makes a good swipe statement for your readers. Leave blank to use the wording shown above, which is what the plugin ships with.', 'wellactually' ); ?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'You don\'t need to mention the response format: the instruction below is always added for you, so a rewrite can\'t stop drafts being read back properly.', 'wellactually' ); ?>
+		</p>
+		<p class="description"><code class="wa-prompt-contract"><?php echo esc_html( WA_AI::response_contract() ); ?></code></p>
 		<?php
 	}
 
@@ -466,6 +498,12 @@ class WA_Settings {
 
 		// Model id is free text (providers like Nano-GPT proxy many models).
 		$output['ai_model'] = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : '';
+
+		// Blank means "use the built-in prompt", so this is stored as typed
+		// rather than being filled in with the default — otherwise the
+		// default would freeze at whatever it said the day they saved.
+		$prompt = isset( $input['ai_system_prompt'] ) ? sanitize_textarea_field( $input['ai_system_prompt'] ) : '';
+		$output['ai_system_prompt'] = mb_substr( trim( $prompt ), 0, 4000 );
 
 		// How many drafting requests may be in flight at once.
 		$concurrency              = isset( $input['ai_concurrency'] ) ? absint( $input['ai_concurrency'] ) : 5;
@@ -629,6 +667,7 @@ class WA_Settings {
 		</div>
 		<style>
 			.wa-tab-panel { margin-top: 16px; }
+			.wa-prompt-contract { display: block; max-width: 600px; padding: 6px 8px; white-space: normal; }
 			.wa-rebuilt-notice { background: #edfaef; border-left: 4px solid #00a32a; padding: 8px 12px; margin: 0 0 8px; max-width: 600px; }
 			.wa-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; max-width: 600px; }
 			.wa-categories-table th.wa-col-count,

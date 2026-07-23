@@ -25,8 +25,10 @@ class WA_AI {
 	const CLAIM_TIMEOUT = 300;
 
 	// A batch with work still sitting untouched this long is considered dead
-	// and its remaining items are released back to the general pool.
-	const BATCH_TIMEOUT = 3600;
+	// and its remaining items are released back to the general pool. Well
+	// clear of any real run (a hundred posts drafts in under a minute), but
+	// short enough that an abandoned one isn't holding posts back for long.
+	const BATCH_TIMEOUT = 900;
 
 	// Cap on how much post text we send. A one-line true/false/debatable
 	// statement needs only the post's core argument, not the whole article —
@@ -157,11 +159,31 @@ class WA_AI {
 
 		$batch_id = WA_AI_Queue::new_batch_id();
 
-		// Over-select: some candidates may already belong to another live
-		// batch and will be refused admission, so ask for extra and trim.
-		$ids = self::select_candidates( $count * 2, $cat );
+		// Keep looking until the batch is full.
+		//
+		// A candidate can be refused admission because some earlier run still
+		// holds it (a closed tab, a run stopped by a rate limit). Selecting
+		// one oversized page and admitting whatever wins means those refusals
+		// come straight off the total: ask for 100 with 147 posts left over
+		// from before, and you'd silently get 53. There are usually thousands
+		// more eligible posts further down the list, so top up from them
+		// instead, skipping everything already tried.
+		$admitted = array();
+		$tried    = array();
 
-		$admitted = WA_AI_Queue::admit( array_slice( $ids, 0, $count * 2 ), $batch_id );
+		for ( $round = 0; $round < 8 && count( $admitted ) < $count; $round++ ) {
+			$still_needed = $count - count( $admitted );
+
+			$candidates = self::select_candidates( $still_needed * 2, $cat, $tried );
+			if ( empty( $candidates ) ) {
+				// Genuinely nothing left that matches.
+				break;
+			}
+
+			$tried    = array_merge( $tried, $candidates );
+			$admitted = array_merge( $admitted, WA_AI_Queue::admit( $candidates, $batch_id ) );
+		}
+
 		$admitted = array_slice( $admitted, 0, $count );
 
 		// Anything admitted beyond what we're keeping is handed straight back,
@@ -327,7 +349,7 @@ class WA_AI {
 	 * @param int $cat   Category term id, or 0 for all.
 	 * @return int[]
 	 */
-	public static function select_candidates( $limit, $cat = 0 ) {
+	public static function select_candidates( $limit, $cat = 0, array $exclude = array() ) {
 		$args = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
@@ -344,6 +366,10 @@ class WA_AI {
 			// real AI calls re-drafting posts that were just set up.
 			'cache_results'       => false,
 		);
+
+		if ( ! empty( $exclude ) ) {
+			$args['post__not_in'] = array_map( 'absint', $exclude );
+		}
 
 		if ( $cat > 0 ) {
 			$args['cat'] = (int) $cat;
@@ -900,15 +926,17 @@ class WA_AI {
 	 * @return string
 	 */
 	private static function system_instruction() {
-		$instruction = 'You write one-line "swipe statements" for a knowledge game on a technical blog (databases, SQL Server, performance). '
-			. "Given one blog post, produce a single statement a reader can agree or disagree with, plus the correct verdict:\n"
-			. "- \"true\": the statement is accurate and the post supports it.\n"
-			. "- \"false\": the statement is a common misconception that the post debunks or corrects.\n"
-			. "- \"debatable\": reasonable experts disagree, or the honest answer is \"it depends\".\n"
-			. "Choose whichever makes the most engaging swipe for THIS post; a varied mix across posts is good. "
-			. 'Keep the statement concrete and under about 15 words, with no hedging and no question marks. '
-			. 'Base it only on the post content. Respond only as a JSON object with exactly two fields: '
-			. '"statement" (a string) and "verdict" (one of "true", "false", or "debatable").';
+		$guidance = (string) wa_get_setting( 'ai_system_prompt', '' );
+
+		if ( '' === trim( $guidance ) ) {
+			$guidance = self::default_system_prompt();
+		}
+
+		// The response contract is appended rather than being part of the
+		// editable text. Someone tuning the wording for their own voice
+		// shouldn't be able to delete the one sentence that makes the reply
+		// parseable and silently break every draft.
+		$instruction = rtrim( $guidance ) . "\n\n" . self::response_contract();
 
 		/**
 		 * Filter the AI system instruction used for drafting swipe statements.
@@ -916,6 +944,34 @@ class WA_AI {
 		 * @param string $instruction The system instruction.
 		 */
 		return (string) apply_filters( 'wa_ai_system_instruction', $instruction );
+	}
+
+	/**
+	 * The default guidance: what a swipe statement is and how to pick a
+	 * verdict. Editable in Settings so it can be tuned to a site's own voice.
+	 *
+	 * @return string
+	 */
+	public static function default_system_prompt() {
+		return 'You write one-line "swipe statements" for a knowledge game on a technical blog (databases, SQL Server, performance). '
+			. "Given one blog post, produce a single statement a reader can agree or disagree with, plus the correct verdict:\n"
+			. "- \"true\": the statement is accurate and the post supports it.\n"
+			. "- \"false\": the statement is a common misconception that the post debunks or corrects.\n"
+			. "- \"debatable\": reasonable experts disagree, or the honest answer is \"it depends\".\n"
+			. "Choose whichever makes the most engaging swipe for THIS post; a varied mix across posts is good. "
+			. 'Keep the statement concrete and under about 15 words, with no hedging and no question marks. '
+			. 'Base it only on the post content.';
+	}
+
+	/**
+	 * The output format the drafting code needs back, always appended to
+	 * whatever guidance is in use.
+	 *
+	 * @return string
+	 */
+	public static function response_contract() {
+		return 'Respond only as a JSON object with exactly two fields: '
+			. '"statement" (a string) and "verdict" (one of "true", "false", or "debatable").';
 	}
 
 	/**
