@@ -317,6 +317,27 @@ class WA_AI_Queue {
 	}
 
 	/**
+	 * Every post_id currently in the queue, across all batches and statuses.
+	 *
+	 * Rows exist only while work is outstanding, so this list is small (a few
+	 * hundred at most). Candidate selection uses it to skip posts another run
+	 * already holds, which would otherwise be selected, refused admission, and
+	 * wasted — the cause of a request for N drafts filling fewer. (Issue #28.)
+	 *
+	 * @return int[]
+	 */
+	public static function queued_post_ids() {
+		global $wpdb;
+
+		$table = self::table_name();
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
+		$ids = $wpdb->get_col( "SELECT post_id FROM {$table}" );
+
+		return array_map( 'intval', $ids );
+	}
+
+	/**
 	 * Outstanding work in a batch.
 	 *
 	 * @param string $batch_id Batch identifier.

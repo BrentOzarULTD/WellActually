@@ -159,19 +159,31 @@ class WA_AI {
 
 		$batch_id = WA_AI_Queue::new_batch_id();
 
-		// Keep looking until the batch is full.
+		// Keep looking until the batch is full or the archive genuinely runs
+		// out of eligible posts.
 		//
 		// A candidate can be refused admission because some earlier run still
-		// holds it (a closed tab, a run stopped by a rate limit). Selecting
-		// one oversized page and admitting whatever wins means those refusals
-		// come straight off the total: ask for 100 with 147 posts left over
-		// from before, and you'd silently get 53. There are usually thousands
-		// more eligible posts further down the list, so top up from them
-		// instead, skipping everything already tried.
+		// holds it (a closed tab, a run stopped by a rate limit). The fix is to
+		// not offer those posts in the first place: seed the exclusion with
+		// everything already in the queue, so the candidate query skips held
+		// posts at the SQL level instead of selecting them only to have admit()
+		// reject them. Without this, refusals came straight off the total — ask
+		// for 100 with 147 posts held from before and you'd silently get 53 —
+		// and a fixed page budget could exhaust its scan among held posts while
+		// thousands of eligible ones sat further down the archive (issue #28).
 		$admitted = array();
-		$tried    = array();
+		$tried    = WA_AI_Queue::queued_post_ids();
 
-		for ( $round = 0; $round < 8; $round++ ) {
+		// Each round adds its candidates to $tried, so the next round returns
+		// strictly new posts — the loop makes guaranteed progress and stops
+		// when a round finds nothing (the real "exhausted" signal) or the batch
+		// is full. The cap is only a safety net against an unforeseen
+		// non-terminating case; it's far above any real fill (count maxes at
+		// 200), so it never truncates a legitimate request the way the old
+		// fixed eight rounds could.
+		$max_rounds = 500;
+
+		for ( $round = 0; $round < $max_rounds; $round++ ) {
 			$still_needed = $count - count( $admitted );
 			if ( $still_needed <= 0 ) {
 				break;
@@ -185,6 +197,17 @@ class WA_AI {
 
 			$tried    = array_merge( $tried, $candidates );
 			$admitted = array_merge( $admitted, WA_AI_Queue::admit( $candidates, $batch_id ) );
+		}
+
+		if ( $max_rounds === $round && WA_Settings::debug_logging_enabled() ) {
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				sprintf(
+					'[wellactually] AI enqueue hit the %d-round safety cap with %d of %d admitted; investigate before raising it.',
+					$max_rounds,
+					count( $admitted ),
+					$count
+				)
+			);
 		}
 
 		$admitted = array_slice( $admitted, 0, $count );

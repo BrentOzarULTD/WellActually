@@ -168,4 +168,78 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 		$this->assertGreaterThan( 0, $data['queued'] );
 		$this->assertLessThanOrEqual( 50, $data['queued'] );
 	}
+
+	/**
+	 * #28: a request must fill from eligible posts however deep in the archive
+	 * they are, even when far more than a few pages of the *newest* posts are
+	 * held by other live batches. The old fixed round budget could spend its
+	 * whole scan among held posts and give up with plenty still eligible.
+	 */
+	public function test_enqueue_fills_past_many_pages_of_held_posts() {
+		// Newest first is how candidates are ordered, so holding the newest
+		// posts is what pushed the eligible ones past the old scan depth.
+		$posts = self::factory()->post->create_many( 120 );
+
+		// Hold the newest 110 in another batch — well beyond what the former
+		// eight-round, ~2x-page budget could have scanned for a count of 10.
+		$held = array_slice( $posts, 10 ); // create_many returns oldest-first.
+		WA_AI_Queue::admit( $held, WA_AI_Queue::new_batch_id() );
+
+		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
+		$request->set_param( 'count', 10 );
+		$request->set_param( 'cat', 0 );
+		$request->set_param( 'batch', '' );
+
+		$data = WA_AI::instance()->handle_enqueue( $request )->get_data();
+
+		$this->assertSame( 10, $data['queued'], 'Every eligible post should be reachable regardless of how many newer ones are held.' );
+		$this->assertEmpty( array_intersect( $data['ids'], $held ), 'It must not take posts another run is holding.' );
+	}
+
+	/**
+	 * #28: when fewer than the requested number of eligible, unclaimed posts
+	 * exist, return exactly the number available — no more, and without
+	 * looping forever trying to reach the target.
+	 */
+	public function test_enqueue_returns_exactly_what_is_available() {
+		$posts = self::factory()->post->create_many( 5 );
+
+		// Two of the five are already held elsewhere, leaving three eligible.
+		WA_AI_Queue::admit( array_slice( $posts, 0, 2 ), WA_AI_Queue::new_batch_id() );
+
+		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
+		$request->set_param( 'count', 20 );
+		$request->set_param( 'cat', 0 );
+		$request->set_param( 'batch', '' );
+
+		$data = WA_AI::instance()->handle_enqueue( $request )->get_data();
+
+		$this->assertSame( 3, $data['queued'], 'Only the three genuinely eligible posts should be queued.' );
+	}
+
+	/**
+	 * #28: two runs must never end up drafting the same post. The second
+	 * request has to see the first's posts as unavailable and fill from
+	 * elsewhere, exactly the property that keeps a post from being billed
+	 * twice.
+	 */
+	public function test_back_to_back_enqueues_do_not_overlap() {
+		self::factory()->post->create_many( 30 );
+
+		$first = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
+		$first->set_param( 'count', 10 );
+		$first->set_param( 'cat', 0 );
+		$first->set_param( 'batch', '' );
+		$first_ids = WA_AI::instance()->handle_enqueue( $first )->get_data()['ids'];
+
+		$second = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
+		$second->set_param( 'count', 10 );
+		$second->set_param( 'cat', 0 );
+		$second->set_param( 'batch', '' );
+		$second_ids = WA_AI::instance()->handle_enqueue( $second )->get_data()['ids'];
+
+		$this->assertCount( 10, $first_ids );
+		$this->assertCount( 10, $second_ids );
+		$this->assertEmpty( array_intersect( $first_ids, $second_ids ), 'No post may be queued by two runs at once.' );
+	}
 }
