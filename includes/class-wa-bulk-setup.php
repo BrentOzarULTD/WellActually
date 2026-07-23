@@ -51,6 +51,7 @@ class WA_Bulk_Setup {
 	 */
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_page' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 	}
 
 	/**
@@ -70,6 +71,78 @@ class WA_Bulk_Setup {
 			// Handle the save before any output so we can redirect (PRG).
 			add_action( 'load-' . $this->hook, array( $this, 'handle_save' ) );
 		}
+	}
+
+	/**
+	 * Enqueue the screen's stylesheet and script, and hand the script its
+	 * runtime config and translated strings.
+	 *
+	 * @param string $hook_suffix The current admin page's hook suffix.
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		if ( ! $this->hook || $hook_suffix !== $this->hook ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'wa-admin-bulk-setup',
+			WA_PLUGIN_URL . 'assets/css/admin-bulk-setup.css',
+			array(),
+			WA_VERSION
+		);
+
+		wp_enqueue_script(
+			'wa-admin-bulk-setup',
+			WA_PLUGIN_URL . 'assets/js/admin-bulk-setup.js',
+			array(),
+			WA_VERSION,
+			array( 'in_footer' => true )
+		);
+
+		$args = $this->current_args();
+
+		wp_localize_script(
+			'wa-admin-bulk-setup',
+			'waBulkSetup',
+			array(
+				'restUrl'     => esc_url_raw( rest_url( 'wellactually/v1' ) ),
+				'nonce'       => wp_create_nonce( 'wp_rest' ),
+				'cat'         => (int) $args['cat'],
+				'concurrency' => WA_Settings::ai_concurrency(),
+				'reviewUrl'   => esc_url_raw(
+					add_query_arg(
+						array(
+							'page'      => self::MENU_SLUG,
+							'wa_status' => 'has_ai',
+						),
+						admin_url( 'edit.php' )
+					)
+				),
+				'i18n'        => array(
+					'queuing'           => __( 'Queuing…', 'wellactually' ),
+					'nothingToDraft'    => __( 'No un-drafted posts match this filter.', 'wellactually' ),
+					/* translators: %1$s: number of posts drafted so far */
+					'countDrafted'      => __( '%1$s drafted', 'wellactually' ),
+					/* translators: %1$s: number of posts that failed, always 1 here */
+					'countError'        => __( '%1$s error', 'wellactually' ),
+					/* translators: %1$s: number of posts that failed */
+					'countErrors'       => __( '%1$s errors', 'wellactually' ),
+					/* translators: %1$s: number of posts whose outcome is unknown */
+					'countUnconfirmed'  => __( '%1$s unconfirmed', 'wellactually' ),
+					/* translators: separator between the parts of a progress summary, e.g. "3 drafted, 1 error" */
+					'listSeparator'     => __( ', ', 'wellactually' ),
+					/* translators: 1: posts handled so far, 2: posts in this run, 3: summary such as "3 drafted, 1 error" */
+					'drafting'          => __( 'Drafting… %1$s of %2$s — %3$s', 'wellactually' ),
+					'rateLimited'       => __( 'Your AI provider said you’re sending too many requests at a time, so we stopped here. Try again later.', 'wellactually' ),
+					/* translators: 1: summary such as "3 drafted, 1 error", 2: number of posts still queued */
+					'stoppedEarly'      => __( 'Stopped early — %1$s, %2$s still queued. Click Draft with AI again to resume.', 'wellactually' ),
+					/* translators: %1$s: summary such as "3 drafted, 1 error" */
+					'finished'          => __( 'Done — %1$s.', 'wellactually' ),
+					'reviewSuggestions' => __( 'Review suggestions', 'wellactually' ),
+					'startFailed'       => __( 'Could not start drafting. Please try again.', 'wellactually' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -401,9 +474,6 @@ class WA_Bulk_Setup {
 
 		echo '</div>';
 
-		$this->print_styles();
-		$this->print_scripts();
-
 		wp_reset_postdata();
 	}
 
@@ -554,24 +624,6 @@ class WA_Bulk_Setup {
 			echo ' <a href="' . esc_url( $review_url ) . '">' . esc_html__( 'Review them', 'wellactually' ) . '</a>';
 			echo '</p>';
 		}
-
-		// Config for the drafting JS.
-		$config = array(
-			'restUrl'     => esc_url_raw( rest_url( 'wellactually/v1' ) ),
-			'nonce'       => wp_create_nonce( 'wp_rest' ),
-			'cat'         => (int) $args['cat'],
-			'concurrency' => WA_Settings::ai_concurrency(),
-			'reviewUrl'   => esc_url_raw(
-				add_query_arg(
-					array(
-						'page'      => self::MENU_SLUG,
-						'wa_status' => 'has_ai',
-					),
-					admin_url( 'edit.php' )
-				)
-			),
-		);
-		echo '<script>window.waAiConfig = ' . wp_json_encode( $config ) . ';</script>';
 
 		echo '</div>';
 	}
@@ -863,282 +915,5 @@ class WA_Bulk_Setup {
 		$content = trim( preg_replace( '/\s+/', ' ', $content ) );
 
 		return wp_trim_words( $content, 55, '…' );
-	}
-
-	/**
-	 * Print the screen's CSS.
-	 */
-	private function print_styles() {
-		?>
-		<style>
-			.wa-bulk-setup .wa-filters { margin: 12px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-			.wa-bulk-setup .wa-count { color: #646970; }
-			.wa-ai-panel { background: #fff; border: 1px solid #dcdcde; border-left: 4px solid #2271b1; padding: 8px 16px 16px; margin: 12px 0; }
-			.wa-ai-panel h2 { margin: 12px 0 4px; }
-			.wa-ai-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-			.wa-ai-controls #wa-ai-count { width: 70px; }
-			.wa-ai-cat-note, .wa-ai-progress { color: #646970; }
-			.wa-ai-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; }
-			.wa-ai-standing { margin: 4px 0 0; }
-			.wa-bulk-table { margin-top: 8px; }
-			.wa-bulk-table th.wa-col-post,
-			.wa-bulk-table td.wa-col-post { width: 38%; }
-			.wa-bulk-table th.wa-col-statement,
-			.wa-bulk-table td.wa-col-statement { width: 32%; }
-			.wa-bulk-table th.wa-col-verdict,
-			.wa-bulk-table td.wa-col-verdict { width: 14%; }
-			.wa-bulk-table th.wa-col-skip,
-			.wa-bulk-table td.wa-col-skip { width: 8%; text-align: center; }
-			.wa-bulk-table th.wa-col-exclude,
-			.wa-bulk-table td.wa-col-exclude { width: 8%; text-align: center; }
-			.wa-bulk-table .wa-post-meta { color: #646970; font-size: 12px; margin: 2px 0; }
-			.wa-bulk-table .wa-post-preview { color: #50575e; font-size: 13px; line-height: 1.5; }
-			.wa-bulk-table .wa-statement-input { width: 100%; }
-			.wa-bulk-table .wa-verdict-input { width: 100%; max-width: 160px; }
-			.wa-ai-badge { display: inline-block; background: #2271b1; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; }
-			.wa-ai-error { display: inline-block; background: #d63638; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; text-decoration: none; }
-			.wa-ai-error:hover, .wa-ai-error:focus { background: #e65054; color: #fff; }
-			.wa-bulk-table tr.wa-row-ai { background: #f0f6fc; }
-			.wa-bulk-table tr.wa-row-excluded .wa-statement-input,
-			.wa-bulk-table tr.wa-row-excluded .wa-verdict-input,
-			.wa-bulk-table tr.wa-row-skipped .wa-statement-input,
-			.wa-bulk-table tr.wa-row-skipped .wa-verdict-input { opacity: .4; }
-			.wa-bulk-footer { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; flex-wrap: wrap; gap: 12px; }
-			.wa-bulk-footer .wa-pagination { margin: 0; }
-			.wa-bulk-footer .button-primary { font-size: 15px; padding: 6px 20px; height: auto; }
-		</style>
-		<?php
-	}
-
-	/**
-	 * Print the screen's progressive-enhancement scripts: dim a row's inputs
-	 * when it's excluded or skipped, and drive the AI drafting loop.
-	 */
-	private function print_scripts() {
-		?>
-		<script>
-		( function () {
-			// Dim statement/verdict when "Never" or "Skip" is checked. Both
-			// leave the content untouched on save (Never clears it, Skip holds
-			// it), so disabling the inputs is purely a visual cue.
-			function syncRow( row ) {
-				if ( ! row ) { return; }
-				var exclude = row.querySelector( '.wa-exclude-input' );
-				var skip = row.querySelector( '.wa-skip-input' );
-				var off = ( exclude && exclude.checked ) || ( skip && skip.checked );
-				row.classList.toggle( 'wa-row-excluded', !! ( exclude && exclude.checked ) );
-				row.classList.toggle( 'wa-row-skipped', !! ( skip && skip.checked ) );
-				var s = row.querySelector( '.wa-statement-input' );
-				var v = row.querySelector( '.wa-verdict-input' );
-				if ( s ) { s.disabled = off; }
-				if ( v ) { v.disabled = off; }
-			}
-
-			document.querySelectorAll( '.wa-bulk-table .wa-row' ).forEach( function ( row ) {
-				var exclude = row.querySelector( '.wa-exclude-input' );
-				var skip = row.querySelector( '.wa-skip-input' );
-				// Never and Skip are mutually exclusive in intent; unchecking the
-				// other keeps the UI unambiguous.
-				if ( exclude ) {
-					exclude.addEventListener( 'change', function () {
-						if ( exclude.checked && skip ) { skip.checked = false; }
-						syncRow( row );
-					} );
-				}
-				if ( skip ) {
-					skip.addEventListener( 'change', function () {
-						if ( skip.checked && exclude ) { exclude.checked = false; }
-						syncRow( row );
-					} );
-				}
-				syncRow( row );
-			} );
-
-			// AI drafting loop: enqueue N posts, then process one at a time,
-			// showing live progress. Browser-driven so it never blocks a single
-			// request and the user watches results as they arrive.
-			var cfg = window.waAiConfig;
-			var btn = document.getElementById( 'wa-ai-draft-btn' );
-			var progress = document.getElementById( 'wa-ai-progress' );
-			if ( ! cfg || ! btn || ! progress ) { return; }
-
-			function api( path, body ) {
-				return fetch( cfg.restUrl + '/' + path, {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-WP-Nonce': cfg.nonce
-					},
-					body: JSON.stringify( body || {} )
-				} ).then( function ( r ) {
-					if ( ! r.ok ) { throw new Error( 'Request failed: ' + r.status ); }
-					return r.json();
-				} );
-			}
-
-			var running = false;
-
-			btn.addEventListener( 'click', function () {
-				if ( running ) { return; }
-				var countEl = document.getElementById( 'wa-ai-count' );
-				var count = Math.max( 1, Math.min( 200, parseInt( countEl && countEl.value, 10 ) || 10 ) );
-
-				running = true;
-				btn.disabled = true;
-				progress.textContent = 'Queuing…';
-
-				// Hand back the previous batch id. If that run stopped early
-				// with work outstanding, the server resumes it instead of
-				// starting a new batch and stranding the old one's posts.
-				var previous = '';
-				try { previous = window.sessionStorage.getItem( 'waAiBatch' ) || ''; } catch ( e ) {}
-
-				api( 'ai/enqueue', { count: count, cat: cfg.cat, batch: previous } ).then( function ( res ) {
-					var batch = res.batch;
-					var total = res.queued || 0;
-
-					try { window.sessionStorage.setItem( 'waAiBatch', batch ); } catch ( e ) {}
-
-					if ( ! total ) {
-						progress.textContent = 'No un-drafted posts match this filter.';
-						running = false;
-						btn.disabled = false;
-						return;
-					}
-
-					// Counted separately and never subtracted from one another:
-					// a lost response is not a failed draft, and inferring one
-					// from the other is what produced negative totals before.
-					var drafted = 0, failed = 0, unknown = 0;
-					// Set when the provider tells us we're going too fast.
-					// Every worker checks it, so one refusal stops the run
-					// rather than each worker discovering it separately.
-					var abortedByRateLimit = false;
-
-					function summary() {
-						var parts = [ drafted + ' drafted' ];
-						if ( failed ) { parts.push( failed + ' error' + ( failed > 1 ? 's' : '' ) ); }
-						if ( unknown ) { parts.push( unknown + ' unconfirmed' ); }
-						return parts.join( ', ' );
-					}
-
-					function report() {
-						progress.textContent = 'Drafting… ' + ( drafted + failed ) + ' of ' + total + ' — ' + summary();
-					}
-
-					function finish( remaining ) {
-						if ( abortedByRateLimit ) {
-							try { window.sessionStorage.setItem( 'waAiBatch', batch ); } catch ( e ) {}
-							progress.innerHTML = 'Your AI provider said you\u2019re sending too many requests at a time, ' +
-								'so we stopped here. Try again later. ' +
-								'<a href="' + cfg.reviewUrl + '">Review suggestions</a>';
-							running = false;
-							btn.disabled = false;
-							return;
-						}
-
-						if ( remaining > 0 ) {
-							// The server still holds work for this batch, so
-							// this run stopped short rather than finished.
-							progress.innerHTML = 'Stopped early — ' + summary() + ', ' + remaining +
-								' still queued. Click Draft with AI again to resume. ' +
-								'<a href="' + cfg.reviewUrl + '">Review suggestions</a>';
-						} else {
-							try { window.sessionStorage.removeItem( 'waAiBatch' ); } catch ( e ) {}
-							progress.innerHTML = 'Done — ' + summary() +
-								'. <a href="' + cfg.reviewUrl + '">Review suggestions</a>';
-						}
-						running = false;
-						btn.disabled = false;
-					}
-
-					var workers = Math.max( 1, Math.min( 20, parseInt( cfg.concurrency, 10 ) || 5 ) );
-					var alive = Math.min( workers, total );
-					var lastRemaining = total;
-
-					function retire() {
-						alive--;
-						if ( alive <= 0 ) { finish( lastRemaining ); }
-					}
-
-					function worker() {
-						if ( abortedByRateLimit ) { retire(); return; }
-
-						fetch( cfg.restUrl + '/ai/process', {
-							method: 'POST',
-							credentials: 'same-origin',
-							headers: {
-								'Content-Type': 'application/json',
-								'X-WP-Nonce': cfg.nonce
-							},
-							body: JSON.stringify( { batch: batch } )
-						} ).then( function ( r ) {
-							// Site-wide ceiling is full (other tabs, other
-							// users). The work is still queued, so wait and
-							// retry instead of counting a failure.
-							if ( r.status === 429 ) {
-								var wait = ( parseInt( r.headers.get( 'Retry-After' ), 10 ) || 2 ) * 1000;
-								setTimeout( worker, wait );
-								return null;
-							}
-							if ( ! r.ok ) { throw new Error( 'Request failed: ' + r.status ); }
-							return r.json();
-						} ).then( function ( out ) {
-							if ( ! out ) { return; }
-
-							if ( out.counts && typeof out.counts.remaining !== 'undefined' ) {
-								lastRemaining = out.counts.remaining;
-							}
-
-							// Provider rate limit: stop the whole run. Note
-							// this arrives as a field, not a 429 — a 429 here
-							// is our own concurrency ceiling, which is a
-							// "wait and retry", not a "stop".
-							if ( 'rate_limited' === out.abort ) {
-								abortedByRateLimit = true;
-								retire();
-								return;
-							}
-
-							if ( out.processed ) {
-								if ( 'ready' === out.processed.status ) {
-									drafted++;
-								} else if ( 'stale' === out.processed.status ) {
-									// Reassigned to another run mid-flight;
-									// whoever owns it now reports the outcome.
-								} else {
-									failed++;
-								}
-								report();
-								worker();
-							} else {
-								retire();
-							}
-						} ).catch( function () {
-							// The request didn't come back. The server may or
-							// may not have drafted it, so this is neither a
-							// success nor a failure — record it as unconfirmed
-							// and let the server's batch counts decide whether
-							// the run is actually finished.
-							unknown++;
-							report();
-							retire();
-						} );
-					}
-
-					report();
-					for ( var w = 0; w < alive; w++ ) {
-						worker();
-					}
-				} ).catch( function () {
-					progress.textContent = 'Could not start drafting. Please try again.';
-					running = false;
-					btn.disabled = false;
-				} );
-			} );
-		} )();
-		</script>
-		<?php
 	}
 }

@@ -1,0 +1,39 @@
+/**
+ * Posts → "Well, Actually..." bulk swipe setup screen.
+ */
+
+.wa-bulk-setup .wa-filters { margin: 12px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.wa-bulk-setup .wa-count { color: #646970; }
+.wa-ai-panel { background: #fff; border: 1px solid #dcdcde; border-left: 4px solid #2271b1; padding: 8px 16px 16px; margin: 12px 0; }
+.wa-ai-panel h2 { margin: 12px 0 4px; }
+.wa-ai-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.wa-ai-controls #wa-ai-count { width: 70px; }
+.wa-ai-cat-note, .wa-ai-progress { color: #646970; }
+.wa-ai-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; }
+.wa-ai-standing { margin: 4px 0 0; }
+.wa-bulk-table { margin-top: 8px; }
+.wa-bulk-table th.wa-col-post,
+.wa-bulk-table td.wa-col-post { width: 38%; }
+.wa-bulk-table th.wa-col-statement,
+.wa-bulk-table td.wa-col-statement { width: 32%; }
+.wa-bulk-table th.wa-col-verdict,
+.wa-bulk-table td.wa-col-verdict { width: 14%; }
+.wa-bulk-table th.wa-col-skip,
+.wa-bulk-table td.wa-col-skip { width: 8%; text-align: center; }
+.wa-bulk-table th.wa-col-exclude,
+.wa-bulk-table td.wa-col-exclude { width: 8%; text-align: center; }
+.wa-bulk-table .wa-post-meta { color: #646970; font-size: 12px; margin: 2px 0; }
+.wa-bulk-table .wa-post-preview { color: #50575e; font-size: 13px; line-height: 1.5; }
+.wa-bulk-table .wa-statement-input { width: 100%; }
+.wa-bulk-table .wa-verdict-input { width: 100%; max-width: 160px; }
+.wa-ai-badge { display: inline-block; background: #2271b1; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; }
+.wa-ai-error { display: inline-block; background: #d63638; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; text-decoration: none; }
+.wa-ai-error:hover, .wa-ai-error:focus { background: #e65054; color: #fff; }
+.wa-bulk-table tr.wa-row-ai { background: #f0f6fc; }
+.wa-bulk-table tr.wa-row-excluded .wa-statement-input,
+.wa-bulk-table tr.wa-row-excluded .wa-verdict-input,
+.wa-bulk-table tr.wa-row-skipped .wa-statement-input,
+.wa-bulk-table tr.wa-row-skipped .wa-verdict-input { opacity: .4; }
+.wa-bulk-footer { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; flex-wrap: wrap; gap: 12px; }
+.wa-bulk-footer .wa-pagination { margin: 0; }
+.wa-bulk-footer .button-primary { font-size: 15px; padding: 6px 20px; height: auto; }

@@ -1,8 +1,51 @@
 /**
+ * Shared text helpers. Every user-visible string is translated in PHP and
+ * handed over in `window.waSwipe.i18n`; the English literals at the call
+ * sites are only a fallback for a config that failed to print.
+ *
+ * On window because the modules below are separate IIFEs — the same way they
+ * already share window.waAttachGestures.
+ */
+( function () {
+	'use strict';
+
+	var i18n = ( window.waSwipe || {} ).i18n || {};
+
+	window.waSwipeText = {
+		/**
+		 * A translated string, by key.
+		 *
+		 * @param {string} key      Key in the localized i18n object.
+		 * @param {string} fallback English text if the key is missing.
+		 * @return {string}
+		 */
+		s: function ( key, fallback ) {
+			return 'string' === typeof i18n[ key ] ? i18n[ key ] : fallback;
+		},
+
+		/**
+		 * Fill %1$s/%2$s-style placeholders, the way sprintf() would in PHP.
+		 * Translators reorder them, so positions have to be honoured.
+		 *
+		 * @param {string} template Translated string with numbered placeholders.
+		 * @param {Array}  values   Replacements, in argument order.
+		 * @return {string}
+		 */
+		format: function ( template, values ) {
+			return String( template ).replace( /%(\d+)\$s/g, function ( match, position ) {
+				var value = values[ parseInt( position, 10 ) - 1 ];
+				return 'undefined' === typeof value ? match : String( value );
+			} );
+		},
+	};
+}() );
+
+/**
  * WellActually swipe mode frontend.
  *
  * Vanilla ES6, no build step. `window.waSwipe` (printed via
- * wp_localize_script) provides { restUrl, nonce, isLoggedIn, homeUrl, siteName }.
+ * wp_localize_script) provides { restUrl, nonce, isLoggedIn, homeUrl,
+ * siteName, i18n }.
  *
  * State machine: loading -> card -> reveal -> done.
  */
@@ -10,6 +53,8 @@
 	'use strict';
 
 	var config = window.waSwipe || {};
+	var s = window.waSwipeText.s;
+	var format = window.waSwipeText.format;
 	// Resolved in start() rather than here: this script may be parsed before
 	// #wa-app exists in the DOM.
 	var appEl = null;
@@ -48,8 +93,10 @@
 	function buildShareText( correct, answered ) {
 		var pct = Math.round( ( correct / answered ) * 100 );
 		var quizUrl = window.location.origin + window.location.pathname;
-		return 'I scored ' + correct + '/' + answered + ' (' + pct + '%) on the "Well, Actually..." swipe quiz on ' +
-			( config.siteName || 'this blog' ) + '. Try it yourself: ' + quizUrl;
+		return format(
+			s( 'shareText', 'I scored %1$s/%2$s (%3$s%) on the "Well, Actually..." swipe quiz on %4$s. Try it yourself: %5$s' ),
+			[ correct, answered, pct, config.siteName || s( 'thisBlog', 'this blog' ), quizUrl ]
+		);
 	}
 
 	/**
@@ -61,8 +108,8 @@
 	 */
 	function buildShareRow( shareText ) {
 		return '<div class="wa-share-row">' +
-			'<input type="text" class="wa-share-text" readonly value="' + escapeHtml( shareText ) + '" aria-label="Share text" />' +
-			'<button type="button" class="wa-btn wa-copy-btn">Copy</button>' +
+			'<input type="text" class="wa-share-text" readonly value="' + escapeHtml( shareText ) + '" aria-label="' + escapeHtml( s( 'shareTextLabel', 'Share text' ) ) + '" />' +
+			'<button type="button" class="wa-btn wa-copy-btn">' + escapeHtml( s( 'copy', 'Copy' ) ) + '</button>' +
 			'</div>';
 	}
 
@@ -354,10 +401,12 @@
 
 		var totalLabel;
 		if ( state.replay ) {
-			totalLabel = 'Replay: ' + ( state.currentIndex + 1 ) + ' of ' + state.deck.length;
+			totalLabel = format( s( 'replayPosition', 'Replay: %1$s of %2$s' ), [ state.currentIndex + 1, state.deck.length ] );
 		} else {
 			var seenPosition = state.progress.answered_count + 1;
-			totalLabel = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
+			totalLabel = state.total > 0
+				? format( s( 'deckPosition', '%1$s of %2$s' ), [ seenPosition, state.total ] )
+				: String( seenPosition );
 		}
 		// Where the control hints used to sit: the buttons say what they do,
 		// so the space is better spent on something the player can't work out
@@ -365,7 +414,7 @@
 		// anything, and never on a debatable card (which has no wrong answer,
 		// so a figure there would give the verdict away).
 		var footNote = ( 'number' === typeof card.pct_wrong )
-			? card.pct_wrong + '% got this one wrong'
+			? format( s( 'pctWrong', '%1$s% got this one wrong' ), [ card.pct_wrong ] )
 			: '';
 
 		appEl.innerHTML =
@@ -375,7 +424,7 @@
 			'<span class="wa-score">' + escapeHtml( waSwipeStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count ) ) + '</span>' +
 			'<span class="wa-deck-progress">' + escapeHtml( totalLabel ) + '</span>' +
 			'</span>' +
-			'<button type="button" class="wa-reset-link">Start over</button>' +
+			'<button type="button" class="wa-reset-link">' + escapeHtml( s( 'startOver', 'Start over' ) ) + '</button>' +
 			'</div>' +
 			'<div class="wa-card-area">' +
 			'<div class="wa-card" id="wa-card" tabindex="-1">' +
@@ -423,8 +472,8 @@
 
 		appEl.innerHTML =
 			'<div class="wa-done wa-milestone">' +
-			'<p class="wa-done-score">' + escapeHtml( correct + '/' + answered + ' correct so far' ) + '</p>' +
-			'<div class="wa-done-actions"><button type="button" class="wa-btn wa-btn-agree wa-milestone-continue">Keep swiping</button></div>' +
+			'<p class="wa-done-score">' + escapeHtml( format( s( 'scoreSoFar', '%1$s/%2$s correct so far' ), [ correct, answered ] ) ) + '</p>' +
+			'<div class="wa-done-actions"><button type="button" class="wa-btn wa-btn-agree wa-milestone-continue">' + escapeHtml( s( 'keepSwiping', 'Keep swiping' ) ) + '</button></div>' +
 			buildShareRow( shareText ) +
 			'</div>';
 
@@ -455,7 +504,7 @@
 		if ( 0 === answered ) {
 			appEl.innerHTML =
 				'<div class="wa-done">' +
-				'<p class="wa-done-score">' + escapeHtml( 'No swipe statements yet — check back soon.' ) + '</p>' +
+				'<p class="wa-done-score">' + escapeHtml( s( 'emptyDeck', 'No swipe statements yet — check back soon.' ) ) + '</p>' +
 				'</div>';
 			return;
 		}
@@ -467,18 +516,22 @@
 		var actions = '';
 
 		if ( wrongCount > 0 ) {
-			actions += '<button type="button" class="wa-btn wa-btn-agree wa-replay-btn">Replay the ones you got wrong (' + wrongCount + ')</button>';
+			actions += '<button type="button" class="wa-btn wa-btn-agree wa-replay-btn">' +
+				escapeHtml( format( s( 'replayWrong', 'Replay the ones you got wrong (%1$s)' ), [ wrongCount ] ) ) +
+				'</button>';
 		}
 
 		if ( newCount > 0 ) {
-			actions += '<button type="button" class="wa-btn wa-more-btn">New statements have been added — ' + newCount + ' more await</button>';
+			actions += '<button type="button" class="wa-btn wa-more-btn">' +
+				escapeHtml( format( s( 'moreAvailable', 'New statements have been added — %1$s more await' ), [ newCount ] ) ) +
+				'</button>';
 		}
 
-		actions += '<button type="button" class="wa-btn wa-reset-btn">Start over</button>';
+		actions += '<button type="button" class="wa-btn wa-reset-btn">' + escapeHtml( s( 'startOver', 'Start over' ) ) + '</button>';
 
 		appEl.innerHTML =
 			'<div class="wa-done">' +
-			'<p class="wa-done-score">' + escapeHtml( correct + '/' + answered + ' correct (' + pct + '%)' ) + '</p>' +
+			'<p class="wa-done-score">' + escapeHtml( format( s( 'finalScore', '%1$s/%2$s correct (%3$s%)' ), [ correct, answered, pct ] ) ) + '</p>' +
 			'<p class="wa-done-tier">' + escapeHtml( tier ) + '</p>' +
 			'<div class="wa-done-actions">' + actions + '</div>' +
 			buildShareRow( shareText ) +
@@ -520,7 +573,7 @@
 		var text = inputEl.value;
 		var done = function () {
 			var original = btnEl.textContent;
-			btnEl.textContent = 'Copied!';
+			btnEl.textContent = s( 'copied', 'Copied!' );
 			setTimeout( function () {
 				btnEl.textContent = original;
 			}, 1500 );
@@ -550,36 +603,35 @@
 	 */
 	function tierLine( pct ) {
 		if ( pct >= 90 ) {
-			return 'Well, actually… you should be writing this blog.';
+			return s( 'tierGreat', 'Well, actually… you should be writing this blog.' );
 		}
 		if ( pct >= 70 ) {
-			return 'Solid instincts. A few well-actuallys to go.';
+			return s( 'tierGood', 'Solid instincts. A few well-actuallys to go.' );
 		}
 		if ( pct >= 50 ) {
-			return 'Halfway there — the archives are calling.';
+			return s( 'tierOk', 'Halfway there — the archives are calling.' );
 		}
-		return 'Time to hit the archives.';
+		return s( 'tierPoor', 'Time to hit the archives.' );
 	}
 
 	/**
-	 * i18n-ish strings. Kept simple (no wp.i18n dependency) since this is a
-	 * plain JS file with no build step.
+	 * Translated strings, from wp_localize_script. Kept simple (no wp.i18n
+	 * dependency) since this is a plain JS file with no build step: PHP
+	 * translates every string and hands them over in config.i18n, and the
+	 * literals here are only a fallback for a stale cached config.
 	 *
 	 * @return {Object}
 	 */
 	function waSwipeStrings() {
 		return {
-			loading: 'Loading…',
-			error: 'Something went wrong loading swipe mode.',
-			retry: 'Try again',
-			agree: 'Agree',
-			disagree: 'Disagree',
-			unsure: 'Not sure',
+			loading: s( 'loading', 'Loading…' ),
+			error: s( 'error', 'Something went wrong loading swipe mode.' ),
+			retry: s( 'retry', 'Try again' ),
+			agree: s( 'agree', 'Agree' ),
+			disagree: s( 'disagree', 'Disagree' ),
+			unsure: s( 'unsure', 'Not sure' ),
 			scoreLabel: function ( correct, answered ) {
-				return correct + '/' + answered + ' correct';
-			},
-			doneStub: function ( correct, answered ) {
-				return 'Done! ' + correct + '/' + answered + ' correct.';
+				return format( s( 'scoreLabel', '%1$s/%2$s correct' ), [ correct, answered ] );
 			},
 		};
 	}
@@ -679,7 +731,7 @@
 		var el = document.createElement( 'div' );
 		el.className = 'wa-answer-error';
 		el.setAttribute( 'role', 'status' );
-		el.textContent = 'Couldn’t submit that — check your connection and try again.';
+		el.textContent = s( 'answerFailed', 'Couldn’t submit that — check your connection and try again.' );
 		document.body.appendChild( el );
 		setTimeout( function () {
 			el.remove();
@@ -736,10 +788,12 @@
 		}
 		if ( progressEl ) {
 			if ( state.replay ) {
-				progressEl.textContent = 'Replay: ' + state.currentIndex + ' of ' + state.deck.length;
+				progressEl.textContent = format( s( 'replayPosition', 'Replay: %1$s of %2$s' ), [ state.currentIndex, state.deck.length ] );
 			} else {
 				var seenPosition = state.progress.answered_count;
-				progressEl.textContent = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
+				progressEl.textContent = state.total > 0
+					? format( s( 'deckPosition', '%1$s of %2$s' ), [ seenPosition, state.total ] )
+					: String( seenPosition );
 			}
 		}
 	}
@@ -804,7 +858,7 @@
 	 * Confirm, then reset all progress and restart the deck from scratch.
 	 */
 	function handleResetClick() {
-		if ( ! window.confirm( 'Start over? This clears your saved progress.' ) ) {
+		if ( ! window.confirm( s( 'confirmReset', 'Start over? This clears your saved progress.' ) ) ) {
 			return;
 		}
 
@@ -1150,6 +1204,8 @@
 	var prefersReducedMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 	var CORRECT_FLASH_MS = 600;
 	var TRANSITION_MS = prefersReducedMotion ? 0 : 300;
+	var s = window.waSwipeText.s;
+	var format = window.waSwipeText.format;
 
 	/**
 	 * Escape a string for safe HTML insertion — safe both as element text
@@ -1180,17 +1236,19 @@
 	 */
 	function bannerFor( response, answerValue ) {
 		if ( 'debatable' === response.verdict ) {
-			return { heading: '🤔 It’s debatable', sub: '' };
+			return { heading: s( 'revealDebatable', '🤔 It’s debatable' ), sub: '' };
 		}
 
-		var verdictLabel = 'true' === response.verdict ? 'TRUE' : 'FALSE';
-		var sub = 'This one’s ' + verdictLabel + '.';
+		var verdictLabel = 'true' === response.verdict
+			? s( 'verdictTrue', 'TRUE' )
+			: s( 'verdictFalse', 'FALSE' );
+		var sub = format( s( 'revealVerdict', 'This one’s %1$s.' ), [ verdictLabel ] );
 
 		if ( 'unsure' === answerValue ) {
-			return { heading: 'Not sure? Here’s the answer', sub: sub };
+			return { heading: s( 'revealUnsure', 'Not sure? Here’s the answer' ), sub: sub };
 		}
 
-		return { heading: '✗ Well, actually…', sub: sub };
+		return { heading: s( 'revealWrong', '✗ Well, actually…' ), sub: sub };
 	}
 
 	/**
@@ -1245,7 +1303,9 @@
 
 		var pctLine = '';
 		if ( null !== response.pct_agreed && undefined !== response.pct_agreed ) {
-			pctLine = '<p class="wa-reveal-pct">' + escapeHtml( response.pct_agreed + '% of readers agreed.' ) + '</p>';
+			pctLine = '<p class="wa-reveal-pct">' +
+				escapeHtml( format( s( 'pctAgreed', '%1$s% of readers agreed.' ), [ response.pct_agreed ] ) ) +
+				'</p>';
 		}
 
 		overlay.innerHTML =
@@ -1255,10 +1315,11 @@
 			'<div class="wa-reveal-post">' +
 			'<a class="wa-reveal-post-title" href="' + encodeURI( response.url || '#' ) + '" target="_blank" rel="noopener">' + escapeHtml( response.title ) + '</a>' +
 			'<p class="wa-reveal-excerpt">' + escapeHtml( response.excerpt ) + '</p>' +
-			'<a class="wa-reveal-read-btn" href="' + encodeURI( response.url || '#' ) + '" target="_blank" rel="noopener">Read the full post →</a>' +
+			'<a class="wa-reveal-read-btn" href="' + encodeURI( response.url || '#' ) + '" target="_blank" rel="noopener">' +
+			escapeHtml( s( 'readFullPost', 'Read the full post →' ) ) + '</a>' +
 			'</div>' +
 			pctLine +
-			'<button type="button" class="wa-btn wa-reveal-continue">Continue</button>' +
+			'<button type="button" class="wa-btn wa-reveal-continue">' + escapeHtml( s( 'continue', 'Continue' ) ) + '</button>' +
 			'</div>';
 
 		document.body.appendChild( overlay );
@@ -1443,6 +1504,7 @@
 ( function () {
 	'use strict';
 
+	var s = window.waSwipeText.s;
 	var STORAGE_KEY = 'wa_progress';
 	var memoryFallback = null; // Used when localStorage is unavailable.
 	var storageAvailable = isStorageAvailable();
@@ -1540,7 +1602,7 @@
 		var notice = document.createElement( 'div' );
 		notice.className = 'wa-storage-notice';
 		notice.setAttribute( 'role', 'status' );
-		notice.textContent = 'Your progress won’t be saved in this browser.';
+		notice.textContent = s( 'storageUnavailable', 'Your progress won’t be saved in this browser.' );
 		document.body.appendChild( notice );
 
 		setTimeout( function () {

@@ -2,24 +2,28 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: WellActually 1.2.1\n"
+"Project-Id-Version: Well, Actually... 1.7.0\n"
 "Report-Msgid-Bugs-To: https://github.com/BrentOzarULTD/WellActually/issues\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-23T00:58:53+00:00\n"
+"POT-Creation-Date: 2026-07-23T21:56:33+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wellactually\n"
 
 #. Plugin Name of the plugin
 #: wellactually.php
-#: includes/class-wa-settings.php:118
-#: includes/class-wa-settings.php:119
-#: includes/class-wa-settings.php:282
-msgid "WellActually"
+#: includes/class-wa-bulk-setup.php:63
+#: includes/class-wa-bulk-setup.php:64
+#: includes/class-wa-bulk-setup.php:467
+#: includes/class-wa-privacy.php:71
+#: includes/class-wa-settings.php:218
+#: includes/class-wa-settings.php:219
+#: includes/class-wa-settings.php:672
+msgid "Well, Actually..."
 msgstr ""
 
 #. Plugin URI of the plugin
@@ -37,46 +41,115 @@ msgstr ""
 msgid "Brent Ozar"
 msgstr ""
 
-#: includes/class-wa-ai.php:294
+#: includes/class-wa-ai.php:290
+msgid "A batch id is required."
+msgstr ""
+
+#: includes/class-wa-ai.php:663
+msgid "This post was reassigned to another drafting run; result discarded."
+msgstr ""
+
+#: includes/class-wa-ai.php:688
 msgid "Invalid post."
 msgstr ""
 
-#: includes/class-wa-ai.php:316
+#: includes/class-wa-ai.php:710
 msgid "AI is not available in this environment."
 msgstr ""
 
-#: includes/class-wa-ai.php:319
+#: includes/class-wa-ai.php:713
 msgid "No AI provider is selected in settings."
 msgstr ""
 
-#: includes/class-wa-ai.php:344
+#: includes/class-wa-ai.php:766
 msgid "The AI returned an unexpected response type."
 msgstr ""
 
-#: includes/class-wa-ai.php:349
+#: includes/class-wa-ai.php:771
 msgid "The AI returned an unexpected response."
 msgstr ""
 
-#: includes/class-wa-ai.php:402
+#: includes/class-wa-ai.php:824
 msgid "The AI returned an incomplete draft."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:62
-#: includes/class-wa-bulk-setup.php:63
-#: includes/class-wa-bulk-setup.php:255
-msgid "Swipe Setup"
+#: includes/class-wa-bulk-setup.php:122
+msgid "Queuing…"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:123
+msgid "No un-drafted posts match this filter."
+msgstr ""
+
+#. translators: %1$s: number of posts drafted so far
+#: includes/class-wa-bulk-setup.php:125
+#, php-format
+msgid "%1$s drafted"
+msgstr ""
+
+#. translators: %1$s: number of posts that failed, always 1 here
+#: includes/class-wa-bulk-setup.php:127
+#, php-format
+msgid "%1$s error"
+msgstr ""
+
+#. translators: %1$s: number of posts that failed
+#: includes/class-wa-bulk-setup.php:129
+#, php-format
+msgid "%1$s errors"
+msgstr ""
+
+#. translators: %1$s: number of posts whose outcome is unknown
+#: includes/class-wa-bulk-setup.php:131
+#, php-format
+msgid "%1$s unconfirmed"
+msgstr ""
+
+#. translators: separator between the parts of a progress summary, e.g. "3 drafted, 1 error"
+#: includes/class-wa-bulk-setup.php:133
+msgid ", "
+msgstr ""
+
+#. translators: 1: posts handled so far, 2: posts in this run, 3: summary such as "3 drafted, 1 error"
+#: includes/class-wa-bulk-setup.php:135
+#, php-format
+msgid "Drafting… %1$s of %2$s — %3$s"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:136
+msgid "Your AI provider said you’re sending too many requests at a time, so we stopped here. Try again later."
+msgstr ""
+
+#. translators: 1: summary such as "3 drafted, 1 error", 2: number of posts still queued
+#: includes/class-wa-bulk-setup.php:138
+#, php-format
+msgid "Stopped early — %1$s, %2$s still queued. Click Draft with AI again to resume."
+msgstr ""
+
+#. translators: %1$s: summary such as "3 drafted, 1 error"
+#: includes/class-wa-bulk-setup.php:140
+#, php-format
+msgid "Done — %1$s."
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:141
+msgid "Review suggestions"
 msgstr ""
 
 #: includes/class-wa-bulk-setup.php:142
+msgid "Could not start drafting. Please try again."
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:332
 msgid "You are not allowed to edit posts."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:256
+#: includes/class-wa-bulk-setup.php:468
 msgid "Add a swipe statement and mark it True, False, or Debatable — or exclude a post from swipe mode entirely. Fill in as many as you like, then Save at the bottom."
 msgstr ""
 
 #. translators: %d: number of posts
-#: includes/class-wa-bulk-setup.php:288
+#: includes/class-wa-bulk-setup.php:497
 #, php-format
 msgid "%d post set up"
 msgid_plural "%d posts set up"
@@ -84,7 +157,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of posts
-#: includes/class-wa-bulk-setup.php:292
+#: includes/class-wa-bulk-setup.php:501
 #, php-format
 msgid "%d excluded"
 msgid_plural "%d excluded"
@@ -92,7 +165,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of posts
-#: includes/class-wa-bulk-setup.php:296
+#: includes/class-wa-bulk-setup.php:505
 #, php-format
 msgid "%d skipped"
 msgid_plural "%d skipped"
@@ -100,344 +173,830 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of posts
-#: includes/class-wa-bulk-setup.php:300
+#: includes/class-wa-bulk-setup.php:509
 #, php-format
 msgid "%d cleared"
 msgid_plural "%d cleared"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wa-bulk-setup.php:303
+#: includes/class-wa-bulk-setup.php:512
 msgid "No changes were made."
 msgstr ""
 
 #. translators: %d: number of posts
-#: includes/class-wa-bulk-setup.php:311
+#: includes/class-wa-bulk-setup.php:520
 #, php-format
 msgid "%d post needs both a statement and a verdict — left unchanged."
 msgid_plural "%d posts need both a statement and a verdict — left unchanged."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wa-bulk-setup.php:337
-#: includes/class-wa-bulk-setup.php:372
+#: includes/class-wa-bulk-setup.php:546
+#: includes/class-wa-bulk-setup.php:603
 msgid "Draft with AI"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:343
+#: includes/class-wa-bulk-setup.php:552
 msgid "No AI provider is configured yet."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:345
+#: includes/class-wa-bulk-setup.php:554
 msgid "Choose a configured AI provider and model to enable drafting."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:347
-msgid "Open WellActually settings"
+#: includes/class-wa-bulk-setup.php:556
+msgid "Open Well, Actually... settings"
+msgstr ""
+
+#. translators: %s: model id
+#: includes/class-wa-bulk-setup.php:570
+#, php-format
+msgid "%s, the provider default"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:571
+msgid "provider default"
 msgstr ""
 
 #. translators: 1: provider name, 2: model id
-#: includes/class-wa-bulk-setup.php:360
+#: includes/class-wa-bulk-setup.php:579
 #, php-format
 msgid "Sends needs-setup posts to %1$s (%2$s) to draft a statement and verdict. Suggestions appear here for your review — nothing goes live until you Save it."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:362
-msgid "provider default"
+#. translators: %s: model id
+#: includes/class-wa-bulk-setup.php:590
+#, php-format
+msgid "%s does not advertise schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:367
+#: includes/class-wa-bulk-setup.php:593
+msgid "Change the model"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:598
 msgid "How many to draft:"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:370
+#: includes/class-wa-bulk-setup.php:601
 msgid "(limited to the selected category)"
 msgstr ""
 
 #. translators: %d: number of ready suggestions
-#: includes/class-wa-bulk-setup.php:387
+#: includes/class-wa-bulk-setup.php:621
 #, php-format
 msgid "%d suggestion ready to review."
 msgid_plural "%d suggestions ready to review."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wa-bulk-setup.php:390
+#: includes/class-wa-bulk-setup.php:624
 msgid "Review them"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:422
-#: includes/class-wa-meta.php:313
-msgid "Needs setup"
+#: includes/class-wa-bulk-setup.php:639
+#: includes/class-wa-meta.php:462
+msgid "Needs to be set up"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:423
+#: includes/class-wa-bulk-setup.php:640
 msgid "Has AI suggestions"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:424
-#: includes/class-wa-meta.php:314
+#: includes/class-wa-bulk-setup.php:641
+#: includes/class-wa-meta.php:463
 msgid "In swipe deck"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:425
-msgid "Skipped"
+#: includes/class-wa-bulk-setup.php:642
+msgid "Skipped for Now"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:426
-#: includes/class-wa-meta.php:259
-#: includes/class-wa-meta.php:318
+#: includes/class-wa-bulk-setup.php:643
+#: includes/class-wa-meta.php:408
+#: includes/class-wa-meta.php:467
 msgid "Excluded"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:427
+#: includes/class-wa-bulk-setup.php:644
 msgid "All posts"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:433
+#: includes/class-wa-bulk-setup.php:650
 msgid "Status"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:440
+#: includes/class-wa-bulk-setup.php:657
 msgid "Category"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:444
+#: includes/class-wa-bulk-setup.php:661
 msgid "All categories"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:455
-msgid "Order"
+#: includes/class-wa-bulk-setup.php:672
+msgid "Sort by"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:457
+#: includes/class-wa-bulk-setup.php:674
+msgid "Date published"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:675
+msgid "Date modified"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:676
+msgid "Comment count"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:682
 msgid "Newest first"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:458
+#: includes/class-wa-bulk-setup.php:683
 msgid "Oldest first"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:461
+#: includes/class-wa-bulk-setup.php:686
+msgid "Recently updated first"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:687
+msgid "Least recently updated first"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:690
+msgid "Most comments first"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:691
+msgid "Fewest comments first"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:696
+msgid "Order"
+msgstr ""
+
+#: includes/class-wa-bulk-setup.php:702
 msgid "Filter"
 msgstr ""
 
 #. translators: %d: number of matching posts
-#: includes/class-wa-bulk-setup.php:467
+#: includes/class-wa-bulk-setup.php:708
 #, php-format
 msgid "%d post"
 msgid_plural "%d posts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wa-bulk-setup.php:484
+#: includes/class-wa-bulk-setup.php:725
 msgid "No posts match this filter."
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:489
+#: includes/class-wa-bulk-setup.php:730
 msgid "— pick one —"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:490
-#: includes/class-wa-meta.php:256
-#: includes/class-wa-meta.php:315
+#: includes/class-wa-bulk-setup.php:731
+#: includes/class-wa-meta.php:405
+#: includes/class-wa-meta.php:464
+#: includes/class-wa-reports.php:53
 msgid "True"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:491
-#: includes/class-wa-meta.php:257
-#: includes/class-wa-meta.php:316
+#: includes/class-wa-bulk-setup.php:732
+#: includes/class-wa-meta.php:406
+#: includes/class-wa-meta.php:465
+#: includes/class-wa-reports.php:54
 msgid "False"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:492
-#: includes/class-wa-meta.php:258
-#: includes/class-wa-meta.php:317
+#: includes/class-wa-bulk-setup.php:733
+#: includes/class-wa-meta.php:407
+#: includes/class-wa-meta.php:466
+#: includes/class-wa-reports.php:55
 msgid "Debatable"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:505
+#: includes/class-wa-bulk-setup.php:747
+#: includes/class-wa-reports.php:367
+#: includes/class-wa-settings.php:818
 msgid "Post"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:506
-#: includes/class-wa-meta.php:118
+#: includes/class-wa-bulk-setup.php:748
+#: includes/class-wa-meta.php:145
 msgid "Swipe Statement"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:507
-#: includes/class-wa-meta.php:128
+#: includes/class-wa-bulk-setup.php:749
+#: includes/class-wa-meta.php:155
 msgid "Verdict"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:508
-msgid "Skip"
+#: includes/class-wa-bulk-setup.php:750
+msgid "Skip for Now"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:509
+#: includes/class-wa-bulk-setup.php:751
 msgid "Never"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:552
+#: includes/class-wa-bulk-setup.php:796
+#: includes/class-wa-settings.php:824
 msgid "(no title)"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:561
+#: includes/class-wa-bulk-setup.php:805
 msgid "AI suggestion"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:563
+#: includes/class-wa-bulk-setup.php:813
 msgid "AI error"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:569
+#: includes/class-wa-bulk-setup.php:819
 msgid "e.g. Temp tables are faster than CTEs"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:582
+#: includes/class-wa-bulk-setup.php:832
 msgid "Skip for now (keep content)"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:588
+#: includes/class-wa-bulk-setup.php:838
 msgid "Never set up for swipe"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:598
+#: includes/class-wa-bulk-setup.php:848
 msgid "Save all on this page"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:633
+#: includes/class-wa-bulk-setup.php:884
+#: includes/class-wa-reports.php:450
 msgid "&laquo; Previous"
 msgstr ""
 
-#: includes/class-wa-bulk-setup.php:634
+#: includes/class-wa-bulk-setup.php:885
+#: includes/class-wa-reports.php:451
 msgid "Next &raquo;"
 msgstr ""
 
-#: includes/class-wa-meta.php:59
+#: includes/class-wa-meta.php:78
 msgid "— Not set up yet —"
 msgstr ""
 
-#: includes/class-wa-meta.php:60
+#: includes/class-wa-meta.php:79
 msgid "True (agree is correct)"
 msgstr ""
 
-#: includes/class-wa-meta.php:61
+#: includes/class-wa-meta.php:80
 msgid "False (disagree is correct)"
 msgstr ""
 
-#: includes/class-wa-meta.php:62
+#: includes/class-wa-meta.php:81
 msgid "Debatable (any answer is fine)"
 msgstr ""
 
-#: includes/class-wa-meta.php:63
+#: includes/class-wa-meta.php:82
 msgid "Never — exclude from swipe"
 msgstr ""
 
-#: includes/class-wa-meta.php:98
-msgid "WellActually Swipe"
+#: includes/class-wa-meta.php:124
+msgid "Well, Actually... Swipe"
 msgstr ""
 
-#: includes/class-wa-meta.php:124
+#: includes/class-wa-meta.php:151
 msgid "A one-line statement readers will agree or disagree with, e.g. Temp tables are faster than CTEs."
 msgstr ""
 
-#: includes/class-wa-meta.php:233
+#: includes/class-wa-meta.php:382
 msgid "Swipe"
 msgstr ""
 
-#: includes/class-wa-meta.php:312
+#: includes/class-wa-meta.php:461
 msgid "All swipe statuses"
 msgstr ""
 
-#: includes/class-wa-rest.php:285
-msgid "Too many swipes, slow down."
+#: includes/class-wa-privacy.php:63
+msgid "Well, Actually... swipe game"
 msgstr ""
 
-#: includes/class-wa-rest.php:294
-msgid "Invalid answer."
+#: includes/class-wa-privacy.php:64
+msgid "Anonymous visitors: your swipe progress (which statements you have seen and how you answered) is stored only in your own browser's local storage. It never leaves your device, and clearing your browser data resets it."
 msgstr ""
 
-#: includes/class-wa-rest.php:299
+#: includes/class-wa-privacy.php:65
+msgid "Logged-in users: the same progress is saved to your account on this site so it follows you between devices. You can obtain or erase it with the personal-data export and erasure tools on this site."
+msgstr ""
+
+#: includes/class-wa-privacy.php:66
+msgid "Aggregate statistics: each swipe increments an anonymous per-post counter (how many visitors agreed, disagreed, or were unsure). These totals contain no account, name, or address, and cannot be traced back to any person."
+msgstr ""
+
+#: includes/class-wa-privacy.php:67
+msgid "Rate limiting: to prevent abuse, a short-lived counter keyed to a hashed form of the visitor's IP address is kept for a few minutes and then expires. The IP address itself is not stored."
+msgstr ""
+
+#: includes/class-wa-privacy.php:68
+msgid "AI drafting (site editors only): when an administrator uses the optional \"Draft with AI\" feature, the affected post's title and an excerpt of its content are sent to the AI provider the administrator has configured. No visitor or account data is included. The chosen provider's own privacy policy governs that transfer."
+msgstr ""
+
+#: includes/class-wa-privacy.php:84
+#: includes/class-wa-privacy.php:98
+#: includes/class-wa-privacy.php:134
+msgid "Well, Actually... swipe progress"
+msgstr ""
+
+#: includes/class-wa-privacy.php:138
+msgid "Statements answered"
+msgstr ""
+
+#: includes/class-wa-privacy.php:142
+msgid "Answered correctly"
+msgstr ""
+
+#: includes/class-wa-privacy.php:146
+msgid "Post IDs seen"
+msgstr ""
+
+#: includes/class-wa-privacy.php:150
+msgid "Post IDs answered incorrectly"
+msgstr ""
+
+#: includes/class-wa-reports.php:95
+#: includes/class-wa-reports.php:368
+msgid "Swipe headline"
+msgstr ""
+
+#: includes/class-wa-reports.php:96
+#: includes/class-wa-reports.php:369
+msgid "Right answer"
+msgstr ""
+
+#: includes/class-wa-reports.php:97
+msgid "Update"
+msgstr ""
+
+#: includes/class-wa-reports.php:98
+msgid "Cancel"
+msgstr ""
+
+#: includes/class-wa-reports.php:99
+msgid "Saving…"
+msgstr ""
+
+#: includes/class-wa-reports.php:100
+msgid "Could not save."
+msgstr ""
+
+#: includes/class-wa-reports.php:152
+msgid "You are not allowed to edit that post."
+msgstr ""
+
+#: includes/class-wa-reports.php:157
+#: includes/class-wa-rest.php:316
 msgid "Post not found."
 msgstr ""
 
-#: includes/class-wa-rest.php:306
+#: includes/class-wa-reports.php:164
+msgid "Pick True, False, or Debatable."
+msgstr ""
+
+#: includes/class-wa-reports.php:168
+msgid "The swipe headline can't be empty."
+msgstr ""
+
+#: includes/class-wa-reports.php:355
+msgid "Every post currently in the swipe deck, and how players are doing on it. Percentages only mean much once a statement has been swiped a few times."
+msgstr ""
+
+#: includes/class-wa-reports.php:358
+msgid "No posts are set up for swipe mode yet."
+msgstr ""
+
+#: includes/class-wa-reports.php:371
+msgid "Swipes"
+msgstr ""
+
+#: includes/class-wa-reports.php:372
+msgid "% right"
+msgstr ""
+
+#: includes/class-wa-reports.php:373
+msgid "% wrong"
+msgstr ""
+
+#: includes/class-wa-reports.php:397
+msgid "Quick Edit"
+msgstr ""
+
+#: includes/class-wa-reports.php:398
+msgid "Edit post"
+msgstr ""
+
+#. translators: %s: number of posts
+#: includes/class-wa-reports.php:460
+#, php-format
+msgid "%s post"
+msgid_plural "%s posts"
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-wa-rest.php:302
+msgid "Too many swipes, slow down."
+msgstr ""
+
+#: includes/class-wa-rest.php:311
+msgid "Invalid answer."
+msgstr ""
+
+#: includes/class-wa-rest.php:323
 msgid "Post is not in the swipe deck."
 msgstr ""
 
-#: includes/class-wa-settings.php:149
+#: includes/class-wa-settings.php:64
+msgid "Settings"
+msgstr ""
+
+#: includes/class-wa-settings.php:298
 msgid "Swipe page slug"
 msgstr ""
 
-#: includes/class-wa-settings.php:157
+#: includes/class-wa-settings.php:306
 msgid "AI drafting"
 msgstr ""
 
-#: includes/class-wa-settings.php:164
+#: includes/class-wa-settings.php:313
 msgid "AI provider"
 msgstr ""
 
-#: includes/class-wa-settings.php:172
+#: includes/class-wa-settings.php:321
 msgid "AI model"
 msgstr ""
 
-#: includes/class-wa-settings.php:209
+#: includes/class-wa-settings.php:329
+msgid "Drafting instructions"
+msgstr ""
+
+#: includes/class-wa-settings.php:337
+msgid "Parallel requests"
+msgstr ""
+
+#: includes/class-wa-settings.php:345
+msgid "Diagnostics"
+msgstr ""
+
+#: includes/class-wa-settings.php:352
+msgid "Logging"
+msgstr ""
+
+#: includes/class-wa-settings.php:367
+msgid "You are not allowed to do that."
+msgstr ""
+
+#: includes/class-wa-settings.php:396
+msgid "Status index"
+msgstr ""
+
+#. translators: %d: number of posts corrected
+#: includes/class-wa-settings.php:404
+#, php-format
+msgid "Corrected %d post."
+msgid_plural "Corrected %d posts."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-wa-settings.php:405
+msgid "Everything already matched — nothing to correct."
+msgstr ""
+
+#: includes/class-wa-settings.php:413
+msgid "Rebuild status index"
+msgstr ""
+
+#: includes/class-wa-settings.php:416
+msgid "The \"Well, Actually...\" screen sorts posts into its Needs to be set up / Has AI suggestions / In swipe deck views using a summary field kept alongside each post. If that summary ever gets out of step — a post showing up as needing setup when it's already excluded, say, or a drafted suggestion you can't reach — this rebuilds it from scratch. Safe to run at any time."
+msgstr ""
+
+#: includes/class-wa-settings.php:435
+msgid "What the AI is told before it sees each post — the place to describe your own voice, subject matter, and what makes a good swipe statement for your readers. Leave blank to use the wording shown above, which is what the plugin ships with."
+msgstr ""
+
+#: includes/class-wa-settings.php:438
+msgid "You don't need to mention the response format: the instruction below is always added for you, so a rewrite can't stop drafts being read back properly."
+msgstr ""
+
+#: includes/class-wa-settings.php:478
+msgid "How many posts to draft at the same time. Drafting spends nearly all of its time waiting on the AI provider, so sending several requests at once is much faster than one after another — 5 is roughly five times quicker than 1. Lower this if your provider starts refusing requests for being too frequent."
+msgstr ""
+
+#: includes/class-wa-settings.php:505
+msgid "Log how the \"Well, Actually...\" screen builds each page"
+msgstr ""
+
+#: includes/class-wa-settings.php:508
+msgid "Writes one line to your site's error log per page load of that screen, recording how many posts were examined, how many had out-of-date status information, how many were shown, and the total. Useful when that screen shows the wrong posts (or none at all) and you want real numbers rather than guesswork. Leave off for normal use."
+msgstr ""
+
+#: includes/class-wa-settings.php:578
 msgid "No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting."
 msgstr ""
 
-#: includes/class-wa-settings.php:211
-msgid "Pick the provider and model used to draft swipe statements on the Swipe Setup screen. You can change these between batches."
+#: includes/class-wa-settings.php:580
+msgid "Pick the provider and model used to draft swipe statements on the \"Well, Actually...\" screen (under Posts). You can change these between batches."
 msgstr ""
 
-#: includes/class-wa-settings.php:214
+#: includes/class-wa-settings.php:583
 msgid "AI features are not available in this environment."
 msgstr ""
 
-#: includes/class-wa-settings.php:226
+#: includes/class-wa-settings.php:595
 msgid "— Select a provider —"
 msgstr ""
 
-#: includes/class-wa-settings.php:233
+#: includes/class-wa-settings.php:602
 msgid "(no API key set)"
 msgstr ""
 
-#: includes/class-wa-settings.php:239
+#: includes/class-wa-settings.php:608
 msgid "Providers come from your WordPress AI connector settings."
 msgstr ""
 
-#: includes/class-wa-settings.php:249
+#: includes/class-wa-settings.php:618
 msgid "e.g. google/gemini-3.5-flash"
 msgstr ""
 
-#: includes/class-wa-settings.php:250
-msgid "The model id to request from the provider. Recommended: most providers (including Nano-GPT) need an explicit model rather than a default."
+#: includes/class-wa-settings.php:619
+msgid "The model id to request from the provider. Leave blank to use the default model you've picked in that provider's own settings, if it has one."
+msgstr ""
+
+#. translators: %s: model id
+#: includes/class-wa-settings.php:628
+#, php-format
+msgid "Heads up: %s does not advertise support for schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent. A model that supports JSON/structured output is more reliable."
 msgstr ""
 
 #. translators: %s: example URL
-#: includes/class-wa-settings.php:265
+#: includes/class-wa-settings.php:646
 #, php-format
 msgid "Visitors will play swipe mode at %s."
 msgstr ""
 
-#: includes/class-wa-stats.php:185
+#: includes/class-wa-settings.php:665
+msgid "Setup"
+msgstr ""
+
+#: includes/class-wa-settings.php:666
+msgid "Categories"
+msgstr ""
+
+#: includes/class-wa-settings.php:667
+msgid "Reports"
+msgstr ""
+
+#: includes/class-wa-settings.php:668
+msgid "Errors"
+msgstr ""
+
+#: includes/class-wa-settings.php:722
+msgid "Posts in a checked category are skipped entirely — they never show up as eligible in Posts → \"Well, Actually...\" (needs setup, AI drafting candidates, or any other status view there)."
+msgstr ""
+
+#: includes/class-wa-settings.php:733
+msgid "No categories yet."
+msgstr ""
+
+#: includes/class-wa-settings.php:747
+msgid "Name"
+msgstr ""
+
+#: includes/class-wa-settings.php:748
+msgid "Count"
+msgstr ""
+
+#: includes/class-wa-settings.php:749
+msgid "Skip This Category"
+msgstr ""
+
+#: includes/class-wa-settings.php:810
+msgid "AI drafting errors from the last 7 days. Older errors are cleared automatically and the post becomes available to draft again."
+msgstr ""
+
+#: includes/class-wa-settings.php:813
+msgid "No drafting errors in the last 7 days."
+msgstr ""
+
+#: includes/class-wa-settings.php:819
+msgid "Error"
+msgstr ""
+
+#: includes/class-wa-settings.php:820
+msgid "When"
+msgstr ""
+
+#. translators: %s: human-readable time difference, e.g. "3 hours"
+#: includes/class-wa-settings.php:831
+#, php-format
+msgid "%s ago"
+msgstr ""
+
+#: includes/class-wa-stats.php:239
 msgid "Swipe stats"
 msgstr ""
 
-#: includes/class-wa-stats.php:209
+#: includes/class-wa-stats.php:263
 msgid "No swipes yet"
 msgstr ""
 
 #. translators: 1: percent agreed, 2: total swipe count
-#: includes/class-wa-stats.php:216
+#: includes/class-wa-stats.php:270
 #, php-format
 msgid "%1$d%% agree · %2$d swipes"
 msgstr ""
 
 #. translators: %d: total swipe count
-#: includes/class-wa-stats.php:223
+#: includes/class-wa-stats.php:277
 #, php-format
 msgid "%d swipes"
+msgstr ""
+
+#: includes/class-wa-template.php:208
+#: templates/swipe-page.php:34
+msgid "Loading…"
+msgstr ""
+
+#: includes/class-wa-template.php:209
+msgid "Something went wrong loading swipe mode."
+msgstr ""
+
+#: includes/class-wa-template.php:210
+msgid "Try again"
+msgstr ""
+
+#: includes/class-wa-template.php:211
+msgid "Agree"
+msgstr ""
+
+#: includes/class-wa-template.php:212
+msgid "Disagree"
+msgstr ""
+
+#: includes/class-wa-template.php:213
+msgid "Not sure"
+msgstr ""
+
+#. translators: 1: number answered correctly, 2: number answered
+#: includes/class-wa-template.php:215
+#, php-format
+msgid "%1$s/%2$s correct"
+msgstr ""
+
+#. translators: 1: number answered correctly, 2: number answered
+#: includes/class-wa-template.php:217
+#, php-format
+msgid "%1$s/%2$s correct so far"
+msgstr ""
+
+#. translators: 1: number answered correctly, 2: number answered, 3: percentage correct
+#: includes/class-wa-template.php:219
+#, php-format
+msgid "%1$s/%2$s correct (%3$s%)"
+msgstr ""
+
+#. translators: 1: current card number, 2: number of cards being replayed
+#: includes/class-wa-template.php:221
+#, php-format
+msgid "Replay: %1$s of %2$s"
+msgstr ""
+
+#. translators: 1: current card number, 2: number of cards in the deck
+#: includes/class-wa-template.php:223
+#, php-format
+msgid "%1$s of %2$s"
+msgstr ""
+
+#. translators: %1$s: percentage of readers who got this card wrong
+#: includes/class-wa-template.php:225
+#, php-format
+msgid "%1$s% got this one wrong"
+msgstr ""
+
+#: includes/class-wa-template.php:226
+msgid "Start over"
+msgstr ""
+
+#: includes/class-wa-template.php:227
+msgid "Start over? This clears your saved progress."
+msgstr ""
+
+#: includes/class-wa-template.php:228
+msgid "Keep swiping"
+msgstr ""
+
+#: includes/class-wa-template.php:229
+msgid "No swipe statements yet — check back soon."
+msgstr ""
+
+#. translators: %1$s: number of cards answered incorrectly
+#: includes/class-wa-template.php:231
+#, php-format
+msgid "Replay the ones you got wrong (%1$s)"
+msgstr ""
+
+#. translators: %1$s: number of newly added statements
+#: includes/class-wa-template.php:233
+#, php-format
+msgid "New statements have been added — %1$s more await"
+msgstr ""
+
+#: includes/class-wa-template.php:234
+msgid "Copy"
+msgstr ""
+
+#: includes/class-wa-template.php:235
+msgid "Copied!"
+msgstr ""
+
+#: includes/class-wa-template.php:236
+msgid "Share text"
+msgstr ""
+
+#. translators: 1: number answered correctly, 2: number answered, 3: percentage correct, 4: site name, 5: swipe page URL
+#: includes/class-wa-template.php:238
+#, php-format
+msgid "I scored %1$s/%2$s (%3$s%) on the \"Well, Actually...\" swipe quiz on %4$s. Try it yourself: %5$s"
+msgstr ""
+
+#: includes/class-wa-template.php:239
+msgid "this blog"
+msgstr ""
+
+#: includes/class-wa-template.php:240
+msgid "Well, actually… you should be writing this blog."
+msgstr ""
+
+#: includes/class-wa-template.php:241
+msgid "Solid instincts. A few well-actuallys to go."
+msgstr ""
+
+#: includes/class-wa-template.php:242
+msgid "Halfway there — the archives are calling."
+msgstr ""
+
+#: includes/class-wa-template.php:243
+msgid "Time to hit the archives."
+msgstr ""
+
+#: includes/class-wa-template.php:244
+msgid "Couldn’t submit that — check your connection and try again."
+msgstr ""
+
+#: includes/class-wa-template.php:245
+msgid "Your progress won’t be saved in this browser."
+msgstr ""
+
+#: includes/class-wa-template.php:246
+msgid "🤔 It’s debatable"
+msgstr ""
+
+#: includes/class-wa-template.php:247
+msgid "Not sure? Here’s the answer"
+msgstr ""
+
+#: includes/class-wa-template.php:248
+msgid "✗ Well, actually…"
+msgstr ""
+
+#. translators: %1$s: the verdict, "TRUE" or "FALSE"
+#: includes/class-wa-template.php:250
+#, php-format
+msgid "This one’s %1$s."
+msgstr ""
+
+#: includes/class-wa-template.php:251
+msgctxt "verdict shown in the reveal, deliberately shouty"
+msgid "TRUE"
+msgstr ""
+
+#: includes/class-wa-template.php:252
+msgctxt "verdict shown in the reveal, deliberately shouty"
+msgid "FALSE"
+msgstr ""
+
+#. translators: %1$s: percentage of readers who agreed with the statement
+#: includes/class-wa-template.php:254
+#, php-format
+msgid "%1$s% of readers agreed."
+msgstr ""
+
+#: includes/class-wa-template.php:255
+msgid "Read the full post →"
+msgstr ""
+
+#: includes/class-wa-template.php:256
+msgid "Continue"
 msgstr ""
 
 #: includes/class-wa-user-progress.php:126
@@ -448,10 +1007,6 @@ msgstr ""
 #: templates/swipe-page.php:23
 #, php-format
 msgid "Swipe – %s"
-msgstr ""
-
-#: templates/swipe-page.php:34
-msgid "Loading…"
 msgstr ""
 
 #: templates/swipe-page.php:38
