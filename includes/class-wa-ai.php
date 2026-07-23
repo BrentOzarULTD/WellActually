@@ -58,7 +58,7 @@ class WA_AI {
 		};
 
 		register_rest_route(
-			'well-actually/v1',
+			'wellactually/v1',
 			'/ai/enqueue',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -80,7 +80,7 @@ class WA_AI {
 		);
 
 		register_rest_route(
-			'well-actually/v1',
+			'wellactually/v1',
 			'/ai/process',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -291,7 +291,7 @@ class WA_AI {
 	public static function draft_for_post( $post_id ) {
 		$post = get_post( $post_id );
 		if ( ! $post || 'post' !== $post->post_type ) {
-			return self::store_error( $post_id, __( 'Invalid post.', 'well-actually' ) );
+			return self::store_error( $post_id, __( 'Invalid post.', 'wellactually' ) );
 		}
 
 		$provider = wa_get_setting( 'ai_provider', '' );
@@ -313,10 +313,10 @@ class WA_AI {
 		}
 
 		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
-			return self::store_error( $post_id, __( 'AI is not available in this environment.', 'well-actually' ) );
+			return self::store_error( $post_id, __( 'AI is not available in this environment.', 'wellactually' ) );
 		}
 		if ( '' === $provider ) {
-			return self::store_error( $post_id, __( 'No AI provider is selected in settings.', 'well-actually' ) );
+			return self::store_error( $post_id, __( 'No AI provider is selected in settings.', 'wellactually' ) );
 		}
 
 		// The WP AI client wrapper uses snake_case method names (it translates
@@ -341,12 +341,12 @@ class WA_AI {
 			return self::store_error( $post_id, $json->get_error_message() );
 		}
 		if ( ! is_string( $json ) ) {
-			return self::store_error( $post_id, __( 'The AI returned an unexpected response type.', 'well-actually' ) );
+			return self::store_error( $post_id, __( 'The AI returned an unexpected response type.', 'wellactually' ) );
 		}
 
 		$data = self::parse_json_object( $json );
 		if ( ! is_array( $data ) || empty( $data['statement'] ) || empty( $data['verdict'] ) ) {
-			return self::store_error( $post_id, __( 'The AI returned an unexpected response.', 'well-actually' ) );
+			return self::store_error( $post_id, __( 'The AI returned an unexpected response.', 'wellactually' ) );
 		}
 
 		return self::store_result( $post_id, $data );
@@ -399,7 +399,7 @@ class WA_AI {
 		$verdict   = isset( $data['verdict'] ) ? sanitize_text_field( $data['verdict'] ) : '';
 
 		if ( '' === $statement || ! in_array( $verdict, WA_Meta::deck_verdicts(), true ) ) {
-			return self::store_error( $post_id, __( 'The AI returned an incomplete draft.', 'well-actually' ) );
+			return self::store_error( $post_id, __( 'The AI returned an incomplete draft.', 'wellactually' ) );
 		}
 
 		update_post_meta( $post_id, WA_Meta::AI_STATEMENT_KEY, $statement );

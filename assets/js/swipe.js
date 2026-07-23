@@ -38,7 +38,7 @@
 	 * Join a route onto the REST base, with an optional query string.
 	 *
 	 * config.restUrl has no trailing slash, and on sites using plain
-	 * permalinks it is itself a query string (…/?rest_route=/well-actually/v1),
+	 * permalinks it is itself a query string (…/?rest_route=/wellactually/v1),
 	 * so the query separator has to be chosen rather than assumed.
 	 *
 	 * @param {string} path    Route relative to the namespace root, e.g. 'deck'.
