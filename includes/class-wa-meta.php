@@ -112,6 +112,7 @@ class WA_Meta {
 		// with a get_option() guard that makes every call after the first a
 		// no-op — see maybe_backfill_status().
 		add_action( 'admin_init', array( __CLASS__, 'maybe_backfill_status' ) );
+		add_action( 'admin_init', array( __CLASS__, 'maybe_repair_statuses' ) );
 	}
 
 	/**
@@ -215,7 +216,7 @@ class WA_Meta {
 		if ( self::VERDICT_EXCLUDED === $verdict ) {
 			update_post_meta( $post_id, self::VERDICT_KEY, self::VERDICT_EXCLUDED );
 			delete_post_meta( $post_id, self::STATEMENT_KEY );
-			self::recompute_status( $post_id );
+			self::recompute_status( $post_id, array( 'verdict' => self::VERDICT_EXCLUDED ) );
 			return 'excluded';
 		}
 
@@ -225,7 +226,7 @@ class WA_Meta {
 		if ( $has_statement && $has_deck_verdict ) {
 			update_post_meta( $post_id, self::STATEMENT_KEY, $statement );
 			update_post_meta( $post_id, self::VERDICT_KEY, $verdict );
-			self::recompute_status( $post_id );
+			self::recompute_status( $post_id, array( 'verdict' => $verdict ) );
 			return 'configured';
 		}
 
@@ -248,7 +249,7 @@ class WA_Meta {
 
 		delete_post_meta( $post_id, self::STATEMENT_KEY );
 		delete_post_meta( $post_id, self::VERDICT_KEY );
-		self::recompute_status( $post_id );
+		self::recompute_status( $post_id, array( 'verdict' => '' ) );
 		return 'cleared';
 	}
 
@@ -277,8 +278,8 @@ class WA_Meta {
 	 * @param int $post_id Post ID.
 	 * @return string The stored status value.
 	 */
-	public static function recompute_status( $post_id ) {
-		$status = self::compute_status( $post_id );
+	public static function recompute_status( $post_id, array $known = array() ) {
+		$status = self::compute_status( $post_id, $known );
 
 		update_post_meta( $post_id, self::STATUS_KEY, $status );
 		wp_cache_set_posts_last_changed();
@@ -315,10 +316,25 @@ class WA_Meta {
 	 * @param int $post_id Post ID.
 	 * @return string One of the STATUS_* constants.
 	 */
-	public static function compute_status( $post_id ) {
-		$skipped   = '1' === get_post_meta( $post_id, self::SKIP_KEY, true );
-		$verdict   = get_post_meta( $post_id, self::VERDICT_KEY, true );
-		$ai_status = get_post_meta( $post_id, self::AI_STATUS_KEY, true );
+	public static function compute_status( $post_id, array $known = array() ) {
+		// Callers that just wrote one of these values pass it in rather than
+		// letting us read it back. That matters more than it looks: on hosts
+		// that serve reads from a lagging replica, re-reading a value written
+		// moments ago can return the *previous* one, and since the result is
+		// persisted here, a single stale read bakes a permanently wrong status
+		// into the field every listing depends on. Values we were handed are
+		// known-good by definition; only the rest are read.
+		$skipped = array_key_exists( 'skipped', $known )
+			? (bool) $known['skipped']
+			: ( '1' === get_post_meta( $post_id, self::SKIP_KEY, true ) );
+
+		$verdict = array_key_exists( 'verdict', $known )
+			? (string) $known['verdict']
+			: get_post_meta( $post_id, self::VERDICT_KEY, true );
+
+		$ai_status = array_key_exists( 'ai_status', $known )
+			? (string) $known['ai_status']
+			: get_post_meta( $post_id, self::AI_STATUS_KEY, true );
 
 		if ( $skipped ) {
 			return self::STATUS_SKIPPED;
@@ -334,7 +350,6 @@ class WA_Meta {
 		}
 		return self::STATUS_NEEDS_SETUP;
 	}
-
 	/**
 	 * Add the "Swipe" column to the Posts list table.
 	 *
@@ -500,10 +515,30 @@ class WA_Meta {
 				);
 
 			case 'has_ai':
+				// Queried from the authoritative _wa_ai_status, not the
+				// denormalized _wa_status. The derived field can only ever
+				// hide a ready suggestion (if it was written from a stale
+				// read it says needs_setup, and then the post is never
+				// returned at all, so nothing downstream can notice or repair
+				// it). The authoritative key cannot: it *is* what makes a
+				// suggestion reviewable. Still one indexed equality lookup,
+				// and a highly selective one, plus a skip check so a
+				// set-aside post stays set aside.
 				return array(
+					'relation' => 'AND',
 					array(
-						'key'   => self::STATUS_KEY,
-						'value' => self::STATUS_HAS_AI,
+						'key'   => self::AI_STATUS_KEY,
+						'value' => 'ready',
+					),
+					array(
+						'key'     => self::SKIP_KEY,
+						'compare' => 'NOT EXISTS',
+					),
+					// Any stored verdict — a deck verdict or 'excluded' —
+					// outranks a pending suggestion, so those are out too.
+					array(
+						'key'     => self::VERDICT_KEY,
+						'compare' => 'NOT EXISTS',
 					),
 				);
 
@@ -543,6 +578,70 @@ class WA_Meta {
 		}
 
 		return array();
+	}
+
+	/**
+	 * Repair posts whose denormalized status disagrees with the meta it's
+	 * derived from.
+	 *
+	 * Needed because a status written from a stale read is persisted, and the
+	 * false-negative case is self-concealing: a ready suggestion recorded as
+	 * needs_setup never appears in the Has AI suggestions query, so nothing
+	 * looking at that view can ever notice or fix it. Finds the mismatches
+	 * directly instead, in one indexed pass, and is safe to re-run.
+	 *
+	 * @return int Number of posts corrected.
+	 */
+	public static function repair_statuses() {
+		global $wpdb;
+
+		// Posts whose AI status says a suggestion is ready but whose derived
+		// status doesn't (missing, or something other than has_ai), excluding
+		// ones legitimately outranked by a skip or a real verdict.
+		$sql = "
+			SELECT ai.post_id
+			FROM {$wpdb->postmeta} ai
+			LEFT JOIN {$wpdb->postmeta} st
+				ON st.post_id = ai.post_id AND st.meta_key = %s
+			LEFT JOIN {$wpdb->postmeta} sk
+				ON sk.post_id = ai.post_id AND sk.meta_key = %s
+			LEFT JOIN {$wpdb->postmeta} vd
+				ON vd.post_id = ai.post_id AND vd.meta_key = %s
+			WHERE ai.meta_key = %s
+			  AND ai.meta_value = 'ready'
+			  AND sk.meta_id IS NULL
+			  AND ( vd.meta_value IS NULL OR vd.meta_value = '' )
+			  AND ( st.meta_value IS NULL OR st.meta_value <> %s )
+		";
+
+		$post_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				$sql,
+				self::STATUS_KEY,
+				self::SKIP_KEY,
+				self::VERDICT_KEY,
+				self::AI_STATUS_KEY,
+				self::STATUS_HAS_AI
+			)
+		);
+
+		foreach ( $post_ids as $post_id ) {
+			self::recompute_status( (int) $post_id, array( 'ai_status' => 'ready' ) );
+		}
+
+		return count( $post_ids );
+	}
+
+	/**
+	 * Run repair_statuses() once per plugin version.
+	 */
+	public static function maybe_repair_statuses() {
+		if ( get_option( 'wa_status_repaired' ) === WA_VERSION ) {
+			return;
+		}
+
+		self::repair_statuses();
+		update_option( 'wa_status_repaired', WA_VERSION, false );
 	}
 
 	/**

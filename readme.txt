@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,12 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.4.2 =
+* Fix: the "Draft with AI" panel could report suggestions ready to review while the "Has AI suggestions" grid showed no posts at all, leaving drafts stranded with no way to reach them. Existing stranded suggestions are repaired automatically on update — they'll be waiting on that screen after you upgrade.
+* The underlying cause: after saving a suggestion, the plugin immediately re-read the value it had just written in order to update a summary field used by the filters. On managed hosting that read can be served from a database replica that hasn't caught up, returning the *previous* value — and the wrong answer was then saved. The summary field said "needs setup" while the suggestion really was ready, and because the grid searched on that field, the post could never appear (so nothing could notice or repair it either). Those writes no longer re-read what they just wrote, and the grid now searches the suggestion's own status, which is the field that actually decides whether a draft is reviewable.
+* The count in the panel and the grid below it now use identical rules — same handling of skipped posts, posts already set up, and skipped categories — so they can't disagree.
+* Remove the row-by-row verification the setup screen ran on every page load. It compared two separately-read values and discarded rows whenever they disagreed, which is what emptied the screen after a bulk save in 1.3.x and again after AI drafting. A briefly out-of-date row is normal and corrects itself; a blank screen doesn't.
 
 = 1.4.1 =
 * Fix a set of race conditions in 1.4.0's parallel drafting, found in code review. Drafting work is now tracked in its own small database table instead of post meta. Post meta has no way to enforce "only one drafting run may hold this post", so every check-then-write left a gap; a table can enforce it outright, and each change of state is now a single conditional statement that either wins or doesn't.

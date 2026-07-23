@@ -20,11 +20,6 @@ class WA_Bulk_Setup {
 	const NONCE_NAME   = 'wa_bulk_nonce';
 	const PER_PAGE     = 20;
 
-	// How many chunks build_query() will read while skipping past rows whose
-	// stored status has gone stale. Bounds the worst case (a whole run of
-	// stale rows) to a handful of fast indexed queries.
-	const MAX_SCAN_CHUNKS = 10;
-
 	/**
 	 * Singleton instance.
 	 *
@@ -110,61 +105,48 @@ class WA_Bulk_Setup {
 	}
 
 	/**
-	 * Statuses this screen can independently verify a row against, mapped to
-	 * the STATUS_KEY value a matching post must currently compute to.
+	 * Build the query for the current view.
 	 *
-	 * @param string $status Requested status view.
-	 * @return string|null The expected status, or null when the view can't be
-	 *                     verified (e.g. "all", which filters on nothing).
-	 */
-	private function expected_status_for( $status ) {
-		$map = array(
-			'needs_setup' => WA_Meta::STATUS_NEEDS_SETUP,
-			'has_ai'      => WA_Meta::STATUS_HAS_AI,
-			'in_deck'     => WA_Meta::STATUS_CONFIGURED,
-			'excluded'    => WA_Meta::STATUS_EXCLUDED,
-			'skipped'     => WA_Meta::STATUS_SKIPPED,
-		);
-
-		return isset( $map[ $status ] ) ? $map[ $status ] : null;
-	}
-
-	/**
-	 * Build the list of posts for the current view.
+	 * A note on what used to be here, because it caused the same visible bug
+	 * twice and the fix is to do less, not more.
 	 *
-	 * The filtered views select on the denormalized STATUS_KEY meta, because
-	 * that's the only shape of query that stays fast on a large archive. But
-	 * a SQL result and a freshly-read post meta value can legitimately
-	 * disagree for a while: on managed hosting, reads may be served by a
-	 * database replica that hasn't caught up with the write that just
-	 * happened, and object caches add their own lag. Right after saving a
-	 * page, that's exactly the situation — the rows just handled can still
-	 * look unhandled to the query.
+	 * This screen selects rows on the denormalized `_wa_status` meta. Earlier
+	 * versions then re-derived each row's status from its *other* meta keys
+	 * and discarded any row where the two disagreed, on the theory that the
+	 * stored value might have drifted. It hadn't: every write path updates
+	 * `_wa_status` in the same breath as the meta it's derived from (see
+	 * WA_Meta::recompute_status()), so the stored value is correct.
 	 *
-	 * Earlier versions queried one page, dropped the rows whose live meta
-	 * disagreed, and rendered whatever survived. When a whole page was stale
-	 * that left "No posts match this filter" on screen above an accurate,
-	 * non-zero count — the bug this screen kept coming back with.
+	 * What actually differs is *when each read sees it*. The row select and
+	 * the per-row meta reads are separate trips to the database, and on
+	 * managed hosting they can be served by replicas at different points in
+	 * time, or from an object cache primed a moment apart. So the check was
+	 * comparing two clocks and throwing away rows whenever they disagreed —
+	 * which emptied the screen right after a bulk save (query behind), and
+	 * again right after AI drafting (meta reads behind), each time under an
+	 * accurate non-zero count.
 	 *
-	 * So the page is no longer whatever one query happened to return. We scan
-	 * forward from the requested offset, keeping only rows whose live meta
-	 * still agrees, until a full page is assembled or the results run out.
-	 * Stale rows cost an extra chunk fetch, not an empty screen.
+	 * There is no verification here now. A momentarily out-of-date row is a
+	 * normal, self-correcting condition that every WordPress list table
+	 * lives with; an empty screen is not. Correcting the stored value from
+	 * those reads would be worse still — it would write stale data into the
+	 * field the whole screen depends on.
 	 *
 	 * @param array $args Result of current_args().
-	 * @return WP_Query A query whose posts are the verified page.
+	 * @return WP_Query
 	 */
 	private function build_query( $args ) {
 		$query_args = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
 			'posts_per_page'      => self::PER_PAGE,
+			'paged'               => max( 1, (int) $args['paged'] ),
 			'orderby'             => $args['orderby'],
 			'order'               => $args['order'],
 			'ignore_sticky_posts' => true,
-			// Always read live. WP's post-query cache is keyed to a marker
-			// that only moves when a POST changes, never when its meta does,
-			// and this screen filters entirely on meta.
+			// Read live. WP's post-query cache is keyed to a marker that only
+			// moves when a POST changes, never when its meta does, and this
+			// screen filters entirely on meta.
 			'cache_results'       => false,
 		);
 
@@ -173,8 +155,7 @@ class WA_Bulk_Setup {
 		}
 
 		// Categories marked "Skip This Category" in Settings → Categories are
-		// never eligible here, in any status view — they're meant to be
-		// treated as if they don't exist for this screen at all.
+		// never eligible here, in any status view.
 		$excluded_cats = WA_Settings::excluded_categories();
 		if ( ! empty( $excluded_cats ) ) {
 			$query_args['category__not_in'] = $excluded_cats;
@@ -187,99 +168,30 @@ class WA_Bulk_Setup {
 			}
 		}
 
-		$expected = $this->expected_status_for( $args['status'] );
+		$query = new WP_Query( $query_args );
 
-		// Unverifiable view ("all"): nothing to reconcile, one plain page.
-		if ( null === $expected ) {
-			$query_args['paged'] = $args['paged'];
-			$query               = new WP_Query( $query_args );
-			if ( ! empty( $query->posts ) ) {
-				update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
-			}
-			return $query;
+		// cache_results=false also skips WP's bulk meta priming, and the
+		// render loop reads several meta keys per row. Prime them in one
+		// query instead of ~20.
+		if ( ! empty( $query->posts ) ) {
+			update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
 		}
 
-		$start    = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
-		$carrier  = null;
-		$verified = array();
-		$dropped  = 0;
-		$scanned  = 0;
+		$this->log_page_build( $args, $query );
 
-		// Bounded so a pathologically stale archive can't spin: worst case
-		// this reads MAX_SCAN_CHUNKS pages of IDs, still a handful of fast
-		// indexed queries.
-		for ( $chunk = 0; $chunk < self::MAX_SCAN_CHUNKS; $chunk++ ) {
-			$chunk_args           = $query_args;
-			$chunk_args['offset'] = $start + $scanned;
-
-			$query = new WP_Query( $chunk_args );
-
-			if ( null === $carrier ) {
-				$carrier = $query;
-			}
-
-			if ( empty( $query->posts ) ) {
-				break;
-			}
-
-			$batch = $query->posts;
-			update_meta_cache( 'post', wp_list_pluck( $batch, 'ID' ) );
-
-			foreach ( $batch as $post ) {
-				$scanned++;
-
-				if ( WA_Meta::compute_status( $post->ID ) === $expected ) {
-					$verified[] = $post;
-				} else {
-					// Correct the stored value so this row stops coming back.
-					WA_Meta::recompute_status( $post->ID );
-					$dropped++;
-				}
-
-				if ( count( $verified ) >= self::PER_PAGE ) {
-					break 2;
-				}
-			}
-
-			// Short batch means we reached the end of the results.
-			if ( count( $batch ) < self::PER_PAGE ) {
-				break;
-			}
-		}
-
-		if ( null === $carrier ) {
-			$carrier = new WP_Query( array_merge( $query_args, array( 'post__in' => array( 0 ) ) ) );
-		}
-
-		$found = max( 0, (int) $carrier->found_posts - $dropped );
-
-		$carrier->posts         = $verified;
-		$carrier->post_count    = count( $verified );
-		$carrier->found_posts   = $found;
-		$carrier->max_num_pages = $found > 0 ? (int) ceil( $found / self::PER_PAGE ) : 0;
-		$carrier->current_post  = -1;
-
-		$this->log_page_build( $args, $verified, $dropped, $scanned, $found );
-
-		return $carrier;
+		return $query;
 	}
 
 	/**
 	 * Record what a page build actually did, when diagnostics are turned on.
 	 *
-	 * Off unless "Logging" is ticked on Settings → "Well, Actually..." (or a
-	 * `wa_debug_setup` filter forces it on), so it's safe to switch on in
-	 * production for a few page loads to see real numbers instead of
-	 * guessing: how many rows the query returned, how many had stale status
-	 * data, and how many made the page.
+	 * Off unless "Logging" is ticked on Settings → "Well, Actually...", so
+	 * it's safe to switch on in production for a few page loads.
 	 *
-	 * @param array $args     Current view args.
-	 * @param array $verified Verified posts for the page.
-	 * @param int   $dropped  Rows whose live status disagreed with the query.
-	 * @param int   $scanned  Rows examined to fill the page.
-	 * @param int   $found    Adjusted total.
+	 * @param array    $args  Current view args.
+	 * @param WP_Query $query The page's query.
 	 */
-	private function log_page_build( $args, $verified, $dropped, $scanned, $found ) {
+	private function log_page_build( $args, $query ) {
 		$enabled = WA_Settings::debug_logging_enabled();
 
 		/**
@@ -294,13 +206,11 @@ class WA_Bulk_Setup {
 
 		error_log(
 			sprintf(
-				'[wellactually] page build: status=%s paged=%d scanned=%d stale=%d shown=%d found=%d',
+				'[wellactually] page build: status=%s paged=%d shown=%d found=%d',
 				$args['status'],
 				(int) $args['paged'],
-				(int) $scanned,
-				(int) $dropped,
-				count( $verified ),
-				(int) $found
+				(int) $query->post_count,
+				(int) $query->found_posts
 			)
 		);
 	}
@@ -350,19 +260,20 @@ class WA_Bulk_Setup {
 			// pending AI suggestion — it just sets it aside. Exclude wins if both.
 			if ( $skip && ! $exclude ) {
 				update_post_meta( $post_id, WA_Meta::SKIP_KEY, '1' );
-				WA_Meta::recompute_status( $post_id );
+				WA_Meta::recompute_status( $post_id, array( 'skipped' => true ) );
 				$counts['skipped']++;
 				continue;
 			}
 
-			// Not held: make sure the skip flag is cleared. Recompute the
-			// denormalized status here explicitly rather than relying on
-			// apply_meta() below — if the post has no statement/verdict to
-			// change, apply_meta() takes its 'unchanged' branch and never
-			// touches status, which would leave a just-cleared skip flag's
-			// old 'skipped' status stale.
-			delete_post_meta( $post_id, WA_Meta::SKIP_KEY );
-			WA_Meta::recompute_status( $post_id );
+			// Not held. Only clear the skip flag (and recompute) if it was
+			// actually set — apply_meta() below takes an 'unchanged' branch
+			// for a row with nothing to change, and rewriting the derived
+			// status for every untouched row on the page is exactly how one
+			// stale read corrupts rows nobody edited.
+			if ( '1' === get_post_meta( $post_id, WA_Meta::SKIP_KEY, true ) ) {
+				delete_post_meta( $post_id, WA_Meta::SKIP_KEY );
+				WA_Meta::recompute_status( $post_id, array( 'skipped' => false ) );
+			}
 
 			$statement = isset( $fields['statement'] ) ? sanitize_textarea_field( $fields['statement'] ) : '';
 			$verdict   = isset( $fields['verdict'] ) ? sanitize_text_field( $fields['verdict'] ) : '';
@@ -426,6 +337,7 @@ class WA_Bulk_Setup {
 		delete_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY );
 		delete_post_meta( $post_id, WA_Meta::AI_STATUS_KEY );
 		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+		WA_Meta::recompute_status( $post_id, array( 'ai_status' => '' ) );
 	}
 
 	/**
