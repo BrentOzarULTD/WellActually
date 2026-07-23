@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,10 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.3.1 =
+* On the "Well, Actually..." screen, add "Date modified" and "Comment count" as sort options alongside "Date published" — all three are indexed core columns, so they stay cheap even on a large archive.
+* Speed up Draft with AI: send far less post text per request (30,000 characters down to 3,000), prefer a post's manual excerpt when it has one instead of its full content, and drop code samples entirely before building the prompt — none of that helps pick a one-line true/false/debatable statement, and smaller requests mean faster drafts.
 
 = 1.3.0 =
 * Rebrand: the plugin now displays on-screen as "Well, Actually..." everywhere (Plugins list, admin screens, share text). No change to the plugin's internal slug, files, or database keys.
