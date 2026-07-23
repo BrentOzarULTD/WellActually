@@ -5,10 +5,10 @@ Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.7.0
-License: MIT
-License URI: https://opensource.org/licenses/MIT
+License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Swipe mode for your blog. Show readers a bold statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong.
+Swipe mode for your blog: readers see a bold statement, swipe agree or disagree, and see the post behind it when they get it wrong.
 
 == Description ==
 

@@ -1,5 +1,5 @@
 # Copyright (C) 2026 Brent Ozar
-# This file is distributed under the MIT.
+# This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
 "Project-Id-Version: WellActually 1.2.1\n"
