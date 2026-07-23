@@ -70,14 +70,14 @@ class WellActually_Reports {
 		}
 
 		wp_enqueue_style(
-			'wa-admin-reports',
+			'wellactually-admin-reports',
 			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-reports.css',
 			array(),
 			WELLACTUALLY_VERSION
 		);
 
 		wp_enqueue_script(
-			'wa-admin-reports',
+			'wellactually-admin-reports',
 			WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-reports.js',
 			array(),
 			WELLACTUALLY_VERSION,
@@ -85,8 +85,8 @@ class WellActually_Reports {
 		);
 
 		wp_localize_script(
-			'wa-admin-reports',
-			'waReports',
+			'wellactually-admin-reports',
+			'wellactuallyReports',
 			array(
 				'restUrl'  => esc_url_raw( rest_url( 'wellactually/v1/report/quick-edit' ) ),
 				'nonce'    => wp_create_nonce( 'wp_rest' ),

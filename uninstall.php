@@ -58,6 +58,7 @@ function wellactually_uninstall_site() {
 		'wellactually_status_backfilled',
 		'wellactually_status_repaired',
 		'wellactually_prefix_migrated',
+		'wellactually_prefix_migrating',
 		// Legacy, pre-1.8.0.
 		'wa_settings',
 		'wa_db_version',

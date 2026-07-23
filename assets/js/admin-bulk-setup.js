@@ -4,14 +4,14 @@
  * Progressive enhancement only: dim a row's inputs when it's excluded or
  * skipped, and drive the AI drafting loop.
  *
- * Vanilla ES5, no build step. `window.waBulkSetup` (printed via
+ * Vanilla ES5, no build step. `window.wellactuallyBulkSetup` (printed via
  * wp_localize_script) provides { restUrl, nonce, cat, concurrency, reviewUrl,
  * i18n }.
  */
 ( function () {
 	'use strict';
 
-	var cfg = window.waBulkSetup || {};
+	var cfg = window.wellactuallyBulkSetup || {};
 	var i18n = cfg.i18n || {};
 
 	/**

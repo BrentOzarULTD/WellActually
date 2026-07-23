@@ -175,9 +175,9 @@ class WellActually_Template {
 		}
 		$registered = true;
 
-		wp_register_style( 'wa-swipe', WELLACTUALLY_PLUGIN_URL . 'assets/css/swipe.css', array(), WELLACTUALLY_VERSION );
+		wp_register_style( 'wellactually-swipe', WELLACTUALLY_PLUGIN_URL . 'assets/css/swipe.css', array(), WELLACTUALLY_VERSION );
 		wp_register_script(
-			'wa-swipe',
+			'wellactually-swipe',
 			WELLACTUALLY_PLUGIN_URL . 'assets/js/swipe.js',
 			array(),
 			WELLACTUALLY_VERSION,
@@ -185,8 +185,8 @@ class WellActually_Template {
 		);
 
 		wp_localize_script(
-			'wa-swipe',
-			'waSwipe',
+			'wellactually-swipe',
+			'wellactuallySwipe',
 			array(
 				'restUrl'    => esc_url_raw( rest_url( self::NAMESPACE_ROUTE ) ),
 				'nonce'      => wp_create_nonce( 'wp_rest' ),
@@ -272,7 +272,7 @@ class WellActually_Template {
 	 */
 	public function print_head_assets() {
 		$this->register_assets();
-		wp_print_styles( array( 'wa-swipe' ) );
+		wp_print_styles( array( 'wellactually-swipe' ) );
 	}
 
 	/**
@@ -295,6 +295,6 @@ class WellActually_Template {
 	 */
 	public function print_footer_assets() {
 		$this->register_assets();
-		wp_print_scripts( array( 'wa-swipe' ) );
+		wp_print_scripts( array( 'wellactually-swipe' ) );
 	}
 }

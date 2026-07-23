@@ -255,7 +255,7 @@ class WellActually_Settings {
 		}
 
 		wp_enqueue_style(
-			'wa-admin-settings',
+			'wellactually-admin-settings',
 			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-settings.css',
 			array(),
 			WELLACTUALLY_VERSION
@@ -263,7 +263,7 @@ class WellActually_Settings {
 
 		if ( 'categories' === $this->current_tab() ) {
 			wp_enqueue_script(
-				'wa-admin-categories',
+				'wellactually-admin-categories',
 				WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-categories.js',
 				array(),
 				WELLACTUALLY_VERSION,

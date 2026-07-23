@@ -31,6 +31,7 @@ class Test_WellActually_Uninstall extends WP_UnitTestCase {
 		'wellactually_status_backfilled',
 		'wellactually_status_repaired',
 		'wellactually_prefix_migrated',
+		'wellactually_prefix_migrating',
 		// Legacy, pre-1.8.0. A site that was never loaded after upgrading
 		// still has these, so uninstall has to clear them too.
 		'wa_settings',

@@ -37,10 +37,105 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 	 */
 	private function reset_migration_state() {
 		delete_option( WellActually_Migrate::DONE_OPTION );
+		delete_option( WellActually_Migrate::LOCK_OPTION );
 		foreach ( WellActually_Migrate::OPTIONS as $old => $new ) {
 			delete_option( $old );
 			delete_option( $new );
 		}
+	}
+
+	/**
+	 * A legacy site that never saved the settings form still has to migrate.
+	 *
+	 * register_setting() doesn't create `wa_settings` — it only appears once
+	 * an administrator saves Settings → "Well, Actually...". A site set up
+	 * entirely through Posts → "Well, Actually..." therefore has swipe meta
+	 * and user progress with no settings row at all, and an earlier version
+	 * of this migration mistook exactly that for a fresh install and skipped
+	 * it, stranding the data permanently.
+	 */
+	public function test_legacy_site_without_settings_option_still_migrates() {
+		$this->assertFalse( get_option( 'wa_settings' ), 'This test is only meaningful with no legacy settings row.' );
+
+		$post_id = self::factory()->post->create();
+		update_post_meta( $post_id, '_wa_statement', 'Set up without ever saving settings' );
+		update_post_meta( $post_id, '_wa_verdict', 'true' );
+
+		$user_id = self::factory()->user->create();
+		update_user_meta( $user_id, '_wa_progress', array( 'seen' => array( $post_id ) ) );
+
+		WellActually_Migrate::maybe_migrate();
+
+		$this->assertSame(
+			'Set up without ever saving settings',
+			get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true ),
+			'Swipe content must migrate even with no settings row.'
+		);
+		$this->assertSame( 'true', get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true ) );
+		$this->assertSame(
+			array( 'seen' => array( $post_id ) ),
+			get_user_meta( $user_id, WellActually_User_Progress::META_KEY, true )
+		);
+	}
+
+	/**
+	 * A failed write must not be papered over: the legacy copy stays, and the
+	 * done-marker stays unset so a later request tries again.
+	 */
+	public function test_failed_write_keeps_legacy_data_and_does_not_mark_done() {
+		update_option( 'wa_settings', array( 'slug' => 'quiz' ) );
+		update_option( 'wa_db_version', '1.0' );
+
+		// Make the new option unwritable: every attempt to add or read
+		// `wellactually_settings` comes back empty, standing in for a write
+		// that silently didn't land.
+		$block = static function () {
+			return null;
+		};
+		add_filter( 'pre_option_wellactually_settings', $block );
+		add_filter( 'pre_add_option_wellactually_settings', '__return_null' );
+
+		$result = WellActually_Migrate::maybe_migrate();
+
+		remove_filter( 'pre_option_wellactually_settings', $block );
+		remove_filter( 'pre_add_option_wellactually_settings', '__return_null' );
+
+		$this->assertFalse( $result, 'A failed migration must report failure.' );
+		$this->assertFalse(
+			get_option( WellActually_Migrate::DONE_OPTION ),
+			'A failed migration must stay unmarked so it retries.'
+		);
+		$this->assertSame(
+			array( 'slug' => 'quiz' ),
+			get_option( 'wa_settings' ),
+			'The legacy copy must survive a failed write — losing both is the worst outcome.'
+		);
+
+		// And the retry succeeds once the write works again.
+		$this->assertTrue( WellActually_Migrate::maybe_migrate() );
+		$this->assertSame( array( 'slug' => 'quiz' ), get_option( 'wellactually_settings' ) );
+		$this->assertFalse( get_option( 'wa_settings' ) );
+	}
+
+	/**
+	 * Two simultaneous requests must not both migrate. The second sees the
+	 * lock and backs off rather than racing the first.
+	 */
+	public function test_concurrent_run_backs_off_while_locked() {
+		update_option( 'wa_settings', array( 'slug' => 'quiz' ) );
+
+		// Stand in for a request that is part-way through right now.
+		add_option( WellActually_Migrate::LOCK_OPTION, time(), '', false );
+
+		$this->assertFalse( WellActually_Migrate::maybe_migrate(), 'A locked site must back off.' );
+		$this->assertFalse( get_option( WellActually_Migrate::DONE_OPTION ) );
+		$this->assertSame( array( 'slug' => 'quiz' ), get_option( 'wa_settings' ), 'The blocked request must not touch anything.' );
+
+		// An abandoned lock is taken over rather than blocking forever.
+		update_option( WellActually_Migrate::LOCK_OPTION, time() - ( WellActually_Migrate::LOCK_TIMEOUT + 1 ), false );
+
+		$this->assertTrue( WellActually_Migrate::maybe_migrate(), 'A stale lock must be taken over.' );
+		$this->assertSame( array( 'slug' => 'quiz' ), get_option( 'wellactually_settings' ) );
 	}
 
 	/**

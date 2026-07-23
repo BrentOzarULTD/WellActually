@@ -1,17 +1,17 @@
 /**
  * Shared text helpers. Every user-visible string is translated in PHP and
- * handed over in `window.waSwipe.i18n`; the English literals at the call
+ * handed over in `window.wellactuallySwipe.i18n`; the English literals at the call
  * sites are only a fallback for a config that failed to print.
  *
  * On window because the modules below are separate IIFEs — the same way they
- * already share window.waAttachGestures.
+ * already share window.wellactuallyAttachGestures.
  */
 ( function () {
 	'use strict';
 
-	var i18n = ( window.waSwipe || {} ).i18n || {};
+	var i18n = ( window.wellactuallySwipe || {} ).i18n || {};
 
-	window.waSwipeText = {
+	window.wellactuallyText = {
 		/**
 		 * A translated string, by key.
 		 *
@@ -43,7 +43,7 @@
 /**
  * WellActually swipe mode frontend.
  *
- * Vanilla ES6, no build step. `window.waSwipe` (printed via
+ * Vanilla ES6, no build step. `window.wellactuallySwipe` (printed via
  * wp_localize_script) provides { restUrl, nonce, isLoggedIn, homeUrl,
  * siteName, i18n }.
  *
@@ -52,9 +52,9 @@
 ( function () {
 	'use strict';
 
-	var config = window.waSwipe || {};
-	var s = window.waSwipeText.s;
-	var format = window.waSwipeText.format;
+	var config = window.wellactuallySwipe || {};
+	var s = window.wellactuallyText.s;
+	var format = window.wellactuallyText.format;
 	// Resolved in start() rather than here: this script may be parsed before
 	// #wa-app exists in the DOM.
 	var appEl = null;
@@ -365,7 +365,7 @@
 	 * Render the loading state.
 	 */
 	function renderLoading() {
-		appEl.innerHTML = '<div class="wa-loading">' + escapeHtml( waSwipeStrings().loading ) + '</div>';
+		appEl.innerHTML = '<div class="wa-loading">' + escapeHtml( wellactuallyStrings().loading ) + '</div>';
 	}
 
 	/**
@@ -374,8 +374,8 @@
 	function renderError() {
 		appEl.innerHTML =
 			'<div class="wa-error">' +
-			'<p>' + escapeHtml( waSwipeStrings().error ) + '</p>' +
-			'<button type="button" class="wa-btn wa-retry">' + escapeHtml( waSwipeStrings().retry ) + '</button>' +
+			'<p>' + escapeHtml( wellactuallyStrings().error ) + '</p>' +
+			'<button type="button" class="wa-btn wa-retry">' + escapeHtml( wellactuallyStrings().retry ) + '</button>' +
 			'</div>';
 
 		var retryBtn = appEl.querySelector( '.wa-retry' );
@@ -421,7 +421,7 @@
 			'<div class="wa-game">' +
 			'<div class="wa-header">' +
 			'<span class="wa-header-stats">' +
-			'<span class="wa-score">' + escapeHtml( waSwipeStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count ) ) + '</span>' +
+			'<span class="wa-score">' + escapeHtml( wellactuallyStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count ) ) + '</span>' +
 			'<span class="wa-deck-progress">' + escapeHtml( totalLabel ) + '</span>' +
 			'</span>' +
 			'<button type="button" class="wa-reset-link">' + escapeHtml( s( 'startOver', 'Start over' ) ) + '</button>' +
@@ -429,15 +429,15 @@
 			'<div class="wa-card-area">' +
 			'<div class="wa-card" id="wa-card" tabindex="-1">' +
 			'<p class="wa-statement" aria-live="polite">' + escapeHtml( card.statement ) + '</p>' +
-			'<div class="wa-drag-label wa-drag-label-agree">' + escapeHtml( waSwipeStrings().agree ) + '</div>' +
-			'<div class="wa-drag-label wa-drag-label-disagree">' + escapeHtml( waSwipeStrings().disagree ) + '</div>' +
-			'<div class="wa-drag-label wa-drag-label-unsure">' + escapeHtml( waSwipeStrings().unsure ) + '</div>' +
+			'<div class="wa-drag-label wa-drag-label-agree">' + escapeHtml( wellactuallyStrings().agree ) + '</div>' +
+			'<div class="wa-drag-label wa-drag-label-disagree">' + escapeHtml( wellactuallyStrings().disagree ) + '</div>' +
+			'<div class="wa-drag-label wa-drag-label-unsure">' + escapeHtml( wellactuallyStrings().unsure ) + '</div>' +
 			'</div>' +
 			'</div>' +
 			'<div class="wa-hint-footer">' +
-			'<button type="button" class="wa-btn wa-btn-disagree" data-answer="disagree">&larr; ' + escapeHtml( waSwipeStrings().disagree ) + '</button>' +
-			'<button type="button" class="wa-btn wa-btn-unsure" data-answer="unsure">&uarr; ' + escapeHtml( waSwipeStrings().unsure ) + '</button>' +
-			'<button type="button" class="wa-btn wa-btn-agree" data-answer="agree">' + escapeHtml( waSwipeStrings().agree ) + ' &rarr;</button>' +
+			'<button type="button" class="wa-btn wa-btn-disagree" data-answer="disagree">&larr; ' + escapeHtml( wellactuallyStrings().disagree ) + '</button>' +
+			'<button type="button" class="wa-btn wa-btn-unsure" data-answer="unsure">&uarr; ' + escapeHtml( wellactuallyStrings().unsure ) + '</button>' +
+			'<button type="button" class="wa-btn wa-btn-agree" data-answer="agree">' + escapeHtml( wellactuallyStrings().agree ) + ' &rarr;</button>' +
 			'</div>' +
 			( footNote ? '<p class="wa-hint-text">' + escapeHtml( footNote ) + '</p>' : '' ) +
 			'</div>';
@@ -454,8 +454,8 @@
 			resetBtn.addEventListener( 'click', handleResetClick );
 		}
 
-		if ( typeof window.waAttachGestures === 'function' ) {
-			window.waAttachGestures( document.getElementById( 'wa-card' ), answer );
+		if ( typeof window.wellactuallyAttachGestures === 'function' ) {
+			window.wellactuallyAttachGestures( document.getElementById( 'wa-card' ), answer );
 		}
 	}
 
@@ -622,7 +622,7 @@
 	 *
 	 * @return {Object}
 	 */
-	function waSwipeStrings() {
+	function wellactuallyStrings() {
 		return {
 			loading: s( 'loading', 'Loading…' ),
 			error: s( 'error', 'Something went wrong loading swipe mode.' ),
@@ -714,9 +714,9 @@
 			state.busy = false;
 			updateHeaderDisplay();
 
-			if ( typeof window.waShowReveal === 'function' ) {
+			if ( typeof window.wellactuallyShowReveal === 'function' ) {
 				state.phase = 'reveal';
-				window.waShowReveal( response, answerValue, advanceAfterReveal );
+				window.wellactuallyShowReveal( response, answerValue, advanceAfterReveal );
 			} else {
 				advanceAfterReveal();
 			}
@@ -770,8 +770,8 @@
 			state.progress.wrong.push( card.id );
 		}
 
-		if ( typeof window.waSaveProgress === 'function' ) {
-			window.waSaveProgress( state.progress );
+		if ( typeof window.wellactuallySaveProgress === 'function' ) {
+			window.wellactuallySaveProgress( state.progress );
 		}
 	}
 
@@ -784,7 +784,7 @@
 		var progressEl = appEl && appEl.querySelector( '.wa-deck-progress' );
 
 		if ( scoreEl ) {
-			scoreEl.textContent = waSwipeStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count );
+			scoreEl.textContent = wellactuallyStrings().scoreLabel( state.progress.correct_count, state.progress.answered_count );
 		}
 		if ( progressEl ) {
 			if ( state.replay ) {
@@ -867,9 +867,9 @@
 		state.phase = 'loading';
 		render();
 
-		var resetPromise = typeof window.waResetProgressAsync === 'function'
-			? window.waResetProgressAsync()
-			: Promise.resolve( typeof window.waResetProgress === 'function' ? window.waResetProgress() : freshLocalProgress() );
+		var resetPromise = typeof window.wellactuallyResetProgressAsync === 'function'
+			? window.wellactuallyResetProgressAsync()
+			: Promise.resolve( typeof window.wellactuallyResetProgress === 'function' ? window.wellactuallyResetProgress() : freshLocalProgress() );
 
 		resetPromise
 			.then( function ( progress ) {
@@ -920,11 +920,11 @@
 	 * @return {Promise<Object>}
 	 */
 	function getInitialProgress() {
-		if ( typeof window.waLoadProgressAsync === 'function' ) {
-			return window.waLoadProgressAsync();
+		if ( typeof window.wellactuallyLoadProgressAsync === 'function' ) {
+			return window.wellactuallyLoadProgressAsync();
 		}
-		if ( typeof window.waLoadProgress === 'function' ) {
-			return Promise.resolve( window.waLoadProgress() );
+		if ( typeof window.wellactuallyLoadProgress === 'function' ) {
+			return Promise.resolve( window.wellactuallyLoadProgress() );
 		}
 		return Promise.resolve( state.progress );
 	}
@@ -951,13 +951,13 @@
 	}
 
 	// Exposed for later issues (reveal overlay, gestures, storage) and for debugging.
-	window.waSwipeState = state;
-	window.waSwipeAnswer = answer;
+	window.wellactuallyState = state;
+	window.wellactuallyAnswer = answer;
 } )();
 
 /**
  * Touch/mouse swipe gestures. Attached to the card element by the main
- * render loop via window.waAttachGestures( cardEl, answerFn ).
+ * render loop via window.wellactuallyAttachGestures( cardEl, answerFn ).
  */
 ( function () {
 	'use strict';
@@ -976,7 +976,7 @@
 	 * @param {HTMLElement} cardEl   The card element to make draggable.
 	 * @param {Function}    answerFn Called with 'agree'|'disagree'|'unsure' once a drag commits.
 	 */
-	window.waAttachGestures = function ( cardEl, answerFn ) {
+	window.wellactuallyAttachGestures = function ( cardEl, answerFn ) {
 		if ( ! cardEl ) {
 			return;
 		}
@@ -1204,8 +1204,8 @@
 	var prefersReducedMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 	var CORRECT_FLASH_MS = 600;
 	var TRANSITION_MS = prefersReducedMotion ? 0 : 300;
-	var s = window.waSwipeText.s;
-	var format = window.waSwipeText.format;
+	var s = window.wellactuallyText.s;
+	var format = window.wellactuallyText.format;
 
 	/**
 	 * Escape a string for safe HTML insertion — safe both as element text
@@ -1258,7 +1258,7 @@
 	 * @param {string}   answerValue The answer the player gave.
 	 * @param {Function} onContinue  Called once the player is ready to move on.
 	 */
-	window.waShowReveal = function ( response, answerValue, onContinue ) {
+	window.wellactuallyShowReveal = function ( response, answerValue, onContinue ) {
 		if ( ! response.show_post ) {
 			showCorrectFlash( onContinue );
 			return;
@@ -1499,12 +1499,12 @@
 /**
  * localStorage-backed progress persistence for anonymous visitors.
  * Logged-in sync (issue #12) reads/writes through the same
- * window.waLoadProgress/waSaveProgress hooks, merging with the server copy.
+ * window.wellactuallyLoadProgress/wellactuallySaveProgress hooks, merging with the server copy.
  */
 ( function () {
 	'use strict';
 
-	var s = window.waSwipeText.s;
+	var s = window.wellactuallyText.s;
 	var STORAGE_KEY = 'wa_progress';
 	var memoryFallback = null; // Used when localStorage is unavailable.
 	var storageAvailable = isStorageAvailable();
@@ -1615,7 +1615,7 @@
 	 *
 	 * @return {Object}
 	 */
-	window.waLoadProgress = function () {
+	window.wellactuallyLoadProgress = function () {
 		if ( ! storageAvailable ) {
 			maybeShowNoStorageNotice();
 			return normalize( memoryFallback );
@@ -1634,7 +1634,7 @@
 	 *
 	 * @param {Object} progress Progress object to save.
 	 */
-	window.waSaveProgress = function ( progress ) {
+	window.wellactuallySaveProgress = function ( progress ) {
 		var normalized = normalize( progress );
 
 		if ( ! storageAvailable ) {
@@ -1655,9 +1655,9 @@
 	/**
 	 * Reset all local progress to a fresh, empty state.
 	 */
-	window.waResetProgress = function () {
+	window.wellactuallyResetProgress = function () {
 		var fresh = freshProgress();
-		window.waSaveProgress( fresh );
+		window.wellactuallySaveProgress( fresh );
 		return fresh;
 	};
 } )();
@@ -1670,14 +1670,14 @@
 ( function () {
 	'use strict';
 
-	var config = window.waSwipe || {};
+	var config = window.wellactuallySwipe || {};
 
 	if ( ! config.isLoggedIn ) {
 		return;
 	}
 
-	var localSave = window.waSaveProgress;
-	var localReset = window.waResetProgress;
+	var localSave = window.wellactuallySaveProgress;
+	var localReset = window.wellactuallyResetProgress;
 
 	var PUT_DEBOUNCE_MS = 2000;
 	var putTimer = null;
@@ -1788,8 +1788,8 @@
 	 *
 	 * @return {Promise<Object>}
 	 */
-	window.waLoadProgressAsync = function () {
-		var local = window.waLoadProgress ? window.waLoadProgress() : { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
+	window.wellactuallyLoadProgressAsync = function () {
+		var local = window.wellactuallyLoadProgress ? window.wellactuallyLoadProgress() : { seen: [], wrong: [], correct_count: 0, answered_count: 0 };
 
 		return apiFetch( 'progress' )
 			.then( function ( server ) {
@@ -1808,7 +1808,7 @@
 	 *
 	 * @return {Promise<Object>}
 	 */
-	window.waResetProgressAsync = function () {
+	window.wellactuallyResetProgressAsync = function () {
 		var fresh = localReset();
 		return apiFetch( 'progress', {
 			method: 'PUT',
@@ -1851,7 +1851,7 @@
 	}
 
 	// Wrap the local save so every local write also queues a server push.
-	window.waSaveProgress = function ( progress ) {
+	window.wellactuallySaveProgress = function ( progress ) {
 		localSave( progress );
 		pushToServer( progress );
 	};

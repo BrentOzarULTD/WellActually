@@ -85,14 +85,14 @@ class WellActually_Bulk_Setup {
 		}
 
 		wp_enqueue_style(
-			'wa-admin-bulk-setup',
+			'wellactually-admin-bulk-setup',
 			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-bulk-setup.css',
 			array(),
 			WELLACTUALLY_VERSION
 		);
 
 		wp_enqueue_script(
-			'wa-admin-bulk-setup',
+			'wellactually-admin-bulk-setup',
 			WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-bulk-setup.js',
 			array(),
 			WELLACTUALLY_VERSION,
@@ -102,8 +102,8 @@ class WellActually_Bulk_Setup {
 		$args = $this->current_args();
 
 		wp_localize_script(
-			'wa-admin-bulk-setup',
-			'waBulkSetup',
+			'wellactually-admin-bulk-setup',
+			'wellactuallyBulkSetup',
 			array(
 				'restUrl'     => esc_url_raw( rest_url( 'wellactually/v1' ) ),
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
