@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<ruleset name="WellActually">
+	<description>Coding standards for the Well, Actually... plugin.</description>
+
+	<file>.</file>
+
+	<!-- Never scan dependencies, build output, or the local test site. -->
+	<exclude-pattern>/vendor/*</exclude-pattern>
+	<exclude-pattern>/node_modules/*</exclude-pattern>
+	<exclude-pattern>/dist/*</exclude-pattern>
+	<exclude-pattern>/build/*</exclude-pattern>
+	<exclude-pattern>/.wp-local/*</exclude-pattern>
+	<exclude-pattern>/languages/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+
+	<rule ref="WordPress">
+		<!-- The plugin ships as one file set with no build step; short array
+		     syntax and file naming are deliberate choices, not oversights. -->
+		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
+		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+	</rule>
+
+	<!-- The plugin header claims PHP 7.4, so hold the code to it. -->
+	<config name="testVersion" value="7.4-"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array" value="wellactually"/>
+		</properties>
+	</rule>
+
+	<!-- Tests legitimately do things production code shouldn't. -->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>/tests/*</exclude-pattern>
+	</rule>
+</ruleset>

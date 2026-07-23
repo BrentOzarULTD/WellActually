@@ -1,0 +1,52 @@
+name: Claude review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    # Skipped automatically if the API key secret isn't set, so the workflow
+    # can sit here harmlessly until you add one.
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Review the pull request
+        if: ${{ env.HAS_KEY == 'true' }}
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this pull request for the "Well, Actually..." WordPress plugin.
+
+            Weight your attention by what has actually gone wrong in this
+            codebase before:
+
+            - Concurrency. Drafting runs several requests at once. Check that
+              any new queue interaction is atomic, fenced by the claim token,
+              and can't let two runs act on the same post.
+            - Stale reads. This plugin runs on hosting where a read can be
+              served by a database replica that hasn't caught up. Flag any
+              code that writes a derived value from a value it just read
+              back, or that treats a query result as proof a write didn't
+              happen.
+            - Answer leakage. The swipe deck must never expose a post's
+              verdict to the browser before the player answers.
+            - Capability checks on anything that writes post data.
+            - Query cost at scale: this archive has ~3,000 posts, and
+              multi-key meta_query joins have caused multi-second page loads
+              here before.
+
+            Report only issues you can point at a specific line for, with a
+            concrete failure scenario. Say so plainly if you find nothing.
