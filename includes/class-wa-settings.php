@@ -221,7 +221,7 @@ class WA_Settings {
 	 */
 	private function current_tab() {
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'setup';
-		return in_array( $tab, array( 'setup', 'categories', 'errors' ), true ) ? $tab : 'setup';
+		return in_array( $tab, array( 'setup', 'categories', 'reports', 'errors' ), true ) ? $tab : 'setup';
 	}
 
 	/**
@@ -580,6 +580,7 @@ class WA_Settings {
 		$tab_names = array(
 			'setup'      => __( 'Setup', 'wellactually' ),
 			'categories' => __( 'Categories', 'wellactually' ),
+			'reports'    => __( 'Reports', 'wellactually' ),
 			'errors'     => __( 'Errors', 'wellactually' ),
 		);
 		?>
@@ -598,6 +599,10 @@ class WA_Settings {
 			<?php if ( 'errors' === $tab ) : ?>
 				<div class="wa-tab-panel">
 					<?php $this->render_errors_tab(); ?>
+				</div>
+			<?php elseif ( 'reports' === $tab ) : ?>
+				<div class="wa-tab-panel">
+					<?php WA_Reports::instance()->render_tab(); ?>
 				</div>
 			<?php else : ?>
 				<form action="options.php" method="post" class="wa-tab-panel">

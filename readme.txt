@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,12 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.6.0 =
+* New Reports tab under Settings → "Well, Actually...". Lists every post currently in the swipe deck with its swipe headline, the right answer, how many times it's been swiped, and what percentage of players got it right and wrong. Post titles link through to the live post.
+* Sort the report by swipes, % right, or % wrong by clicking those column headings. Posts nobody has swiped yet sort to the bottom of the percentage columns rather than crowding the top with blanks.
+* Quick Edit on each row, like the Posts list: change the swipe headline and the right answer inline and save without leaving the page. Paginated 20 at a time.
+* Fix: on narrow phones the Agree button wrapped onto its own line. The three answer buttons now share one row at any phone width, with the label size scaling to fit.
 
 = 1.5.0 =
 * Swipe left or right on the reveal card to carry on, instead of reaching for the Continue button. The button still works, and vertical swipes still scroll a long reveal rather than dismissing it.

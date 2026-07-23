@@ -230,9 +230,25 @@ body {
 .wa-hint-footer {
 	display: flex;
 	justify-content: center;
-	gap: 12px;
-	padding: 0 16px;
-	flex-wrap: wrap;
+	gap: 8px;
+	padding: 0 12px;
+	/* The three answers are one control group: never let one drop to its own
+	   line. They share the row instead, so this holds from small phones up. */
+	flex-wrap: nowrap;
+	max-width: 520px;
+	margin: 0 auto;
+}
+
+.wa-hint-footer .wa-btn {
+	flex: 1 1 0;
+	/* Without this a flex item won't shrink below its content width, which is
+	   what pushed the third button onto a second row. */
+	min-width: 0;
+	padding: 12px 8px;
+	white-space: nowrap;
+	/* Scales with the viewport between the two bounds, so the labels still
+	   fit on a narrow phone without looking shrunken on a desktop. */
+	font-size: clamp( 0.78rem, 3.2vw, 0.95rem );
 }
 
 .wa-hint-text {
