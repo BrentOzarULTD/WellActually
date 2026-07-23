@@ -24,7 +24,21 @@ Progress is tracked locally for anonymous visitors and synced to their account w
 4. Edit any post and fill in the "Swipe Statement" and verdict fields to add it to the deck.
 5. Send visitors to `yoursite.com/swipe`.
 
-The optional "Draft with AI" feature uses the AI client APIs that ship in WordPress 7.0, which is why that's the minimum version. It also needs an AI provider plugin (any provider registered with the WordPress AI client works, including Nano-GPT) configured with your own API key — see the AI provider FAQ below for what gets sent where.
+The optional "Draft with AI" feature uses the AI client APIs that ship in WordPress 7.0, which is why that's the minimum version. It also needs an AI provider plugin (any provider registered with the WordPress AI client works, including Nano-GPT) configured with your own API key — see External Services below for exactly what gets sent where.
+
+== External Services ==
+
+The optional "Draft with AI" feature sends post content to an external AI service. All external contact is confined to that feature and its admin screens: activating the plugin and the public swipe game your readers play never contact any external service.
+
+**What is sent:** the post's title, plus either its manual excerpt (if one exists) or up to the first 3,000 characters of the post's body as plain text (HTML and code blocks stripped). No reader data, user accounts, or site credentials are ever sent.
+
+**When it is sent:** post content is sent only when a logged-in administrator or editor clicks "Draft with AI" on the Swipe Setup screen, and only for the posts queued in that run — nothing automatic, nothing on a schedule. Separately, when an administrator opens this plugin's settings or Swipe Setup screens, the plugin asks the selected provider plugin whether it's configured; depending on the provider, that check may involve a round-trip to the provider's API (no post content is included in it, and the result is cached briefly).
+
+**Where it goes:** to the AI provider *you* select and configure. This plugin does not bundle or default to any vendor — it talks to whatever provider plugin the site administrator has registered with the WordPress AI client (see the [WordPress AI documentation](https://make.wordpress.org/ai/)) and chosen in Settings → Well, Actually... Examples include Nano-GPT or any other AI-client-compatible provider. You will generally need your own account and API key with that provider.
+
+**Terms and privacy:** because the destination is your chosen provider, its terms of service and privacy policy govern the transfer — consult the documentation of the provider plugin you install (for example, [Nano-GPT's terms](https://nano-gpt.com/terms) and [privacy policy](https://nano-gpt.com/privacy) if you choose Nano-GPT). Review them before drafting content you consider sensitive.
+
+**What comes back:** a suggested swipe statement and verdict, stored as a draft suggestion on the post. Nothing goes live until a human reviews and saves it.
 
 == Frequently Asked Questions ==
 
