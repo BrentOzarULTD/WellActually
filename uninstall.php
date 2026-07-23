@@ -86,12 +86,12 @@ function wa_uninstall_site() {
 }
 
 if ( is_multisite() ) {
-	// 'number' left empty on purpose: it means no limit, so every site is
+	// 'number' => 0 disables the default 100-site limit, so every site is
 	// cleaned, not just the first hundred.
 	$wa_site_ids = get_sites(
 		array(
 			'fields' => 'ids',
-			'number' => '',
+			'number' => 0,
 		)
 	);
 
@@ -105,6 +105,7 @@ if ( is_multisite() ) {
 }
 
 // Remove user meta added by the plugin. The usermeta table is shared across
-// a network, so this runs once, not per site.
-global $wpdb;
-$wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = '_wa_progress'" );
+// a network, so this runs once, not per site. delete_metadata() with
+// $delete_all clears the key for every user and invalidates caches, which a
+// raw DELETE would leave stale.
+delete_metadata( 'user', 0, '_wa_progress', '', true );

@@ -128,8 +128,10 @@ class Test_WA_Uninstall extends WP_UnitTestCase {
 
 		$leftover_transients = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
 			"SELECT COUNT(*) FROM {$wpdb->options}
-			 WHERE option_name LIKE '\_transient\_%wa\_rl\_%'
-			    OR option_name LIKE '\_transient\_%wa\_ai\_provider\_configured\_%'"
+			 WHERE option_name LIKE '\_transient\_wa\_rl\_%'
+			    OR option_name LIKE '\_transient\_timeout\_wa\_rl\_%'
+			    OR option_name LIKE '\_transient\_wa\_ai\_provider\_configured\_%'
+			    OR option_name LIKE '\_transient\_timeout\_wa\_ai\_provider\_configured\_%'"
 		);
 		$this->assertSame( 0, $leftover_transients, 'No plugin transients may remain in the options table.' );
 
