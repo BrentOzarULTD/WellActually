@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.4.2
+Stable tag: 1.4.3
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,9 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.4.3 =
+* Fix: saving a page of posts could land you back on the same screen with the same posts still listed, as though the save hadn't happened — even though it had. After saving, the screen asked the database which posts still needed attention, and on managed hosting that question can be answered by a database copy that hasn't caught up yet, which truthfully replies with the posts you just dealt with. No amount of adjusting the query could fix that, because the updated information genuinely isn't visible to it yet. The screen no longer asks: the save already knows which posts it handled, and passes that list forward so they're hidden on the page you land on. It applies to that one page load only, and only to the view you were working in, so those posts still appear normally under "All posts" or whichever status they moved to.
 
 = 1.4.2 =
 * Fix: the "Draft with AI" panel could report suggestions ready to review while the "Has AI suggestions" grid showed no posts at all, leaving drafts stranded with no way to reach them. Existing stranded suggestions are repaired automatically on update — they'll be waiting on that screen after you upgrade.

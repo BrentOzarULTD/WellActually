@@ -95,8 +95,18 @@ class WA_Bulk_Setup {
 			$orderby = 'date';
 		}
 
+		// Posts the save that redirected here just dealt with. Bounded by the
+		// page size, and deliberately not carried on any other link, so it
+		// only ever applies to the single page load straight after a save.
+		$done = array();
+		if ( isset( $_REQUEST['wa_done'] ) ) {
+			$done = array_filter( array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_REQUEST['wa_done'] ) ) ) ) );
+			$done = array_slice( $done, 0, self::PER_PAGE );
+		}
+
 		return array(
 			'status'  => $status,
+			'done'    => $done,
 			'cat'     => isset( $_REQUEST['wa_cat'] ) ? absint( $_REQUEST['wa_cat'] ) : 0,
 			'order'   => $order,
 			'orderby' => $orderby,
@@ -165,6 +175,22 @@ class WA_Bulk_Setup {
 			$meta_query = WA_Meta::status_meta_query( $args['status'] );
 			if ( ! empty( $meta_query ) ) {
 				$query_args['meta_query'] = $meta_query;
+			}
+
+			// Hide what the save that redirected here just handled.
+			//
+			// This is the part that no amount of query tuning could fix. A
+			// filtered view asks the database which posts still need
+			// attention; immediately after a save, a read served by a replica
+			// that hasn't caught up truthfully answers with the posts just
+			// dealt with, and they reappear as though nothing happened. We
+			// already know which posts those are — the save just made the
+			// changes — so the answer is carried across the redirect instead
+			// of being asked for again. It applies to this one page load, and
+			// only to the view they were handled on, so they still show up
+			// normally under "All posts" or whichever status they moved to.
+			if ( ! empty( $args['done'] ) ) {
+				$query_args['post__not_in'] = $args['done'];
 			}
 		}
 
@@ -242,6 +268,11 @@ class WA_Bulk_Setup {
 			'skipped'    => 0,
 		);
 
+		// The posts this save actually changed. Carried through the redirect
+		// so the next page can hide them without having to ask the database
+		// to confirm a change it may not be able to see yet.
+		$handled = array();
+
 		foreach ( $rows as $post_id => $fields ) {
 			$post_id = absint( $post_id );
 			if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
@@ -262,6 +293,7 @@ class WA_Bulk_Setup {
 				update_post_meta( $post_id, WA_Meta::SKIP_KEY, '1' );
 				WA_Meta::recompute_status( $post_id, array( 'skipped' => true ) );
 				$counts['skipped']++;
+				$handled[] = $post_id;
 				continue;
 			}
 
@@ -288,6 +320,10 @@ class WA_Bulk_Setup {
 
 			if ( isset( $counts[ $result ] ) ) {
 				$counts[ $result ]++;
+			}
+
+			if ( in_array( $result, array( 'configured', 'excluded', 'cleared' ), true ) ) {
+				$handled[] = $post_id;
 			}
 
 			// Once a post is configured or excluded, any pending AI suggestion
@@ -319,6 +355,7 @@ class WA_Bulk_Setup {
 				'wa_incomplete' => $counts['incomplete'],
 				'wa_skipped'    => $counts['skipped'],
 				'wa_saved'      => 1,
+				'wa_done'       => implode( ',', $handled ),
 			),
 			admin_url( 'edit.php' )
 		);
