@@ -1025,8 +1025,18 @@ class WA_Bulk_Setup {
 				btn.disabled = true;
 				progress.textContent = 'Queuing…';
 
-				api( 'ai/enqueue', { count: count, cat: cfg.cat } ).then( function ( res ) {
+				// Hand back the previous batch id. If that run stopped early
+				// with work outstanding, the server resumes it instead of
+				// starting a new batch and stranding the old one's posts.
+				var previous = '';
+				try { previous = window.sessionStorage.getItem( 'waAiBatch' ) || ''; } catch ( e ) {}
+
+				api( 'ai/enqueue', { count: count, cat: cfg.cat, batch: previous } ).then( function ( res ) {
+					var batch = res.batch;
 					var total = res.queued || 0;
+
+					try { window.sessionStorage.setItem( 'waAiBatch', batch ); } catch ( e ) {}
+
 					if ( ! total ) {
 						progress.textContent = 'No un-drafted posts match this filter.';
 						running = false;
@@ -1034,51 +1044,101 @@ class WA_Bulk_Setup {
 						return;
 					}
 
-					var done = 0, errors = 0;
+					// Counted separately and never subtracted from one another:
+					// a lost response is not a failed draft, and inferring one
+					// from the other is what produced negative totals before.
+					var drafted = 0, failed = 0, unknown = 0;
 
-					function report() {
-						progress.textContent = 'Drafting… ' + done + ' of ' + total +
-							' done' + ( errors ? ' (' + errors + ' error' + ( errors > 1 ? 's' : '' ) + ')' : '' );
+					function summary() {
+						var parts = [ drafted + ' drafted' ];
+						if ( failed ) { parts.push( failed + ' error' + ( failed > 1 ? 's' : '' ) ); }
+						if ( unknown ) { parts.push( unknown + ' unconfirmed' ); }
+						return parts.join( ', ' );
 					}
 
-					function finish() {
-						progress.innerHTML = 'Done — ' + ( done - errors ) + ' drafted' +
-							( errors ? ', ' + errors + ' error' + ( errors > 1 ? 's' : '' ) : '' ) +
-							'. <a href="' + cfg.reviewUrl + '">Review suggestions</a>';
+					function report() {
+						progress.textContent = 'Drafting… ' + ( drafted + failed ) + ' of ' + total + ' — ' + summary();
+					}
+
+					function finish( remaining ) {
+						if ( remaining > 0 ) {
+							// The server still holds work for this batch, so
+							// this run stopped short rather than finished.
+							progress.innerHTML = 'Stopped early — ' + summary() + ', ' + remaining +
+								' still queued. Click Draft with AI again to resume. ' +
+								'<a href="' + cfg.reviewUrl + '">Review suggestions</a>';
+						} else {
+							try { window.sessionStorage.removeItem( 'waAiBatch' ); } catch ( e ) {}
+							progress.innerHTML = 'Done — ' + summary() +
+								'. <a href="' + cfg.reviewUrl + '">Review suggestions</a>';
+						}
 						running = false;
 						btn.disabled = false;
 					}
 
-					// Drafting is almost entirely waiting on the AI provider, so
-					// run several requests at once instead of one after another.
-					// Each worker pulls the next post itself and keeps going
-					// until the queue is empty; the server hands out posts with
-					// an atomic claim, so two workers never get the same one.
 					var workers = Math.max( 1, Math.min( 20, parseInt( cfg.concurrency, 10 ) || 5 ) );
 					var alive = Math.min( workers, total );
+					var lastRemaining = total;
+
+					function retire() {
+						alive--;
+						if ( alive <= 0 ) { finish( lastRemaining ); }
+					}
 
 					function worker() {
-						api( 'ai/process' ).then( function ( out ) {
+						fetch( cfg.restUrl + '/ai/process', {
+							method: 'POST',
+							credentials: 'same-origin',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-WP-Nonce': cfg.nonce
+							},
+							body: JSON.stringify( { batch: batch } )
+						} ).then( function ( r ) {
+							// Site-wide ceiling is full (other tabs, other
+							// users). The work is still queued, so wait and
+							// retry instead of counting a failure.
+							if ( r.status === 429 ) {
+								var wait = ( parseInt( r.headers.get( 'Retry-After' ), 10 ) || 2 ) * 1000;
+								setTimeout( worker, wait );
+								return null;
+							}
+							if ( ! r.ok ) { throw new Error( 'Request failed: ' + r.status ); }
+							return r.json();
+						} ).then( function ( out ) {
+							if ( ! out ) { return; }
+
+							if ( out.counts && typeof out.counts.remaining !== 'undefined' ) {
+								lastRemaining = out.counts.remaining;
+							}
+
 							if ( out.processed ) {
-								done++;
-								if ( out.processed.status === 'error' ) { errors++; }
+								if ( 'ready' === out.processed.status ) {
+									drafted++;
+								} else if ( 'stale' === out.processed.status ) {
+									// Reassigned to another run mid-flight;
+									// whoever owns it now reports the outcome.
+								} else {
+									failed++;
+								}
 								report();
 								worker();
 							} else {
-								// Queue drained — this worker is finished.
-								alive--;
-								if ( alive <= 0 ) { finish(); }
+								retire();
 							}
 						} ).catch( function () {
-							// Don't strand the whole batch on one failed
-							// request; count it and retire this worker.
-							errors++;
-							alive--;
+							// The request didn't come back. The server may or
+							// may not have drafted it, so this is neither a
+							// success nor a failure — record it as unconfirmed
+							// and let the server's batch counts decide whether
+							// the run is actually finished.
+							unknown++;
 							report();
-							if ( alive <= 0 ) { finish(); }
+							retire();
 						} );
 					}
 
+					report();
 					for ( var w = 0; w < alive; w++ ) {
 						worker();
 					}

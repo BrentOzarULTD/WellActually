@@ -24,6 +24,10 @@ class WA_AI {
 	// closed mid-batch, a request timed out) and returned to the queue.
 	const CLAIM_TIMEOUT = 300;
 
+	// A batch with work still sitting untouched this long is considered dead
+	// and its remaining items are released back to the general pool.
+	const BATCH_TIMEOUT = 3600;
+
 	// Cap on how much post text we send. A one-line true/false/debatable
 	// statement needs only the post's core argument, not the whole article —
 	// keeping this small measurably speeds up drafting (input size drives
@@ -54,6 +58,12 @@ class WA_AI {
 	 */
 	private function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+
+		// Same reasoning as WA_Meta's backfill: activation-only setup misses
+		// sites that were updated by copying files, so check cheaply on
+		// admin_init (the option compare is a single cached lookup).
+		add_action( 'admin_init', array( 'WA_AI_Queue', 'maybe_upgrade_table' ) );
+		add_action( 'wa_activate', array( 'WA_AI_Queue', 'create_table' ) );
 	}
 
 	/**
@@ -82,6 +92,11 @@ class WA_AI {
 						'default'           => 0,
 						'sanitize_callback' => 'absint',
 					),
+					'batch' => array(
+						'type'              => 'string',
+						'default'           => '',
+						'sanitize_callback' => 'sanitize_text_field',
+					),
 				),
 			)
 		);
@@ -93,6 +108,13 @@ class WA_AI {
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'handle_process' ),
 				'permission_callback' => $permission,
+				'args'                => array(
+					'batch' => array(
+						'type'              => 'string',
+						'required'          => true,
+						'sanitize_callback' => 'sanitize_text_field',
+					),
+				),
 			)
 		);
 	}
@@ -107,17 +129,51 @@ class WA_AI {
 		$count = min( 200, max( 1, (int) $request->get_param( 'count' ) ) );
 		$cat   = (int) $request->get_param( 'cat' );
 
-		// Release anything a previous batch abandoned before picking new work.
-		self::requeue_stale_processing();
+		// Put back anything a previous run left mid-flight, and clear out
+		// batches whose browser never returned — their rows would otherwise
+		// block those posts from ever being drafted again.
+		WA_AI_Queue::release_stale( self::CLAIM_TIMEOUT );
+		WA_AI_Queue::collect_abandoned( self::BATCH_TIMEOUT );
 
-		$ids    = self::select_candidates( $count, $cat );
-		$queued = self::enqueue( $ids );
+		// Resuming: if the caller still has a batch with outstanding work,
+		// carry on with it instead of starting a new one and orphaning it.
+		$resume = (string) $request->get_param( 'batch' );
+		if ( '' !== $resume ) {
+			$counts = WA_AI_Queue::batch_counts( $resume );
+			if ( $counts['remaining'] > 0 ) {
+				$response = new WP_REST_Response(
+					array(
+						'batch'    => $resume,
+						'queued'   => $counts['remaining'],
+						'ids'      => array(),
+						'resumed'  => true,
+					),
+					200
+				);
+				$response->header( 'Cache-Control', 'no-store' );
+				return $response;
+			}
+		}
+
+		$batch_id = WA_AI_Queue::new_batch_id();
+
+		// Over-select: some candidates may already belong to another live
+		// batch and will be refused admission, so ask for extra and trim.
+		$ids = self::select_candidates( $count * 2, $cat );
+
+		$admitted = WA_AI_Queue::admit( array_slice( $ids, 0, $count * 2 ), $batch_id );
+		$admitted = array_slice( $admitted, 0, $count );
+
+		// Anything admitted beyond what we're keeping is handed straight back,
+		// then the posts this batch owns get their visible queued marker.
+		self::release_unused( $batch_id, $admitted );
+		self::mark_queued( $admitted );
 
 		$response = new WP_REST_Response(
 			array(
-				'queued' => $queued,
-				'ids'    => $ids,
-				'counts' => self::queue_counts(),
+				'batch'  => $batch_id,
+				'queued' => count( $admitted ),
+				'ids'    => $admitted,
 			),
 			200
 		);
@@ -126,17 +182,83 @@ class WA_AI {
 	}
 
 	/**
+	 * Drop anything admitted into a batch that we then decided not to use, so
+	 * it's immediately available to the next run instead of being held.
+	 *
+	 * @param string $batch_id Batch identifier.
+	 * @param int[]  $keep     Post IDs to keep.
+	 */
+	private static function release_unused( $batch_id, array $keep ) {
+		global $wpdb;
+
+		$table = WA_AI_Queue::table_name();
+
+		if ( empty( $keep ) ) {
+			WA_AI_Queue::clear_batch( $batch_id );
+			return;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $keep ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input; ids are placeheld.
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE batch_id = %s AND post_id NOT IN ( {$placeholders} )",
+				array_merge( array( $batch_id ), $keep )
+			)
+		);
+	}
+
+	/**
+	 * Put the visible "queued" marker on posts this batch owns.
+	 *
+	 * The queue table is the authority on who owns what; this meta only feeds
+	 * the counts and badges the admin screens already show.
+	 *
+	 * @param int[] $post_ids Post IDs.
+	 */
+	private static function mark_queued( array $post_ids ) {
+		foreach ( $post_ids as $post_id ) {
+			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
+			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
+		}
+	}
+
+	/**
 	 * REST: process the next queued post (one per call).
 	 *
 	 * @return WP_REST_Response
 	 */
-	public function handle_process() {
-		$post_id = self::claim_next_queued();
+	public function handle_process( WP_REST_Request $request ) {
+		$batch_id = (string) $request->get_param( 'batch' );
+
+		if ( '' === $batch_id ) {
+			return new WP_Error( 'wa_missing_batch', __( 'A batch id is required.', 'wellactually' ), array( 'status' => 400 ) );
+		}
+
+		$claim = WA_AI_Queue::claim( $batch_id, WA_Settings::ai_concurrency() );
+
+		// Ceiling reached (other tabs, other users, retries). This is a
+		// "come back shortly", not a failure — the work is still queued.
+		if ( 'at_capacity' === $claim ) {
+			$response = new WP_REST_Response(
+				array(
+					'status' => 'busy',
+					'counts' => WA_AI_Queue::batch_counts( $batch_id ),
+				),
+				429
+			);
+			$response->header( 'Retry-After', '2' );
+			$response->header( 'Cache-Control', 'no-store' );
+			return $response;
+		}
 
 		$processed = null;
-		if ( $post_id ) {
-			$result = self::draft_for_post( $post_id );
-			delete_post_meta( $post_id, WA_Meta::AI_CLAIMED_KEY );
+
+		if ( is_array( $claim ) ) {
+			$post_id = (int) $claim['post_id'];
+			$result  = self::draft_for_post( $post_id, $claim['token'] );
 
 			$processed = array_merge(
 				array(
@@ -148,17 +270,16 @@ class WA_AI {
 			);
 		}
 
-		$payload = array( 'processed' => $processed );
-
-		// queue_counts() is three meta queries. The drafting loop doesn't use
-		// them while it's running, and with several workers in flight that's
-		// pure contention on a large archive — so only spend them on the last
-		// response, when the queue has run dry.
-		if ( null === $processed ) {
-			$payload['counts'] = self::queue_counts();
-		}
-
-		$response = new WP_REST_Response( $payload, 200 );
+		// Batch state comes from the server, so the browser never has to infer
+		// whether a run is finished from its own tally of responses (which a
+		// lost response would silently corrupt).
+		$response = new WP_REST_Response(
+			array(
+				'processed' => $processed,
+				'counts'    => WA_AI_Queue::batch_counts( $batch_id ),
+			),
+			200
+		);
 		$response->header( 'Cache-Control', 'no-store' );
 		return $response;
 	}
@@ -187,27 +308,6 @@ class WA_AI {
 		return (bool) apply_filters( 'wa_ai_available', $available );
 	}
 
-	/**
-	 * Mark posts as queued for AI drafting.
-	 *
-	 * @param int[] $post_ids Post IDs.
-	 * @return int Number of posts queued.
-	 */
-	public static function enqueue( array $post_ids ) {
-		$queued = 0;
-		foreach ( $post_ids as $post_id ) {
-			$post_id = absint( $post_id );
-			if ( ! $post_id ) {
-				continue;
-			}
-			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
-			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
-			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
-			delete_post_meta( $post_id, WA_Meta::AI_CLAIMED_KEY );
-			$queued++;
-		}
-		return $queued;
-	}
 
 	/**
 	 * Select up to $limit "needs setup" post IDs to draft, optionally within a
@@ -250,156 +350,9 @@ class WA_AI {
 		return array_map( 'intval', $query->posts );
 	}
 
-	/**
-	 * Take ownership of the next queued post, or 0 when the queue is empty.
-	 *
-	 * Drafting runs several requests at once, so "read the next queued id and
-	 * start work on it" isn't safe on its own — two workers would read the
-	 * same id and both pay for the same AI call. The claim is therefore a
-	 * compare-and-swap: flip the status row from queued to processing with
-	 * the old value in the WHERE clause, and treat the update's affected-row
-	 * count as the answer. Exactly one worker can win; the losers simply try
-	 * the next post.
-	 *
-	 * @return int Post ID now owned by this caller, or 0.
-	 */
-	public static function claim_next_queued() {
-		global $wpdb;
 
-		// Walk a batch of candidates rather than re-querying per attempt.
-		// Re-querying would be both slower and wrong: the lookup is a normal
-		// cacheable query, so on a site with a persistent object cache every
-		// retry would be served the same already-claimed post, and the worker
-		// would give up and report an empty queue while work remained.
-		for ( $round = 0; $round < 3; $round++ ) {
-			$candidates = self::queued_ids( 50 );
-			if ( empty( $candidates ) ) {
-				return 0;
-			}
 
-			foreach ( $candidates as $post_id ) {
-				$claimed = $wpdb->update(
-					$wpdb->postmeta,
-					array( 'meta_value' => self::STATUS_PROCESSING ),
-					array(
-						'post_id'    => $post_id,
-						'meta_key'   => WA_Meta::AI_STATUS_KEY,
-						'meta_value' => self::STATUS_QUEUED,
-					),
-					array( '%s' ),
-					array( '%d', '%s', '%s' )
-				);
 
-				// Written round WordPress's meta API, so drop the cached copy.
-				wp_cache_delete( $post_id, 'post_meta' );
-
-				if ( $claimed ) {
-					update_post_meta( $post_id, WA_Meta::AI_CLAIMED_KEY, time() );
-					return (int) $post_id;
-				}
-			}
-		}
-
-		return 0;
-	}
-
-	/**
-	 * Queued post IDs, oldest first, read live.
-	 *
-	 * Deliberately uncached: claiming races against other workers, so a
-	 * cached list of "what's queued" is worse than useless here.
-	 *
-	 * @param int $limit How many to fetch.
-	 * @return int[]
-	 */
-	private static function queued_ids( $limit ) {
-		$query = new WP_Query(
-			array(
-				'post_type'      => 'post',
-				'post_status'    => 'publish',
-				'fields'         => 'ids',
-				'posts_per_page' => max( 1, (int) $limit ),
-				'orderby'        => 'ID',
-				'order'          => 'ASC',
-				'no_found_rows'  => true,
-				'cache_results'  => false,
-				'meta_query'     => array(
-					array(
-						'key'   => WA_Meta::AI_STATUS_KEY,
-						'value' => self::STATUS_QUEUED,
-					),
-				),
-			)
-		);
-
-		return array_map( 'intval', $query->posts );
-	}
-
-	/**
-	 * Return abandoned claims to the queue.
-	 *
-	 * A worker that never reports back — closed tab, timed-out request, fatal
-	 * error — would otherwise leave its post stuck in "processing" forever.
-	 * Called when a batch is enqueued, which is the natural moment to sweep.
-	 *
-	 * @param int $older_than Seconds after which a claim counts as abandoned.
-	 * @return int Number of posts returned to the queue.
-	 */
-	public static function requeue_stale_processing( $older_than = self::CLAIM_TIMEOUT ) {
-		global $wpdb;
-
-		$cutoff = time() - max( 1, (int) $older_than );
-
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT s.post_id
-				 FROM {$wpdb->postmeta} s
-				 LEFT JOIN {$wpdb->postmeta} c
-				   ON c.post_id = s.post_id AND c.meta_key = %s
-				 WHERE s.meta_key = %s
-				   AND s.meta_value = %s
-				   AND ( c.meta_value IS NULL OR CAST( c.meta_value AS SIGNED ) < %d )",
-				WA_Meta::AI_CLAIMED_KEY,
-				WA_Meta::AI_STATUS_KEY,
-				self::STATUS_PROCESSING,
-				$cutoff
-			)
-		);
-
-		foreach ( $post_ids as $post_id ) {
-			update_post_meta( (int) $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
-			delete_post_meta( (int) $post_id, WA_Meta::AI_CLAIMED_KEY );
-		}
-
-		return count( $post_ids );
-	}
-
-	/**
-	 * Get the next queued post id (oldest queued first), or 0 if none.
-	 *
-	 * @return int
-	 */
-	public static function next_queued_id() {
-		$query = new WP_Query(
-			array(
-				'post_type'      => 'post',
-				'post_status'    => 'publish',
-				'fields'         => 'ids',
-				'posts_per_page' => 1,
-				'orderby'        => 'ID',
-				'order'          => 'ASC',
-				'no_found_rows'  => true,
-				'meta_query'     => array(
-					array(
-						'key'   => WA_Meta::AI_STATUS_KEY,
-						'value' => self::STATUS_QUEUED,
-					),
-				),
-			)
-		);
-
-		return $query->posts ? (int) $query->posts[0] : 0;
-	}
 
 	/**
 	 * Count posts in each AI status.
@@ -553,10 +506,43 @@ class WA_AI {
 	 * @param int $post_id Post ID.
 	 * @return array { status: 'ready'|'error', statement?: string, verdict?: string, error?: string }
 	 */
-	public static function draft_for_post( $post_id ) {
+	public static function draft_for_post( $post_id, $claim_token = null ) {
+		$outcome = self::generate_draft( $post_id );
+
+		// Ownership fence. When drafting is running as queue work, a stale
+		// sweep may have reclaimed this item while the provider call was in
+		// flight — in which case someone else owns it now and this result is
+		// stale. Give up the claim first and only store if we still held it,
+		// so a late worker can never overwrite a newer result.
+		if ( null !== $claim_token && ! WA_AI_Queue::complete( $post_id, $claim_token ) ) {
+			return array(
+				'status' => 'stale',
+				'error'  => __( 'This post was reassigned to another drafting run; result discarded.', 'wellactually' ),
+			);
+		}
+
+		if ( isset( $outcome['error'] ) ) {
+			return self::store_error( $post_id, $outcome['error'] );
+		}
+
+		return self::store_result( $post_id, $outcome['data'] );
+	}
+
+	/**
+	 * Run the provider call for a post and return what it produced, without
+	 * touching any stored state.
+	 *
+	 * Kept separate from storing so the caller can decide, after the slow part
+	 * is over, whether the result is still wanted (see the claim fence in
+	 * draft_for_post()).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array { data: array } on success, or { error: string }.
+	 */
+	private static function generate_draft( $post_id ) {
 		$post = get_post( $post_id );
 		if ( ! $post || 'post' !== $post->post_type ) {
-			return self::store_error( $post_id, __( 'Invalid post.', 'wellactually' ) );
+			return array( 'error' => __( 'Invalid post.', 'wellactually' ) );
 		}
 
 		$provider = wa_get_setting( 'ai_provider', '' );
@@ -574,14 +560,14 @@ class WA_AI {
 		 */
 		$pre = apply_filters( 'wa_ai_pre_draft', null, $post, $provider, $model );
 		if ( is_array( $pre ) ) {
-			return self::store_result( $post_id, $pre );
+			return array( 'data' => $pre );
 		}
 
 		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
-			return self::store_error( $post_id, __( 'AI is not available in this environment.', 'wellactually' ) );
+			return array( 'error' => __( 'AI is not available in this environment.', 'wellactually' ) );
 		}
 		if ( '' === $provider ) {
-			return self::store_error( $post_id, __( 'No AI provider is selected in settings.', 'wellactually' ) );
+			return array( 'error' => __( 'No AI provider is selected in settings.', 'wellactually' ) );
 		}
 
 		// The WP AI client wrapper uses snake_case method names (it translates
@@ -627,22 +613,22 @@ class WA_AI {
 			}
 			$json = $builder->generate_text();
 		} catch ( \Throwable $e ) {
-			return self::store_error( $post_id, $e->getMessage() );
+			return array( 'error' => $e->getMessage() );
 		}
 
 		if ( is_wp_error( $json ) ) {
-			return self::store_error( $post_id, $json->get_error_message() );
+			return array( 'error' => $json->get_error_message() );
 		}
 		if ( ! is_string( $json ) ) {
-			return self::store_error( $post_id, __( 'The AI returned an unexpected response type.', 'wellactually' ) );
+			return array( 'error' => __( 'The AI returned an unexpected response type.', 'wellactually' ) );
 		}
 
 		$data = self::parse_json_object( $json );
 		if ( ! is_array( $data ) || empty( $data['statement'] ) || empty( $data['verdict'] ) ) {
-			return self::store_error( $post_id, __( 'The AI returned an unexpected response.', 'wellactually' ) );
+			return array( 'error' => __( 'The AI returned an unexpected response.', 'wellactually' ) );
 		}
 
-		return self::store_result( $post_id, $data );
+		return array( 'data' => $data );
 	}
 
 	/**
