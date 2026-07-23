@@ -174,15 +174,29 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 	 * they are, even when far more than a few pages of the *newest* posts are
 	 * held by other live batches. The old fixed round budget could spend its
 	 * whole scan among held posts and give up with plenty still eligible.
+	 *
+	 * The numbers matter: the old code scanned at most 8 rounds of
+	 * (still_needed * 2) candidates — 160 for a count of 10 — so the held
+	 * block must be deeper than that or this test also passes on the old
+	 * code and proves nothing. 170 held posts, all newer than the 10
+	 * eligible ones, put the eligible posts past the old scan horizon.
+	 * Verified by mutation: restoring the old loop makes this test fail
+	 * with 0 queued.
 	 */
 	public function test_enqueue_fills_past_many_pages_of_held_posts() {
-		// Newest first is how candidates are ordered, so holding the newest
-		// posts is what pushed the eligible ones past the old scan depth.
-		$posts = self::factory()->post->create_many( 120 );
+		// Explicit ascending post_date, so "newest first" ordering is
+		// deterministic rather than an accident of insert timing.
+		$posts = array();
+		$base  = strtotime( '2024-01-01 00:00:00' );
+		for ( $i = 0; $i < 180; $i++ ) {
+			$posts[] = self::factory()->post->create(
+				array( 'post_date' => gmdate( 'Y-m-d H:i:s', $base + ( $i * MINUTE_IN_SECONDS ) ) )
+			);
+		}
 
-		// Hold the newest 110 in another batch — well beyond what the former
-		// eight-round, ~2x-page budget could have scanned for a count of 10.
-		$held = array_slice( $posts, 10 ); // create_many returns oldest-first.
+		// Hold the newest 170 in another batch, leaving only the 10 oldest
+		// eligible — beyond the old 160-candidate scan depth for count=10.
+		$held = array_slice( $posts, 10 );
 		WA_AI_Queue::admit( $held, WA_AI_Queue::new_batch_id() );
 
 		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
@@ -194,6 +208,7 @@ class Test_WA_Drafting extends WP_UnitTestCase {
 
 		$this->assertSame( 10, $data['queued'], 'Every eligible post should be reachable regardless of how many newer ones are held.' );
 		$this->assertEmpty( array_intersect( $data['ids'], $held ), 'It must not take posts another run is holding.' );
+		$this->assertEmpty( array_diff( $data['ids'], array_slice( $posts, 0, 10 ) ), 'Exactly the 10 unheld posts should have been queued.' );
 	}
 
 	/**
