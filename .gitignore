@@ -1,3 +1,13 @@
+# Secrets — never commit. Holds API keys (e.g. NANOGPT_API_KEY) used only to
+# configure the local test install.
+.env
+.env.*
+
+# Third-party AI provider plugins dropped in for local testing (e.g. the
+# Nano-GPT provider). Not part of this plugin; never commit.
+/*.zip
+ai-provider-for-nano-gpt/
+
 # Local test WordPress install
 #
 # `.wp-local/` holds a throwaway WordPress site used to manually test this
