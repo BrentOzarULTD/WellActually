@@ -196,6 +196,19 @@ class WA_Template {
 	}
 
 	/**
+	 * Print the robots meta tag. The template skips wp_head() entirely (to
+	 * avoid theme asset bleed), so wp_robots() — normally hooked to wp_head —
+	 * never runs on its own; the wp_robots filter registered in the
+	 * constructor would otherwise have no effect. Called from the template's
+	 * <head>.
+	 */
+	public function print_robots_meta() {
+		if ( function_exists( 'wp_robots' ) ) {
+			wp_robots();
+		}
+	}
+
+	/**
 	 * Print the script. Called from the template just before </body> — the
 	 * script queries #wa-app on load, so it must not run before the body
 	 * has been parsed.

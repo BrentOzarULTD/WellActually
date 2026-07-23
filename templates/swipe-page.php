@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 <head>
 	<meta charset="<?php bloginfo( 'charset' ); ?>" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<?php WA_Template::instance()->print_robots_meta(); ?>
 	<title><?php echo esc_html( sprintf(
 		/* translators: %s: site name */
 		__( 'Swipe – %s', 'well-actually' ),

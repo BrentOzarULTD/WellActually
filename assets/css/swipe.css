@@ -20,7 +20,6 @@ body {
 	width: 100%;
 	overflow: hidden;
 	overscroll-behavior: none;
-	touch-action: none;
 	background: #14151a;
 	color: #f4f4f6;
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -139,6 +138,23 @@ body {
 	border-radius: 999px;
 	z-index: 300;
 	box-shadow: 0 4px 16px rgba( 0, 0, 0, 0.4 );
+}
+
+.wa-answer-error {
+	position: fixed;
+	bottom: 16px;
+	left: 50%;
+	transform: translateX( -50% );
+	background: #4d1f1f;
+	color: #f4c9c9;
+	font-size: 0.85rem;
+	font-weight: 600;
+	padding: 10px 18px;
+	border-radius: 999px;
+	z-index: 300;
+	box-shadow: 0 4px 16px rgba( 0, 0, 0, 0.4 );
+	max-width: 90vw;
+	text-align: center;
 }
 
 .wa-card-area {
@@ -395,6 +411,10 @@ body {
 	max-width: 640px;
 	max-height: 85vh;
 	overflow-y: auto;
+	/* Explicit: the reveal overlay is appended to <body>, so it needs its
+	   own permission to pan vertically regardless of ancestor touch-action. */
+	touch-action: pan-y;
+	-webkit-overflow-scrolling: touch;
 	background: #1e2027;
 	color: #f4f4f6;
 	border-radius: 20px 20px 0 0;

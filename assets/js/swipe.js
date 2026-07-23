@@ -30,6 +30,7 @@
 		progress: { seen: [], wrong: [], correct_count: 0, answered_count: 0 },
 		busy: false, // true while animating or a request is in flight
 		fetchingMore: false,
+		pendingFetch: null, // the in-flight fetchDeckBatch() promise, if any — lets callers await the SAME request rather than firing a duplicate or racing ahead of it
 		replay: false, // true while working through a "replay wrong ones" round
 	};
 
@@ -102,12 +103,16 @@
 	 * @return {Promise<void>}
 	 */
 	function fetchDeckBatch() {
-		if ( state.fetchingMore ) {
-			return Promise.resolve();
+		// Return the SAME promise to every caller while a fetch is in
+		// flight, rather than a resolved no-op — callers that actually need
+		// to know when new cards have arrived (advanceAfterReveal, when the
+		// deck runs out mid-prefetch) must be able to await the real request.
+		if ( state.pendingFetch ) {
+			return state.pendingFetch;
 		}
 		state.fetchingMore = true;
 
-		return apiFetch( 'deck', null, 'exclude=' + encodeURIComponent( excludeParam() ) )
+		state.pendingFetch = apiFetch( 'deck', null, 'exclude=' + encodeURIComponent( excludeParam() ) )
 			.then( function ( data ) {
 				state.total = data.total || 0;
 
@@ -128,7 +133,10 @@
 			} )
 			.finally( function () {
 				state.fetchingMore = false;
+				state.pendingFetch = null;
 			} );
+
+		return state.pendingFetch;
 	}
 
 	/**
@@ -556,18 +564,47 @@
 
 		Promise.all( [ request, animationDone ] ).then( function ( results ) {
 			var response = results[ 0 ];
+
+			if ( ! response ) {
+				// The request failed (network hiccup, expired nonce, rate
+				// limit, server error, …). Don't guess at a judgment: leave
+				// seen/wrong/score untouched and put the same card back up so
+				// the player can retry. render() rebuilds the card element
+				// from scratch, which also clears any exit animation/inline
+				// drag transform left over from this attempt.
+				state.busy = false;
+				render();
+				showAnswerRetryNotice();
+				return;
+			}
+
 			recordAnswer( card, response, isReplay );
 			state.currentIndex++;
 			state.busy = false;
 			updateHeaderDisplay();
 
-			if ( typeof window.waShowReveal === 'function' && response ) {
+			if ( typeof window.waShowReveal === 'function' ) {
 				state.phase = 'reveal';
 				window.waShowReveal( response, answerValue, advanceAfterReveal );
 			} else {
 				advanceAfterReveal();
 			}
 		} );
+	}
+
+	/**
+	 * Brief toast telling the player their answer didn't go through and the
+	 * card is still available to retry.
+	 */
+	function showAnswerRetryNotice() {
+		var el = document.createElement( 'div' );
+		el.className = 'wa-answer-error';
+		el.setAttribute( 'role', 'status' );
+		el.textContent = 'Couldn’t submit that — check your connection and try again.';
+		document.body.appendChild( el );
+		setTimeout( function () {
+			el.remove();
+		}, 3000 );
 	}
 
 	/**
@@ -632,9 +669,32 @@
 	 * Move on to the next card (or the done screen) after a reveal closes.
 	 */
 	function advanceAfterReveal() {
-		state.phase = state.deck[ state.currentIndex ] ? 'card' : 'done';
-		maybePrefetch();
+		if ( state.deck[ state.currentIndex ] ) {
+			state.phase = 'card';
+			render();
+			maybePrefetch();
+			return;
+		}
+
+		// Deck exhausted locally. A slow connection could mean the next
+		// batch just hasn't arrived yet — don't conclude 'done' until a
+		// fetch has actually confirmed there's nothing left. fetchDeckBatch()
+		// returns the SAME promise as any prefetch already in flight (see its
+		// dedup logic), so this doesn't duplicate a request that maybePrefetch()
+		// already kicked off a few cards ago; it only fires a fresh one if
+		// none was pending.
+		state.phase = 'loading';
 		render();
+
+		fetchDeckBatch()
+			.then( function () {
+				state.phase = state.deck[ state.currentIndex ] ? 'card' : 'done';
+				render();
+			} )
+			.catch( function () {
+				state.phase = 'error';
+				render();
+			} );
 	}
 
 	/**
@@ -1155,19 +1215,57 @@
 		}
 
 		/**
+		 * The overlay's focusable controls, in DOM (tab) order.
+		 *
+		 * @return {HTMLElement[]}
+		 */
+		function getFocusable() {
+			return Array.prototype.slice.call(
+				overlay.querySelectorAll( 'a[href], button:not([disabled])' )
+			);
+		}
+
+		/**
 		 * @param {KeyboardEvent} e Keydown event.
 		 */
 		function onKeydown( e ) {
-			if ( 'Enter' === e.key || ' ' === e.key || 'ArrowDown' === e.key ) {
+			// Enter/Space/ArrowDown are a keyboard shortcut for the Continue
+			// button specifically — only fire it when Continue itself is
+			// focused, so the same keys still activate the post links normally.
+			if ( document.activeElement === continueBtn &&
+				( 'Enter' === e.key || ' ' === e.key || 'ArrowDown' === e.key ) ) {
 				e.preventDefault();
 				dismiss();
 				return;
 			}
 
-			if ( 'Tab' === e.key ) {
-				// Single focusable target (Continue); keep focus trapped on it.
-				e.preventDefault();
-				continueBtn.focus();
+			if ( 'Tab' !== e.key ) {
+				return;
+			}
+
+			// Real focus trap: cycle through every focusable control in both
+			// directions instead of always snapping back to Continue, so the
+			// post title link and "Read the full post" link stay reachable.
+			var focusable = getFocusable();
+			if ( ! focusable.length ) {
+				return;
+			}
+
+			var first = focusable[ 0 ];
+			var last = focusable[ focusable.length - 1 ];
+			var current = document.activeElement;
+			var atOrOutside = -1 === focusable.indexOf( current );
+
+			if ( e.shiftKey ) {
+				if ( current === first || atOrOutside ) {
+					e.preventDefault();
+					last.focus();
+				}
+			} else {
+				if ( current === last || atOrOutside ) {
+					e.preventDefault();
+					first.focus();
+				}
 			}
 		}
 
@@ -1399,6 +1497,14 @@
 	/**
 	 * Merge two progress objects: union of seen/wrong, recomputed counts.
 	 *
+	 * A card is only "corrected" from a side's own point of view: it's in that
+	 * side's seen list but NOT in that side's wrong list. Simply unioning both
+	 * wrong lists isn't enough — a stale local 'wrong' entry for a card the
+	 * server has since confirmed correct would otherwise survive the union
+	 * (it's still in the merged 'seen', so the old "was it seen" filter alone
+	 * doesn't catch it). A card is only kept wrong here if NEITHER side has
+	 * evidence it was answered correctly.
+	 *
 	 * @param {Object} a First progress object.
 	 * @param {Object} b Second progress object.
 	 * @return {Object}
@@ -1407,9 +1513,11 @@
 		var seen = uniqueInts( ( a.seen || [] ).concat( b.seen || [] ) );
 		var wrongCandidates = uniqueInts( ( a.wrong || [] ).concat( b.wrong || [] ) );
 
-		// A card corrected on either side should not still show as wrong.
 		var wrong = wrongCandidates.filter( function ( id ) {
-			return seen.indexOf( id ) !== -1;
+			if ( seen.indexOf( id ) === -1 ) {
+				return false;
+			}
+			return ! correctedOnSide( a, id ) && ! correctedOnSide( b, id );
 		} );
 
 		return {
@@ -1418,6 +1526,21 @@
 			answered_count: seen.length,
 			correct_count: Math.max( 0, seen.length - wrong.length ),
 		};
+	}
+
+	/**
+	 * Whether a single progress object has evidence a card was answered
+	 * correctly: it's been seen, and it's not (or no longer) in that side's
+	 * wrong list.
+	 *
+	 * @param {Object} side Progress object (local or server).
+	 * @param {number} id   Post id.
+	 * @return {boolean}
+	 */
+	function correctedOnSide( side, id ) {
+		var seenSide = side.seen || [];
+		var wrongSide = side.wrong || [];
+		return seenSide.indexOf( id ) !== -1 && wrongSide.indexOf( id ) === -1;
 	}
 
 	/**

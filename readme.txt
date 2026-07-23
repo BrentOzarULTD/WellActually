@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,14 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.2.1 =
+* Fix: a failed swipe request (network hiccup, expired nonce, rate limit) no longer records a wrong answer and skips the card — progress is left untouched and the same card stays up to retry.
+* Fix: on a slow connection, running out of the current 20-card batch no longer shows the final score screen early; the app waits for the next batch (or a confirmed empty result) before deciding.
+* Fix: merging progress across devices no longer resurrects a card as "wrong" when it was corrected on another device or the server.
+* Fix: the swipe page now actually outputs a noindex robots meta tag (the filter was registered but never rendered).
+* Fix: the reveal card's keyboard focus trap no longer strands keyboard/screen-reader users on the Continue button — Tab and Shift+Tab now cycle through the post links too.
+* Fix: long reveal cards can now be scrolled with one-finger touch on small screens instead of getting stuck.
 
 = 1.2.0 =
 * AI drafting: send needs-setup posts to a configured AI provider (via WordPress 7's AI client) to draft a swipe statement and verdict for your review. Pick the provider and model in Settings → WellActually; works with any registered provider, including Nano-GPT.
