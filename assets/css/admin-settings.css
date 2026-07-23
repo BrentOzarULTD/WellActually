@@ -1,0 +1,13 @@
+/**
+ * Settings → "Well, Actually..." screen chrome, shared by every tab.
+ */
+
+.wa-tab-panel { margin-top: 16px; }
+.wa-prompt-contract { display: block; max-width: 600px; padding: 6px 8px; white-space: normal; }
+.wa-rebuilt-notice { background: #edfaef; border-left: 4px solid #00a32a; padding: 8px 12px; margin: 0 0 8px; max-width: 600px; }
+.wa-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; max-width: 600px; }
+.wa-categories-table th.wa-col-count,
+.wa-categories-table td.wa-col-count { width: 90px; }
+.wa-categories-table th.wa-col-skip,
+.wa-categories-table td.wa-col-skip { width: 140px; text-align: center; }
+.wa-errors-table td { vertical-align: top; }

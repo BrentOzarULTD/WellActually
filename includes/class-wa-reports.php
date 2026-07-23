@@ -40,6 +40,67 @@ class WA_Reports {
 	 */
 	private function __construct() {
 		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+	}
+
+	/**
+	 * The verdict labels shown in the table and the inline editor.
+	 *
+	 * @return array Verdict key => translated label.
+	 */
+	private static function verdict_labels() {
+		return array(
+			'true'      => __( 'True', 'wellactually' ),
+			'false'     => __( 'False', 'wellactually' ),
+			'debatable' => __( 'Debatable', 'wellactually' ),
+		);
+	}
+
+	/**
+	 * Enqueue the Reports tab's stylesheet and inline-editing script. The tab
+	 * lives on the plugin's settings screen, so it piggybacks on that screen's
+	 * hook suffix and only loads when the Reports tab is showing.
+	 *
+	 * @param string $hook_suffix The current admin page's hook suffix.
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		$settings = WA_Settings::instance();
+		if ( ! $settings->hook() || $hook_suffix !== $settings->hook() || 'reports' !== $settings->current_tab() ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'wa-admin-reports',
+			WA_PLUGIN_URL . 'assets/css/admin-reports.css',
+			array(),
+			WA_VERSION
+		);
+
+		wp_enqueue_script(
+			'wa-admin-reports',
+			WA_PLUGIN_URL . 'assets/js/admin-reports.js',
+			array(),
+			WA_VERSION,
+			array( 'in_footer' => true )
+		);
+
+		wp_localize_script(
+			'wa-admin-reports',
+			'waReports',
+			array(
+				'restUrl'  => esc_url_raw( rest_url( 'wellactually/v1/report/quick-edit' ) ),
+				'nonce'    => wp_create_nonce( 'wp_rest' ),
+				'verdicts' => self::verdict_labels(),
+				'i18n'     => array(
+					'statementLabel' => __( 'Swipe headline', 'wellactually' ),
+					'verdictLabel'   => __( 'Right answer', 'wellactually' ),
+					'update'         => __( 'Update', 'wellactually' ),
+					'cancel'         => __( 'Cancel', 'wellactually' ),
+					'saving'         => __( 'Saving…', 'wellactually' ),
+					'saveFailed'     => __( 'Could not save.', 'wellactually' ),
+				),
+			)
+		);
 	}
 
 	/**
@@ -298,11 +359,7 @@ class WA_Reports {
 			return;
 		}
 
-		$verdict_labels = array(
-			'true'      => __( 'True', 'wellactually' ),
-			'false'     => __( 'False', 'wellactually' ),
-			'debatable' => __( 'Debatable', 'wellactually' ),
-		);
+		$verdict_labels = self::verdict_labels();
 		?>
 		<table class="widefat striped wa-reports-table">
 			<thead>
@@ -357,24 +414,8 @@ class WA_Reports {
 			</tbody>
 		</table>
 
-		<?php $this->render_pagination( $args, $page['total'] ); ?>
-
-		<script>
-		window.waReports = 
 		<?php
-		echo wp_json_encode(
-			array(
-				'restUrl'  => esc_url_raw( rest_url( 'wellactually/v1/report/quick-edit' ) ),
-				'nonce'    => wp_create_nonce( 'wp_rest' ),
-				'verdicts' => $verdict_labels,
-			)
-		);
-		?>
-		;
-		</script>
-		<?php
-		$this->print_quick_edit_script();
-		$this->print_styles();
+		$this->render_pagination( $args, $page['total'] );
 	}
 
 	/**
@@ -421,162 +462,5 @@ class WA_Reports {
 			echo wp_kses_post( $links );
 			echo '</div></div>';
 		}
-	}
-
-	/**
-	 * Inline editing, in the spirit of the post list's Quick Edit: the row
-	 * turns into fields in place, saves over REST, and updates itself
-	 * without a page reload.
-	 */
-	private function print_quick_edit_script() {
-		?>
-		<script>
-		( function () {
-			var cfg = window.waReports;
-			if ( ! cfg ) { return; }
-
-			function closeEditor( row ) {
-				var editor = row.querySelector( '.wa-inline-editor' );
-				if ( editor ) { editor.remove(); }
-				row.querySelectorAll( '.wa-cell-hidden' ).forEach( function ( el ) {
-					el.classList.remove( 'wa-cell-hidden' );
-				} );
-			}
-
-			function openEditor( row ) {
-				if ( row.querySelector( '.wa-inline-editor' ) ) { return; }
-
-				var headlineCell = row.querySelector( '.wa-col-headline' );
-				var answerCell = row.querySelector( '.wa-col-answer' );
-				var headline = row.querySelector( '.wa-headline-text' ).textContent;
-				var verdict = row.querySelector( '.wa-answer-text' ).getAttribute( 'data-verdict' );
-
-				var options = '';
-				Object.keys( cfg.verdicts ).forEach( function ( key ) {
-					options += '<option value="' + key + '"' + ( key === verdict ? ' selected' : '' ) + '>' +
-						cfg.verdicts[ key ] + '</option>';
-				} );
-
-				var editor = document.createElement( 'div' );
-				editor.className = 'wa-inline-editor';
-				editor.innerHTML =
-					'<label class="screen-reader-text" for="wa-ie-statement">Swipe headline</label>' +
-					'<textarea id="wa-ie-statement" class="wa-ie-statement" rows="2"></textarea>' +
-					'<label class="screen-reader-text" for="wa-ie-verdict">Right answer</label>' +
-					'<select id="wa-ie-verdict" class="wa-ie-verdict">' + options + '</select>' +
-					'<span class="wa-ie-actions">' +
-					'<button type="button" class="button button-primary wa-ie-save">Update</button> ' +
-					'<button type="button" class="button wa-ie-cancel">Cancel</button>' +
-					'<span class="wa-ie-status" aria-live="polite"></span>' +
-					'</span>';
-
-				// Set as a value rather than in the markup so the text can't
-				// break out of the attribute.
-				editor.querySelector( '.wa-ie-statement' ).value = headline;
-
-				headlineCell.classList.add( 'wa-cell-hidden' );
-				answerCell.classList.add( 'wa-cell-hidden' );
-				row.querySelector( '.wa-col-post' ).appendChild( editor );
-
-				editor.querySelector( '.wa-ie-statement' ).focus();
-
-				editor.querySelector( '.wa-ie-cancel' ).addEventListener( 'click', function () {
-					closeEditor( row );
-				} );
-
-				editor.querySelector( '.wa-ie-save' ).addEventListener( 'click', function () {
-					save( row, editor );
-				} );
-
-				editor.addEventListener( 'keydown', function ( e ) {
-					if ( 'Escape' === e.key ) { closeEditor( row ); }
-					// Enter saves from the select, and from the textarea with
-					// a modifier (plain Enter should still add a line break).
-					if ( 'Enter' === e.key && ( e.target.tagName === 'SELECT' || e.metaKey || e.ctrlKey ) ) {
-						e.preventDefault();
-						save( row, editor );
-					}
-				} );
-			}
-
-			function save( row, editor ) {
-				var statement = editor.querySelector( '.wa-ie-statement' ).value;
-				var verdict = editor.querySelector( '.wa-ie-verdict' ).value;
-				var status = editor.querySelector( '.wa-ie-status' );
-				var saveBtn = editor.querySelector( '.wa-ie-save' );
-
-				saveBtn.disabled = true;
-				status.textContent = 'Saving…';
-
-				fetch( cfg.restUrl, {
-					method: 'POST',
-					credentials: 'same-origin',
-					headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce },
-					body: JSON.stringify( {
-						post_id: parseInt( row.getAttribute( 'data-post' ), 10 ),
-						statement: statement,
-						verdict: verdict
-					} )
-				} ).then( function ( r ) {
-					return r.json().then( function ( body ) {
-						if ( ! r.ok ) { throw new Error( body.message || 'Could not save.' ); }
-						return body;
-					} );
-				} ).then( function ( body ) {
-					row.querySelector( '.wa-headline-text' ).textContent = body.statement;
-					var answer = row.querySelector( '.wa-answer-text' );
-					answer.textContent = cfg.verdicts[ body.verdict ] || body.verdict;
-					answer.setAttribute( 'data-verdict', body.verdict );
-					closeEditor( row );
-					row.classList.add( 'wa-row-saved' );
-					setTimeout( function () { row.classList.remove( 'wa-row-saved' ); }, 1200 );
-				} ).catch( function ( err ) {
-					saveBtn.disabled = false;
-					status.textContent = err.message || 'Could not save.';
-				} );
-			}
-
-			document.querySelectorAll( '.wa-quick-edit-btn' ).forEach( function ( btn ) {
-				btn.addEventListener( 'click', function () {
-					var row = btn.closest( '.wa-report-row' );
-					// One editor at a time, like the post list.
-					document.querySelectorAll( '.wa-report-row' ).forEach( function ( other ) {
-						if ( other !== row ) { closeEditor( other ); }
-					} );
-					openEditor( row );
-				} );
-			} );
-		} )();
-		</script>
-		<?php
-	}
-
-	/**
-	 * Styles for the report table and its inline editor.
-	 */
-	private function print_styles() {
-		?>
-		<style>
-			.wa-reports-table { margin-top: 8px; }
-			.wa-reports-table th.wa-col-post, .wa-reports-table td.wa-col-post { width: 28%; }
-			.wa-reports-table th.wa-col-headline, .wa-reports-table td.wa-col-headline { width: 34%; }
-			.wa-reports-table th.wa-col-answer, .wa-reports-table td.wa-col-answer { width: 12%; }
-			.wa-reports-table th.wa-col-num, .wa-reports-table td.wa-col-num { width: 84px; text-align: right; }
-			.wa-reports-table th.sortable a { text-decoration: none; }
-			.wa-reports-table th.sorted a { font-weight: 700; }
-			.wa-reports-table td { vertical-align: top; }
-			.wa-reports-table .row-actions { visibility: hidden; }
-			.wa-reports-table tr:hover .row-actions,
-			.wa-reports-table tr:focus-within .row-actions { visibility: visible; }
-			.wa-cell-hidden { visibility: hidden; }
-			.wa-inline-editor { margin-top: 8px; }
-			.wa-inline-editor .wa-ie-statement { width: 100%; }
-			.wa-inline-editor .wa-ie-verdict { margin: 4px 0; }
-			.wa-inline-editor .wa-ie-actions { display: block; margin-top: 4px; }
-			.wa-inline-editor .wa-ie-status { margin-left: 8px; color: #646970; }
-			.wa-reports-table tr.wa-row-saved { background: #edfaef; }
-			.wa-reports-table .tablenav { margin-top: 8px; }
-		</style>
-		<?php
 	}
 }

@@ -25,6 +25,13 @@ class WA_Settings {
 	private static $instance = null;
 
 	/**
+	 * The settings screen's hook suffix, from add_options_page().
+	 *
+	 * @var string
+	 */
+	private $hook = '';
+
+	/**
 	 * Get the singleton instance.
 	 *
 	 * @return WA_Settings
@@ -41,6 +48,7 @@ class WA_Settings {
 	 */
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_post_wa_rebuild_status', array( $this, 'handle_rebuild_status' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( WA_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
@@ -206,7 +214,7 @@ class WA_Settings {
 	 * Register the submenu page under Settings.
 	 */
 	public function add_settings_page() {
-		add_options_page(
+		$this->hook = add_options_page(
 			__( 'Well, Actually...', 'wellactually' ),
 			__( 'Well, Actually...', 'wellactually' ),
 			'manage_options',
@@ -216,13 +224,52 @@ class WA_Settings {
 	}
 
 	/**
+	 * The settings screen's hook suffix, so other components (the Reports
+	 * tab) can recognize their own screen in admin_enqueue_scripts.
+	 *
+	 * @return string Empty until admin_menu has run.
+	 */
+	public function hook() {
+		return $this->hook;
+	}
+
+	/**
 	 * The current tab, defaulting to and falling back to 'setup'.
 	 *
-	 * @return string One of setup|categories|errors.
+	 * @return string One of setup|categories|reports|errors.
 	 */
-	private function current_tab() {
+	public function current_tab() {
 		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'setup';
 		return in_array( $tab, array( 'setup', 'categories', 'reports', 'errors' ), true ) ? $tab : 'setup';
+	}
+
+	/**
+	 * Enqueue the settings screen's stylesheet, plus the Categories tab's
+	 * checkbox-cascading script when that tab is showing.
+	 *
+	 * @param string $hook_suffix The current admin page's hook suffix.
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		if ( ! $this->hook || $hook_suffix !== $this->hook ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'wa-admin-settings',
+			WA_PLUGIN_URL . 'assets/css/admin-settings.css',
+			array(),
+			WA_VERSION
+		);
+
+		if ( 'categories' === $this->current_tab() ) {
+			wp_enqueue_script(
+				'wa-admin-categories',
+				WA_PLUGIN_URL . 'assets/js/admin-categories.js',
+				array(),
+				WA_VERSION,
+				array( 'in_footer' => true )
+			);
+		}
 	}
 
 	/**
@@ -664,17 +711,6 @@ class WA_Settings {
 				?>
 			<?php endif; ?>
 		</div>
-		<style>
-			.wa-tab-panel { margin-top: 16px; }
-			.wa-prompt-contract { display: block; max-width: 600px; padding: 6px 8px; white-space: normal; }
-			.wa-rebuilt-notice { background: #edfaef; border-left: 4px solid #00a32a; padding: 8px 12px; margin: 0 0 8px; max-width: 600px; }
-			.wa-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; max-width: 600px; }
-			.wa-categories-table th.wa-col-count,
-			.wa-categories-table td.wa-col-count { width: 90px; }
-			.wa-categories-table th.wa-col-skip,
-			.wa-categories-table td.wa-col-skip { width: 140px; text-align: center; }
-			.wa-errors-table td { vertical-align: top; }
-		</style>
 		<?php
 	}
 
@@ -717,45 +753,6 @@ class WA_Settings {
 				<?php $this->render_category_rows( $by_parent, 0, 0, $excluded ); ?>
 			</tbody>
 		</table>
-		<script>
-		( function () {
-			var boxes = Array.prototype.slice.call( document.querySelectorAll( '.wa-cat-checkbox' ) );
-			if ( ! boxes.length ) { return; }
-
-			// term id -> its direct child checkboxes.
-			var childrenOf = {};
-			boxes.forEach( function ( box ) {
-				var parent = box.getAttribute( 'data-parent-id' );
-				if ( ! childrenOf[ parent ] ) { childrenOf[ parent ] = []; }
-				childrenOf[ parent ].push( box );
-			} );
-
-			// Skipping a category skips everything beneath it, so show the
-			// descendants as checked and lock them while the parent is. They
-			// submit nothing while disabled, which is fine — only the parent
-			// needs storing, and the server expands it back out to the whole
-			// branch (so categories added under it later are covered too).
-			function apply( box ) {
-				var kids = childrenOf[ box.getAttribute( 'data-term-id' ) ] || [];
-				kids.forEach( function ( kid ) {
-					if ( box.checked || box.disabled ) {
-						kid.checked = true;
-						kid.disabled = true;
-					} else {
-						kid.disabled = false;
-					}
-					apply( kid );
-				} );
-			}
-
-			boxes.forEach( function ( box ) {
-				box.addEventListener( 'change', function () { apply( box ); } );
-			} );
-
-			// Top-level first, so locking cascades down the tree on load.
-			( childrenOf[ '0' ] || [] ).forEach( apply );
-		} )();
-		</script>
 		<?php
 	}
 

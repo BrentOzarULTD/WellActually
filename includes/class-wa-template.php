@@ -188,7 +188,72 @@ class WA_Template {
 				// frontend's own HTML-escaping (when building the share text)
 				// doesn't double-encode it into a literal "&#039;" on screen.
 				'siteName'   => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
+				'i18n'       => self::script_strings(),
 			)
+		);
+	}
+
+	/**
+	 * Every user-visible string in swipe.js, translated. The script keeps
+	 * English literals as a fallback, so a key missing here degrades to
+	 * English rather than to a blank screen.
+	 *
+	 * Placeholders are PHP-style (%1$s, %2$s…) and filled in JavaScript, so
+	 * translators can reorder them.
+	 *
+	 * @return array
+	 */
+	private static function script_strings() {
+		return array(
+			'loading'            => __( 'Loading…', 'wellactually' ),
+			'error'              => __( 'Something went wrong loading swipe mode.', 'wellactually' ),
+			'retry'              => __( 'Try again', 'wellactually' ),
+			'agree'              => __( 'Agree', 'wellactually' ),
+			'disagree'           => __( 'Disagree', 'wellactually' ),
+			'unsure'             => __( 'Not sure', 'wellactually' ),
+			/* translators: 1: number answered correctly, 2: number answered */
+			'scoreLabel'         => __( '%1$s/%2$s correct', 'wellactually' ),
+			/* translators: 1: number answered correctly, 2: number answered */
+			'scoreSoFar'         => __( '%1$s/%2$s correct so far', 'wellactually' ),
+			/* translators: 1: number answered correctly, 2: number answered, 3: percentage correct */
+			'finalScore'         => __( '%1$s/%2$s correct (%3$s%)', 'wellactually' ),
+			/* translators: 1: current card number, 2: number of cards being replayed */
+			'replayPosition'     => __( 'Replay: %1$s of %2$s', 'wellactually' ),
+			/* translators: 1: current card number, 2: number of cards in the deck */
+			'deckPosition'       => __( '%1$s of %2$s', 'wellactually' ),
+			/* translators: %1$s: percentage of readers who got this card wrong */
+			'pctWrong'           => __( '%1$s% got this one wrong', 'wellactually' ),
+			'startOver'          => __( 'Start over', 'wellactually' ),
+			'confirmReset'       => __( 'Start over? This clears your saved progress.', 'wellactually' ),
+			'keepSwiping'        => __( 'Keep swiping', 'wellactually' ),
+			'emptyDeck'          => __( 'No swipe statements yet — check back soon.', 'wellactually' ),
+			/* translators: %1$s: number of cards answered incorrectly */
+			'replayWrong'        => __( 'Replay the ones you got wrong (%1$s)', 'wellactually' ),
+			/* translators: %1$s: number of newly added statements */
+			'moreAvailable'      => __( 'New statements have been added — %1$s more await', 'wellactually' ),
+			'copy'               => __( 'Copy', 'wellactually' ),
+			'copied'             => __( 'Copied!', 'wellactually' ),
+			'shareTextLabel'     => __( 'Share text', 'wellactually' ),
+			/* translators: 1: number answered correctly, 2: number answered, 3: percentage correct, 4: site name, 5: swipe page URL */
+			'shareText'          => __( 'I scored %1$s/%2$s (%3$s%) on the "Well, Actually..." swipe quiz on %4$s. Try it yourself: %5$s', 'wellactually' ),
+			'thisBlog'           => __( 'this blog', 'wellactually' ),
+			'tierGreat'          => __( 'Well, actually… you should be writing this blog.', 'wellactually' ),
+			'tierGood'           => __( 'Solid instincts. A few well-actuallys to go.', 'wellactually' ),
+			'tierOk'             => __( 'Halfway there — the archives are calling.', 'wellactually' ),
+			'tierPoor'           => __( 'Time to hit the archives.', 'wellactually' ),
+			'answerFailed'       => __( 'Couldn’t submit that — check your connection and try again.', 'wellactually' ),
+			'storageUnavailable' => __( 'Your progress won’t be saved in this browser.', 'wellactually' ),
+			'revealDebatable'    => __( '🤔 It’s debatable', 'wellactually' ),
+			'revealUnsure'       => __( 'Not sure? Here’s the answer', 'wellactually' ),
+			'revealWrong'        => __( '✗ Well, actually…', 'wellactually' ),
+			/* translators: %1$s: the verdict, "TRUE" or "FALSE" */
+			'revealVerdict'      => __( 'This one’s %1$s.', 'wellactually' ),
+			'verdictTrue'        => _x( 'TRUE', 'verdict shown in the reveal, deliberately shouty', 'wellactually' ),
+			'verdictFalse'       => _x( 'FALSE', 'verdict shown in the reveal, deliberately shouty', 'wellactually' ),
+			/* translators: %1$s: percentage of readers who agreed with the statement */
+			'pctAgreed'          => __( '%1$s% of readers agreed.', 'wellactually' ),
+			'readFullPost'       => __( 'Read the full post →', 'wellactually' ),
+			'continue'           => __( 'Continue', 'wellactually' ),
 		);
 	}
 

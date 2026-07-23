@@ -1,0 +1,23 @@
+/**
+ * Settings → "Well, Actually..." → Reports tab, and its inline editor.
+ */
+
+.wa-reports-table { margin-top: 8px; }
+.wa-reports-table th.wa-col-post, .wa-reports-table td.wa-col-post { width: 28%; }
+.wa-reports-table th.wa-col-headline, .wa-reports-table td.wa-col-headline { width: 34%; }
+.wa-reports-table th.wa-col-answer, .wa-reports-table td.wa-col-answer { width: 12%; }
+.wa-reports-table th.wa-col-num, .wa-reports-table td.wa-col-num { width: 84px; text-align: right; }
+.wa-reports-table th.sortable a { text-decoration: none; }
+.wa-reports-table th.sorted a { font-weight: 700; }
+.wa-reports-table td { vertical-align: top; }
+.wa-reports-table .row-actions { visibility: hidden; }
+.wa-reports-table tr:hover .row-actions,
+.wa-reports-table tr:focus-within .row-actions { visibility: visible; }
+.wa-cell-hidden { visibility: hidden; }
+.wa-inline-editor { margin-top: 8px; }
+.wa-inline-editor .wa-ie-statement { width: 100%; }
+.wa-inline-editor .wa-ie-verdict { margin: 4px 0; }
+.wa-inline-editor .wa-ie-actions { display: block; margin-top: 4px; }
+.wa-inline-editor .wa-ie-status { margin-left: 8px; color: #646970; }
+.wa-reports-table tr.wa-row-saved { background: #edfaef; }
+.wa-reports-table .tablenav { margin-top: 8px; }
