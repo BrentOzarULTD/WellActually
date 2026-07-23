@@ -186,6 +186,7 @@ class WA_AI {
 			}
 			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
 			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
 			$queued++;
 		}
 		return $queued;
@@ -214,6 +215,11 @@ class WA_AI {
 
 		if ( $cat > 0 ) {
 			$args['cat'] = (int) $cat;
+		}
+
+		$excluded_cats = wa_get_setting( 'excluded_categories', array() );
+		if ( ! empty( $excluded_cats ) ) {
+			$args['category__not_in'] = $excluded_cats;
 		}
 
 		$query = new WP_Query( $args );
@@ -282,6 +288,32 @@ class WA_AI {
 	}
 
 	/**
+	 * Look up a provider's own default text model, via the 'wpai_preferred_text_models'
+	 * filter that provider plugins (e.g. Nano-GPT's DefaultModelPreferences) use to
+	 * publish the model the site owner picked in that provider's own settings screen.
+	 * Used when this plugin's own ai_model setting is left blank: without this,
+	 * using_provider() alone pins the provider with no model preference at all,
+	 * which some providers (Nano-GPT included) reject outright.
+	 *
+	 * @param string $provider Provider id.
+	 * @return string Model id, or '' if the provider has no published preference.
+	 */
+	public static function preferred_model_for_provider( $provider ) {
+		$preferences = apply_filters( 'wpai_preferred_text_models', array() );
+		if ( ! is_array( $preferences ) ) {
+			return '';
+		}
+
+		foreach ( $preferences as $pref ) {
+			if ( is_array( $pref ) && 2 === count( $pref ) && $provider === $pref[0] && '' !== $pref[1] ) {
+				return (string) $pref[1];
+			}
+		}
+
+		return '';
+	}
+
+	/**
 	 * Draft a suggestion for a single post: build the prompt, call the AI, and
 	 * store the result (or an error) in the post's AI meta.
 	 *
@@ -325,6 +357,10 @@ class WA_AI {
 		try {
 			$builder = wp_ai_client_prompt( self::user_prompt( $post ) )
 				->using_system_instruction( self::system_instruction() );
+
+			if ( '' === $model ) {
+				$model = self::preferred_model_for_provider( $provider );
+			}
 
 			if ( '' !== $model ) {
 				$builder = $builder->using_model_preference( array( $provider, $model ) );
@@ -406,6 +442,7 @@ class WA_AI {
 		update_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY, $verdict );
 		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_READY );
 		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+		delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
 		WA_Meta::recompute_status( $post_id );
 
 		return array(
@@ -426,12 +463,104 @@ class WA_AI {
 		$message = sanitize_text_field( $message );
 		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_ERROR );
 		update_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, $message );
+		update_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY, time() );
 		WA_Meta::recompute_status( $post_id );
 
 		return array(
 			'status' => self::STATUS_ERROR,
 			'error'  => $message,
 		);
+	}
+
+	/**
+	 * Get drafting errors from the last $days days, newest first. Powers the
+	 * Settings → Errors tab.
+	 *
+	 * @param int $days How many days back to look.
+	 * @return array[] { post_id, title, edit_url, error, time } per errored post.
+	 */
+	public static function get_recent_errors( $days = 7 ) {
+		$cutoff = time() - ( max( 1, (int) $days ) * DAY_IN_SECONDS );
+
+		$query = new WP_Query(
+			array(
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'fields'         => 'ids',
+				'posts_per_page' => 200,
+				'orderby'        => 'meta_value_num',
+				'meta_key'       => WA_Meta::AI_ERROR_TIME_KEY,
+				'order'          => 'DESC',
+				'no_found_rows'  => true,
+				'meta_query'     => array(
+					array(
+						'key'   => WA_Meta::AI_STATUS_KEY,
+						'value' => self::STATUS_ERROR,
+					),
+					array(
+						'key'     => WA_Meta::AI_ERROR_TIME_KEY,
+						'value'   => $cutoff,
+						'compare' => '>=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+
+		$errors = array();
+		foreach ( $query->posts as $post_id ) {
+			$errors[] = array(
+				'post_id'  => $post_id,
+				'title'    => get_the_title( $post_id ),
+				'edit_url' => get_edit_post_link( $post_id, 'raw' ),
+				'error'    => get_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, true ),
+				'time'     => (int) get_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY, true ),
+			);
+		}
+
+		return $errors;
+	}
+
+	/**
+	 * Delete drafting-error meta older than $days days, resetting those posts
+	 * back to a plain (retryable) needs-setup state. Only the Errors tab's
+	 * display is time-limited by get_recent_errors(); this actually prunes
+	 * the underlying data so it doesn't accumulate forever. Cheap enough to
+	 * run every time the Errors tab is viewed rather than on a schedule.
+	 *
+	 * @param int $days Errors older than this many days are removed.
+	 */
+	public static function prune_old_errors( $days = 7 ) {
+		$cutoff = time() - ( max( 1, (int) $days ) * DAY_IN_SECONDS );
+
+		$query = new WP_Query(
+			array(
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'fields'         => 'ids',
+				'posts_per_page' => -1,
+				'no_found_rows'  => true,
+				'meta_query'     => array(
+					array(
+						'key'   => WA_Meta::AI_STATUS_KEY,
+						'value' => self::STATUS_ERROR,
+					),
+					array(
+						'key'     => WA_Meta::AI_ERROR_TIME_KEY,
+						'value'   => $cutoff,
+						'compare' => '<',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+
+		foreach ( $query->posts as $post_id ) {
+			delete_post_meta( $post_id, WA_Meta::AI_STATUS_KEY );
+			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
+			WA_Meta::recompute_status( $post_id );
+		}
 	}
 
 	/**

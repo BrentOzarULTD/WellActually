@@ -28,6 +28,7 @@ delete_post_meta_by_key( '_wa_ai_statement' );
 delete_post_meta_by_key( '_wa_ai_verdict' );
 delete_post_meta_by_key( '_wa_ai_status' );
 delete_post_meta_by_key( '_wa_ai_error' );
+delete_post_meta_by_key( '_wa_ai_error_time' );
 delete_post_meta_by_key( '_wa_skip' );
 delete_post_meta_by_key( '_wa_status' );
 

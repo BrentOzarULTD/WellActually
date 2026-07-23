@@ -1,6 +1,6 @@
 <?php
 /**
- * Settings page: Settings → WellActually.
+ * Settings page: Settings → Well, Actually...
  *
  * @package WellActually
  */
@@ -10,7 +10,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Handles the wa_settings option and its admin settings page.
+ * Handles the wa_settings option and its tabbed admin settings page
+ * (Setup / Categories / Errors).
  */
 class WA_Settings {
 
@@ -63,9 +64,10 @@ class WA_Settings {
 	 */
 	public static function defaults() {
 		return array(
-			'slug'        => 'swipe',
-			'ai_provider' => '',
-			'ai_model'    => '',
+			'slug'                => 'swipe',
+			'ai_provider'         => '',
+			'ai_model'            => '',
+			'excluded_categories' => array(),
 		);
 	}
 
@@ -107,10 +109,10 @@ class WA_Settings {
 		// provider's API (e.g. validating the key or fetching account/balance
 		// info) rather than just checking that a key string is present. That
 		// call runs once per provider on the settings page (looped over every
-		// registered provider) and once per page load of Well Actually Setup,
-		// which made both screens visibly slow to load. Cache the result
-		// briefly so repeat page loads don't repeat that round-trip; a save in
-		// Settings → WellActually clears it immediately (see
+		// registered provider) and once per page load of Posts → "Well,
+		// Actually...", which made both screens visibly slow to load. Cache
+		// the result briefly so repeat page loads don't repeat that
+		// round-trip; a save on the Setup tab clears it immediately (see
 		// sanitize_settings()) so a key/provider change is reflected right away.
 		$cache_key = 'wa_ai_provider_configured_' . $provider_id;
 		$cached    = get_transient( $cache_key );
@@ -119,7 +121,7 @@ class WA_Settings {
 		}
 
 		try {
-			$registry  = \WordPress\AiClient\AiClient::defaultRegistry();
+			$registry   = \WordPress\AiClient\AiClient::defaultRegistry();
 			$configured = $registry->hasProvider( $provider_id ) && $registry->isProviderConfigured( $provider_id );
 		} catch ( \Throwable $e ) {
 			$configured = false;
@@ -131,7 +133,7 @@ class WA_Settings {
 	}
 
 	/**
-	 * Clear the cached provider-configured check(s). Called after a settings
+	 * Clear the cached provider-configured check(s). Called after a Setup-tab
 	 * save so a provider/key change is reflected immediately rather than
 	 * waiting out the cache TTL.
 	 *
@@ -163,12 +165,24 @@ class WA_Settings {
 	}
 
 	/**
+	 * Category term IDs to skip entirely — their posts never count as
+	 * eligible in Posts → "Well, Actually..." (needs setup, AI drafting
+	 * candidates, or any of its other status views).
+	 *
+	 * @return int[]
+	 */
+	public static function excluded_categories() {
+		$ids = wa_get_setting( 'excluded_categories', array() );
+		return is_array( $ids ) ? array_map( 'absint', $ids ) : array();
+	}
+
+	/**
 	 * Register the submenu page under Settings.
 	 */
 	public function add_settings_page() {
 		add_options_page(
-			__( 'WellActually', 'wellactually' ),
-			__( 'WellActually', 'wellactually' ),
+			__( 'Well, Actually...', 'wellactually' ),
+			__( 'Well, Actually...', 'wellactually' ),
 			'manage_options',
 			'wellactually',
 			array( $this, 'render_settings_page' )
@@ -176,7 +190,17 @@ class WA_Settings {
 	}
 
 	/**
-	 * Register the settings, section, and field.
+	 * The current tab, defaulting to and falling back to 'setup'.
+	 *
+	 * @return string One of setup|categories|errors.
+	 */
+	private function current_tab() {
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'setup';
+		return in_array( $tab, array( 'setup', 'categories', 'errors' ), true ) ? $tab : 'setup';
+	}
+
+	/**
+	 * Register the settings, sections, and fields for the Setup tab.
 	 */
 	public function register_settings() {
 		register_setting(
@@ -193,14 +217,14 @@ class WA_Settings {
 			'wa_settings_section',
 			'',
 			'__return_false',
-			'wellactually'
+			'wellactually_setup'
 		);
 
 		add_settings_field(
 			'wa_slug',
 			__( 'Swipe page slug', 'wellactually' ),
 			array( $this, 'render_slug_field' ),
-			'wellactually',
+			'wellactually_setup',
 			'wa_settings_section'
 		);
 
@@ -208,14 +232,14 @@ class WA_Settings {
 			'wa_ai_section',
 			__( 'AI drafting', 'wellactually' ),
 			array( $this, 'render_ai_section_intro' ),
-			'wellactually'
+			'wellactually_setup'
 		);
 
 		add_settings_field(
 			'wa_ai_provider',
 			__( 'AI provider', 'wellactually' ),
 			array( $this, 'render_ai_provider_field' ),
-			'wellactually',
+			'wellactually_setup',
 			'wa_ai_section'
 		);
 
@@ -223,23 +247,38 @@ class WA_Settings {
 			'wa_ai_model',
 			__( 'AI model', 'wellactually' ),
 			array( $this, 'render_ai_model_field' ),
-			'wellactually',
+			'wellactually_setup',
 			'wa_ai_section'
 		);
 	}
 
 	/**
-	 * Sanitize the settings array on save.
+	 * Sanitize the settings array on save. Only the fields belonging to the
+	 * tab that was actually submitted (a hidden `_tab` field distinguishes
+	 * them) are touched; everything else is carried over from the currently
+	 * stored option. This matters most for the Categories tab: unchecked
+	 * checkboxes send nothing at all, so without this a save from that tab
+	 * with zero categories checked would be indistinguishable from "don't
+	 * change anything" — and, more importantly, a save from ANY one tab must
+	 * never blow away the other tabs' values.
 	 *
 	 * @param array $input Raw input.
 	 * @return array
 	 */
 	public function sanitize_settings( $input ) {
-		$defaults = self::defaults();
-		$output   = array();
+		$existing = self::get_settings();
+		$output   = $existing;
+		$tab      = isset( $input['_tab'] ) ? sanitize_key( $input['_tab'] ) : 'setup';
 
-		$slug            = isset( $input['slug'] ) ? sanitize_title( $input['slug'] ) : '';
-		$output['slug']  = ( '' !== $slug ) ? $slug : $defaults['slug'];
+		if ( 'categories' === $tab ) {
+			$raw                            = ( isset( $input['excluded_categories'] ) && is_array( $input['excluded_categories'] ) ) ? $input['excluded_categories'] : array();
+			$output['excluded_categories']  = array_values( array_unique( array_map( 'absint', $raw ) ) );
+			return $output;
+		}
+
+		// Setup tab.
+		$slug           = isset( $input['slug'] ) ? sanitize_title( $input['slug'] ) : '';
+		$output['slug'] = ( '' !== $slug ) ? $slug : $existing['slug'];
 
 		// AI provider must be one of the registered AI providers.
 		$provider              = isset( $input['ai_provider'] ) ? sanitize_text_field( $input['ai_provider'] ) : '';
@@ -248,8 +287,8 @@ class WA_Settings {
 		// Model id is free text (providers like Nano-GPT proxy many models).
 		$output['ai_model'] = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : '';
 
-		// A save always clears the cached provider-configured check, so a
-		// provider/key change is reflected immediately rather than waiting
+		// A Setup save always clears the cached provider-configured check, so
+		// a provider/key change is reflected immediately rather than waiting
 		// out the transient's TTL.
 		self::clear_provider_configured_cache();
 
@@ -265,7 +304,7 @@ class WA_Settings {
 			if ( empty( $providers ) ) {
 				echo '<p>' . esc_html__( 'No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting.', 'wellactually' ) . '</p>';
 			} else {
-				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the Swipe Setup screen. You can change these between batches.', 'wellactually' ) . '</p>';
+				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the "Well, Actually..." screen (under Posts). You can change these between batches.', 'wellactually' ) . '</p>';
 			}
 		} else {
 			echo '<p>' . esc_html__( 'AI features are not available in this environment.', 'wellactually' ) . '</p>';
@@ -304,7 +343,7 @@ class WA_Settings {
 		$settings = self::get_settings();
 		?>
 		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'wellactually' ); ?>" />
-		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Recommended: most providers (including Nano-GPT) need an explicit model rather than a default.', 'wellactually' ); ?></p>
+		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the default model you\'ve picked in that provider\'s own settings, if it has one.', 'wellactually' ); ?></p>
 		<?php
 	}
 
@@ -328,29 +367,189 @@ class WA_Settings {
 	}
 
 	/**
-	 * Render the settings page.
+	 * Render the tabbed settings page.
 	 */
 	public function render_settings_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
+
+		$tab       = $this->current_tab();
+		$base_url  = admin_url( 'options-general.php?page=wellactually' );
+		$tab_names = array(
+			'setup'      => __( 'Setup', 'wellactually' ),
+			'categories' => __( 'Categories', 'wellactually' ),
+			'errors'     => __( 'Errors', 'wellactually' ),
+		);
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'WellActually', 'wellactually' ); ?></h1>
-			<form action="options.php" method="post">
-				<?php
-				settings_fields( 'wa_settings_group' );
-				do_settings_sections( 'wellactually' );
-				submit_button();
-				?>
-			</form>
+			<h1><?php esc_html_e( 'Well, Actually...', 'wellactually' ); ?></h1>
+
+			<h2 class="nav-tab-wrapper">
+				<?php foreach ( $tab_names as $tab_key => $label ) : ?>
+					<a
+						href="<?php echo esc_url( add_query_arg( 'tab', $tab_key, $base_url ) ); ?>"
+						class="nav-tab <?php echo ( $tab_key === $tab ) ? 'nav-tab-active' : ''; ?>"
+					><?php echo esc_html( $label ); ?></a>
+				<?php endforeach; ?>
+			</h2>
+
+			<?php if ( 'errors' === $tab ) : ?>
+				<div class="wa-tab-panel">
+					<?php $this->render_errors_tab(); ?>
+				</div>
+			<?php else : ?>
+				<form action="options.php" method="post" class="wa-tab-panel">
+					<?php
+					settings_fields( 'wa_settings_group' );
+					echo '<input type="hidden" name="' . esc_attr( self::OPTION_NAME ) . '[_tab]" value="' . esc_attr( $tab ) . '" />';
+
+					if ( 'categories' === $tab ) {
+						$this->render_categories_tab();
+					} else {
+						do_settings_sections( 'wellactually_setup' );
+					}
+
+					submit_button();
+					?>
+				</form>
+			<?php endif; ?>
 		</div>
+		<style>
+			.wa-tab-panel { margin-top: 16px; }
+			.wa-categories-table th.wa-col-count,
+			.wa-categories-table td.wa-col-count { width: 90px; }
+			.wa-categories-table th.wa-col-skip,
+			.wa-categories-table td.wa-col-skip { width: 140px; text-align: center; }
+			.wa-errors-table td { vertical-align: top; }
+		</style>
 		<?php
+	}
+
+	/**
+	 * Render the Categories tab: every category, indented by parent/child,
+	 * with its post count and a "Skip This Category" checkbox.
+	 */
+	private function render_categories_tab() {
+		echo '<p class="description">' . esc_html__( 'Posts in a checked category are skipped entirely — they never show up as eligible in Posts → "Well, Actually..." (needs setup, AI drafting candidates, or any other status view there).', 'wellactually' ) . '</p>';
+
+		$categories = get_categories(
+			array(
+				'hide_empty' => false,
+				'orderby'    => 'name',
+				'order'      => 'ASC',
+			)
+		);
+
+		if ( empty( $categories ) ) {
+			echo '<p>' . esc_html__( 'No categories yet.', 'wellactually' ) . '</p>';
+			return;
+		}
+
+		$by_parent = array();
+		foreach ( $categories as $category ) {
+			$by_parent[ $category->parent ][] = $category;
+		}
+
+		$excluded = self::excluded_categories();
+		?>
+		<table class="widefat striped wa-categories-table">
+			<thead>
+				<tr>
+					<th><?php esc_html_e( 'Name', 'wellactually' ); ?></th>
+					<th class="wa-col-count"><?php esc_html_e( 'Count', 'wellactually' ); ?></th>
+					<th class="wa-col-skip"><?php esc_html_e( 'Skip This Category', 'wellactually' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php $this->render_category_rows( $by_parent, 0, 0, $excluded ); ?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	/**
+	 * Recursively render one level of the category tree.
+	 *
+	 * @param array $by_parent Categories grouped by their parent term ID.
+	 * @param int   $parent_id Parent term ID to render children of (0 = top level).
+	 * @param int   $depth     Current nesting depth, for indentation.
+	 * @param int[] $excluded  Currently-excluded category term IDs.
+	 */
+	private function render_category_rows( $by_parent, $parent_id, $depth, $excluded ) {
+		if ( empty( $by_parent[ $parent_id ] ) ) {
+			return;
+		}
+
+		foreach ( $by_parent[ $parent_id ] as $category ) {
+			$checkbox_id = 'wa-cat-' . $category->term_id;
+			?>
+			<tr>
+				<td style="padding-left: <?php echo esc_attr( 12 + ( $depth * 24 ) ); ?>px;">
+					<?php if ( $depth > 0 ) : ?>
+						<span aria-hidden="true">&#8212;&nbsp;</span>
+					<?php endif; ?>
+					<label for="<?php echo esc_attr( $checkbox_id ); ?>"><?php echo esc_html( $category->name ); ?></label>
+				</td>
+				<td class="wa-col-count"><?php echo (int) $category->count; ?></td>
+				<td class="wa-col-skip">
+					<input
+						type="checkbox"
+						id="<?php echo esc_attr( $checkbox_id ); ?>"
+						name="<?php echo esc_attr( self::OPTION_NAME ); ?>[excluded_categories][]"
+						value="<?php echo esc_attr( $category->term_id ); ?>"
+						<?php checked( in_array( $category->term_id, $excluded, true ) ); ?>
+					/>
+				</td>
+			</tr>
+			<?php
+			$this->render_category_rows( $by_parent, $category->term_id, $depth + 1, $excluded );
+		}
+	}
+
+	/**
+	 * Render the Errors tab: AI drafting errors from the last 7 days.
+	 * Prunes anything older first, resetting those posts back to a plain,
+	 * retryable needs-setup state.
+	 */
+	private function render_errors_tab() {
+		WA_AI::prune_old_errors( 7 );
+		$errors = WA_AI::get_recent_errors( 7 );
+
+		echo '<p class="description">' . esc_html__( 'AI drafting errors from the last 7 days. Older errors are cleared automatically and the post becomes available to draft again.', 'wellactually' ) . '</p>';
+
+		if ( empty( $errors ) ) {
+			echo '<p>' . esc_html__( 'No drafting errors in the last 7 days.', 'wellactually' ) . '</p>';
+			return;
+		}
+
+		echo '<table class="widefat striped wa-errors-table"><thead><tr>';
+		echo '<th>' . esc_html__( 'Post', 'wellactually' ) . '</th>';
+		echo '<th>' . esc_html__( 'Error', 'wellactually' ) . '</th>';
+		echo '<th>' . esc_html__( 'When', 'wellactually' ) . '</th>';
+		echo '</tr></thead><tbody>';
+
+		foreach ( $errors as $error ) {
+			$title = '' !== $error['title'] ? $error['title'] : __( '(no title)', 'wellactually' );
+			echo '<tr>';
+			echo '<td><a href="' . esc_url( $error['edit_url'] ) . '" target="_blank" rel="noopener">' . esc_html( $title ) . '</a></td>';
+			echo '<td>' . esc_html( $error['error'] ) . '</td>';
+			echo '<td>' . esc_html(
+				sprintf(
+					/* translators: %s: human-readable time difference, e.g. "3 hours" */
+					__( '%s ago', 'wellactually' ),
+					human_time_diff( $error['time'], time() )
+				)
+			) . '</td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody></table>';
 	}
 }
 
 /**
- * Get a single WellActually setting.
+ * Get a single Well, Actually... setting.
  *
  * @param string $key     Setting key.
  * @param mixed  $default Fallback value if the key isn't set.

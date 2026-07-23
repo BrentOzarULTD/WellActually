@@ -23,7 +23,7 @@
 	 * Central application state.
 	 */
 	var state = {
-		phase: 'loading', // loading | card | reveal | done | error
+		phase: 'loading', // loading | card | reveal | done | milestone | error
 		deck: [], // array of { id, statement, replay? }
 		currentIndex: 0,
 		total: 0,
@@ -32,7 +32,52 @@
 		fetchingMore: false,
 		pendingFetch: null, // the in-flight fetchDeckBatch() promise, if any — lets callers await the SAME request rather than firing a duplicate or racing ahead of it
 		replay: false, // true while working through a "replay wrong ones" round
+		lastMilestoneShown: 0, // highest answered_count a milestone share screen has already been shown for, so it fires once per 20 rather than on every re-render
 	};
+
+	var MILESTONE_INTERVAL = 20;
+
+	/**
+	 * Build the "I scored X/Y" share text, with a link back to the quiz so
+	 * whoever it's shared with can play too.
+	 *
+	 * @param {number} correct  Correct answer count.
+	 * @param {number} answered Total answered count.
+	 * @return {string}
+	 */
+	function buildShareText( correct, answered ) {
+		var pct = Math.round( ( correct / answered ) * 100 );
+		var quizUrl = window.location.origin + window.location.pathname;
+		return 'I scored ' + correct + '/' + answered + ' (' + pct + '%) on the "Well, Actually..." swipe quiz on ' +
+			( config.siteName || 'this blog' ) + '. Try it yourself: ' + quizUrl;
+	}
+
+	/**
+	 * The share row markup (text box + copy button) shared by the milestone
+	 * and end-of-deck screens.
+	 *
+	 * @param {string} shareText Share text to prefill.
+	 * @return {string}
+	 */
+	function buildShareRow( shareText ) {
+		return '<div class="wa-share-row">' +
+			'<input type="text" class="wa-share-text" readonly value="' + escapeHtml( shareText ) + '" aria-label="Share text" />' +
+			'<button type="button" class="wa-btn wa-copy-btn">Copy</button>' +
+			'</div>';
+	}
+
+	/**
+	 * Wire up the Copy button in a just-rendered share row.
+	 */
+	function attachShareRowEvents() {
+		var copyBtn = appEl.querySelector( '.wa-copy-btn' );
+		var shareInput = appEl.querySelector( '.wa-share-text' );
+		if ( copyBtn && shareInput ) {
+			copyBtn.addEventListener( 'click', function () {
+				copyShareText( shareInput, copyBtn );
+			} );
+		}
+	}
 
 	/**
 	 * Join a route onto the REST base, with an optional query string.
@@ -228,7 +273,15 @@
 	}
 
 	/**
-	 * Escape a string for safe HTML insertion.
+	 * Escape a string for safe HTML insertion — safe both as element text
+	 * content and inside a double-quoted attribute value. The
+	 * textContent/innerHTML round-trip alone only escapes &, <, > (the
+	 * characters unsafe in a text node); it leaves " and ' untouched, since
+	 * neither is special there. Callers that splice the result into
+	 * value="..." (e.g. the share text box) need those escaped too, or a
+	 * literal " in the source string — like the quote marks around
+	 * "Well, Actually..." — closes the attribute early and corrupts the
+	 * surrounding markup.
 	 *
 	 * @param {string} str Raw string.
 	 * @return {string}
@@ -236,7 +289,7 @@
 	function escapeHtml( str ) {
 		var div = document.createElement( 'div' );
 		div.textContent = str == null ? '' : String( str );
-		return div.innerHTML;
+		return div.innerHTML.replace( /"/g, '&quot;' ).replace( /'/g, '&#39;' );
 	}
 
 	/**
@@ -253,6 +306,8 @@
 			renderError();
 		} else if ( 'card' === state.phase ) {
 			renderCard();
+		} else if ( 'milestone' === state.phase ) {
+			renderMilestone();
 		} else if ( 'done' === state.phase ) {
 			renderDone();
 		}
@@ -351,6 +406,36 @@
 	}
 
 	/**
+	 * Milestone interstitial: a brief share prompt shown every
+	 * MILESTONE_INTERVAL answered cards, so players who never reach the end
+	 * of a (potentially large) deck still get an invitation to share their
+	 * running score. Dismissing it resumes with the next card.
+	 */
+	function renderMilestone() {
+		var answered = state.progress.answered_count;
+		var correct = state.progress.correct_count;
+		var shareText = buildShareText( correct, answered );
+
+		appEl.innerHTML =
+			'<div class="wa-done wa-milestone">' +
+			'<p class="wa-done-score">' + escapeHtml( correct + '/' + answered + ' correct so far' ) + '</p>' +
+			'<div class="wa-done-actions"><button type="button" class="wa-btn wa-btn-agree wa-milestone-continue">Keep swiping</button></div>' +
+			buildShareRow( shareText ) +
+			'</div>';
+
+		var continueBtn = appEl.querySelector( '.wa-milestone-continue' );
+		if ( continueBtn ) {
+			continueBtn.addEventListener( 'click', function () {
+				state.phase = 'card';
+				render();
+				maybePrefetch();
+			} );
+		}
+
+		attachShareRowEvents();
+	}
+
+	/**
 	 * End-of-deck screen: final score, a tier line, and options to replay
 	 * the wrong ones, start over, or (if the deck grew) fetch what's new.
 	 */
@@ -372,7 +457,7 @@
 
 		var pct = Math.round( ( correct / answered ) * 100 );
 		var tier = tierLine( pct );
-		var shareText = 'I scored ' + correct + '/' + answered + ' (' + pct + '%) on the WellActually swipe quiz on ' + ( config.siteName || 'this blog' ) + '.';
+		var shareText = buildShareText( correct, answered );
 
 		var actions = '';
 
@@ -391,10 +476,7 @@
 			'<p class="wa-done-score">' + escapeHtml( correct + '/' + answered + ' correct (' + pct + '%)' ) + '</p>' +
 			'<p class="wa-done-tier">' + escapeHtml( tier ) + '</p>' +
 			'<div class="wa-done-actions">' + actions + '</div>' +
-			'<div class="wa-share-row">' +
-			'<input type="text" class="wa-share-text" readonly value="' + escapeHtml( shareText ) + '" aria-label="Share text" />' +
-			'<button type="button" class="wa-btn wa-copy-btn">Copy</button>' +
-			'</div>' +
+			buildShareRow( shareText ) +
 			'</div>';
 
 		var replayBtn = appEl.querySelector( '.wa-replay-btn' );
@@ -419,13 +501,7 @@
 			resetBtn.addEventListener( 'click', handleResetClick );
 		}
 
-		var copyBtn = appEl.querySelector( '.wa-copy-btn' );
-		var shareInput = appEl.querySelector( '.wa-share-text' );
-		if ( copyBtn && shareInput ) {
-			copyBtn.addEventListener( 'click', function () {
-				copyShareText( shareInput, copyBtn );
-			} );
-		}
+		attachShareRowEvents();
 	}
 
 	/**
@@ -670,6 +746,14 @@
 	 */
 	function advanceAfterReveal() {
 		if ( state.deck[ state.currentIndex ] ) {
+			var answered = state.progress.answered_count;
+			if ( ! state.replay && answered > 0 && answered % MILESTONE_INTERVAL === 0 && answered !== state.lastMilestoneShown ) {
+				state.lastMilestoneShown = answered;
+				state.phase = 'milestone';
+				render();
+				return;
+			}
+
 			state.phase = 'card';
 			render();
 			maybePrefetch();
@@ -1065,7 +1149,15 @@
 	var TRANSITION_MS = prefersReducedMotion ? 0 : 300;
 
 	/**
-	 * Escape a string for safe HTML insertion.
+	 * Escape a string for safe HTML insertion — safe both as element text
+	 * content and inside a double-quoted attribute value. The
+	 * textContent/innerHTML round-trip alone only escapes &, <, > (the
+	 * characters unsafe in a text node); it leaves " and ' untouched, since
+	 * neither is special there. Callers that splice the result into
+	 * value="..." (e.g. the share text box) need those escaped too, or a
+	 * literal " in the source string — like the quote marks around
+	 * "Well, Actually..." — closes the attribute early and corrupts the
+	 * surrounding markup.
 	 *
 	 * @param {string} str Raw string.
 	 * @return {string}
@@ -1073,7 +1165,7 @@
 	function escapeHtml( str ) {
 		var div = document.createElement( 'div' );
 		div.textContent = str == null ? '' : String( str );
-		return div.innerHTML;
+		return div.innerHTML.replace( /"/g, '&quot;' ).replace( /'/g, '&#39;' );
 	}
 
 	/**
@@ -1269,6 +1361,15 @@
 			}
 		}
 
+		// Bind both 'pointerdown' and 'click': on some browsers the reveal
+		// card's entrance still has an in-flight pointer/click sequence from
+		// the swipe gesture that just closed the previous card, and a 'click'
+		// listener alone can miss the player's first tap on this
+		// freshly-inserted button, requiring a second tap. 'pointerdown'
+		// fires immediately and reliably for mouse/touch; 'click' remains as
+		// the fallback for keyboard activation. dismiss()'s own guard makes
+		// it safe if both fire for the same interaction.
+		continueBtn.addEventListener( 'pointerdown', dismiss );
 		continueBtn.addEventListener( 'click', dismiss );
 		overlay.addEventListener( 'keydown', onKeydown );
 	};
