@@ -19,9 +19,11 @@ class WA_AI {
 	const STATUS_READY  = 'ready';
 	const STATUS_ERROR  = 'error';
 
-	// Safety cap on how much post text we send, to avoid pathological token
-	// blowups on unusually long posts. "Full content" for all realistic posts.
-	const MAX_CONTENT_CHARS = 30000;
+	// Cap on how much post text we send. A one-line true/false/debatable
+	// statement needs only the post's core argument, not the whole article —
+	// keeping this small measurably speeds up drafting (input size drives
+	// time-to-first-token) with no real loss in statement quality.
+	const MAX_CONTENT_CHARS = 3000;
 
 	/**
 	 * Singleton instance.
@@ -587,17 +589,45 @@ class WA_AI {
 	}
 
 	/**
-	 * Build the user prompt (title + plain-text content) for a post.
+	 * Build the user prompt (title + plain-text body) for a post.
 	 *
 	 * @param WP_Post $post Post object.
 	 * @return string
 	 */
 	private static function user_prompt( $post ) {
-		$content = get_the_content( '', false, $post );
+		$content = self::prompt_content( $post );
+
+		return 'Title: ' . get_the_title( $post ) . "\n\nContent:\n" . $content;
+	}
+
+	/**
+	 * The plain-text body to send: a manual excerpt when the post has one
+	 * (it's already a short, hand-picked summary — exactly what a one-line
+	 * statement needs), otherwise the post content. Code samples are
+	 * dropped entirely before capping — they eat characters without adding
+	 * claim-worthy prose, so keeping them would just crowd out actual
+	 * argument text under the cap.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @return string
+	 */
+	private static function prompt_content( $post ) {
+		if ( has_excerpt( $post ) ) {
+			$content = get_the_excerpt( $post );
+		} else {
+			$content = get_the_content( '', false, $post );
+		}
+
 		$content = strip_shortcodes( $content );
 		if ( function_exists( 'excerpt_remove_blocks' ) ) {
 			$content = excerpt_remove_blocks( $content );
 		}
+
+		// Drop <pre>...</pre> code blocks (both the block editor's
+		// wp-block-code markup and classic <pre><code>) before stripping
+		// tags, while tag boundaries are still there to find them by.
+		$content = preg_replace( '#<pre\b[^>]*>.*?</pre>#is', '', $content );
+
 		$content = wp_strip_all_tags( $content );
 		$content = trim( preg_replace( '/\n{3,}/', "\n\n", $content ) );
 
@@ -605,7 +635,7 @@ class WA_AI {
 			$content = substr( $content, 0, self::MAX_CONTENT_CHARS );
 		}
 
-		return 'Title: ' . get_the_title( $post ) . "\n\nContent:\n" . $content;
+		return $content;
 	}
 
 	/**

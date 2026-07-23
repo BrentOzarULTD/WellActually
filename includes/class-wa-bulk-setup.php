@@ -86,11 +86,21 @@ class WA_Bulk_Setup {
 
 		$order = isset( $_REQUEST['wa_order'] ) && 'ASC' === strtoupper( sanitize_text_field( wp_unslash( $_REQUEST['wa_order'] ) ) ) ? 'ASC' : 'DESC';
 
+		// All three sort fields are indexed core wp_posts columns (or, for
+		// 'wa_status', the single denormalized meta key already used
+		// elsewhere) — none of them require the multi-key/JOIN queries this
+		// screen avoids everywhere else.
+		$orderby = isset( $_REQUEST['wa_orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['wa_orderby'] ) ) : 'date';
+		if ( ! in_array( $orderby, array( 'date', 'modified', 'comment_count' ), true ) ) {
+			$orderby = 'date';
+		}
+
 		return array(
-			'status' => $status,
-			'cat'    => isset( $_REQUEST['wa_cat'] ) ? absint( $_REQUEST['wa_cat'] ) : 0,
-			'order'  => $order,
-			'paged'  => isset( $_REQUEST['paged'] ) ? max( 1, absint( $_REQUEST['paged'] ) ) : 1,
+			'status'  => $status,
+			'cat'     => isset( $_REQUEST['wa_cat'] ) ? absint( $_REQUEST['wa_cat'] ) : 0,
+			'order'   => $order,
+			'orderby' => $orderby,
+			'paged'   => isset( $_REQUEST['paged'] ) ? max( 1, absint( $_REQUEST['paged'] ) ) : 1,
 		);
 	}
 
@@ -106,7 +116,7 @@ class WA_Bulk_Setup {
 			'post_status'    => 'publish',
 			'posts_per_page' => self::PER_PAGE,
 			'paged'          => $args['paged'],
-			'orderby'        => 'date',
+			'orderby'        => $args['orderby'],
 			'order'          => $args['order'],
 			'ignore_sticky_posts' => true,
 		);
@@ -287,6 +297,7 @@ class WA_Bulk_Setup {
 				'wa_status'     => $args['status'],
 				'wa_cat'        => $args['cat'],
 				'wa_order'      => $args['order'],
+				'wa_orderby'    => $args['orderby'],
 				'paged'         => $args['paged'],
 				'wa_configured' => $counts['configured'],
 				'wa_excluded'   => $counts['excluded'],
@@ -536,10 +547,25 @@ class WA_Bulk_Setup {
 			);
 			?>
 
+			<label for="wa_orderby" class="screen-reader-text"><?php esc_html_e( 'Sort by', 'wellactually' ); ?></label>
+			<select name="wa_orderby" id="wa_orderby">
+				<option value="date" <?php selected( $args['orderby'], 'date' ); ?>><?php esc_html_e( 'Date published', 'wellactually' ); ?></option>
+				<option value="modified" <?php selected( $args['orderby'], 'modified' ); ?>><?php esc_html_e( 'Date modified', 'wellactually' ); ?></option>
+				<option value="comment_count" <?php selected( $args['orderby'], 'comment_count' ); ?>><?php esc_html_e( 'Comment count', 'wellactually' ); ?></option>
+			</select>
+
+			<?php
+			$order_labels = array(
+				'date'          => array( 'DESC' => __( 'Newest first', 'wellactually' ), 'ASC' => __( 'Oldest first', 'wellactually' ) ),
+				'modified'      => array( 'DESC' => __( 'Recently updated first', 'wellactually' ), 'ASC' => __( 'Least recently updated first', 'wellactually' ) ),
+				'comment_count' => array( 'DESC' => __( 'Most comments first', 'wellactually' ), 'ASC' => __( 'Fewest comments first', 'wellactually' ) ),
+			);
+			$labels = $order_labels[ $args['orderby'] ];
+			?>
 			<label for="wa_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
 			<select name="wa_order" id="wa_order">
-				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php esc_html_e( 'Newest first', 'wellactually' ); ?></option>
-				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php esc_html_e( 'Oldest first', 'wellactually' ); ?></option>
+				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php echo esc_html( $labels['DESC'] ); ?></option>
+				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php echo esc_html( $labels['ASC'] ); ?></option>
 			</select>
 
 			<?php submit_button( __( 'Filter', 'wellactually' ), 'secondary', '', false ); ?>
@@ -581,6 +607,7 @@ class WA_Bulk_Setup {
 			<input type="hidden" name="wa_status" value="<?php echo esc_attr( $args['status'] ); ?>" />
 			<input type="hidden" name="wa_cat" value="<?php echo esc_attr( $args['cat'] ); ?>" />
 			<input type="hidden" name="wa_order" value="<?php echo esc_attr( $args['order'] ); ?>" />
+			<input type="hidden" name="wa_orderby" value="<?php echo esc_attr( $args['orderby'] ); ?>" />
 			<input type="hidden" name="paged" value="<?php echo esc_attr( $args['paged'] ); ?>" />
 
 			<table class="widefat striped wa-bulk-table">
@@ -705,11 +732,12 @@ class WA_Bulk_Setup {
 
 		$base = add_query_arg(
 			array(
-				'page'      => self::MENU_SLUG,
-				'wa_status' => $args['status'],
-				'wa_cat'    => $args['cat'],
-				'wa_order'  => $args['order'],
-				'paged'     => '%#%',
+				'page'       => self::MENU_SLUG,
+				'wa_status'  => $args['status'],
+				'wa_cat'     => $args['cat'],
+				'wa_order'   => $args['order'],
+				'wa_orderby' => $args['orderby'],
+				'paged'      => '%#%',
 			),
 			admin_url( 'edit.php' )
 		);
