@@ -26,6 +26,7 @@ class WA_Meta {
 	const AI_STATUS_KEY    = '_wa_ai_status';    // queued | ready | error
 	const AI_ERROR_KEY      = '_wa_ai_error';
 	const AI_ERROR_TIME_KEY = '_wa_ai_error_time'; // unix timestamp, for the Settings → Errors tab's 7-day retention.
+	const AI_CLAIMED_KEY    = '_wa_ai_claimed';    // unix timestamp a worker claimed the post, so an abandoned claim can be released.
 
 	// "Skip for now": keeps the post's content but holds it out of the deck
 	// and the review lists. Distinct from the permanent 'excluded' verdict.

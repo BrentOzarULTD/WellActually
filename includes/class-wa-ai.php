@@ -15,9 +15,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WA_AI {
 
-	const STATUS_QUEUED = 'queued';
-	const STATUS_READY  = 'ready';
-	const STATUS_ERROR  = 'error';
+	const STATUS_QUEUED     = 'queued';
+	const STATUS_PROCESSING = 'processing';
+	const STATUS_READY      = 'ready';
+	const STATUS_ERROR      = 'error';
+
+	// A claim older than this is treated as abandoned (the browser tab was
+	// closed mid-batch, a request timed out) and returned to the queue.
+	const CLAIM_TIMEOUT = 300;
 
 	// Cap on how much post text we send. A one-line true/false/debatable
 	// statement needs only the post's core argument, not the whole article —
@@ -102,6 +107,9 @@ class WA_AI {
 		$count = min( 200, max( 1, (int) $request->get_param( 'count' ) ) );
 		$cat   = (int) $request->get_param( 'cat' );
 
+		// Release anything a previous batch abandoned before picking new work.
+		self::requeue_stale_processing();
+
 		$ids    = self::select_candidates( $count, $cat );
 		$queued = self::enqueue( $ids );
 
@@ -123,28 +131,34 @@ class WA_AI {
 	 * @return WP_REST_Response
 	 */
 	public function handle_process() {
-		$post_id = self::next_queued_id();
+		$post_id = self::claim_next_queued();
 
 		$processed = null;
 		if ( $post_id ) {
-			$result    = self::draft_for_post( $post_id );
+			$result = self::draft_for_post( $post_id );
+			delete_post_meta( $post_id, WA_Meta::AI_CLAIMED_KEY );
+
 			$processed = array_merge(
 				array(
 					'post_id' => $post_id,
-					'title'   => get_the_title( $post_id ),
+					'title'   => WA_Meta::plain_text( get_the_title( $post_id ) ),
 					'url'     => get_edit_post_link( $post_id, 'raw' ),
 				),
 				$result
 			);
 		}
 
-		$response = new WP_REST_Response(
-			array(
-				'processed' => $processed,
-				'counts'    => self::queue_counts(),
-			),
-			200
-		);
+		$payload = array( 'processed' => $processed );
+
+		// queue_counts() is three meta queries. The drafting loop doesn't use
+		// them while it's running, and with several workers in flight that's
+		// pure contention on a large archive — so only spend them on the last
+		// response, when the queue has run dry.
+		if ( null === $processed ) {
+			$payload['counts'] = self::queue_counts();
+		}
+
+		$response = new WP_REST_Response( $payload, 200 );
 		$response->header( 'Cache-Control', 'no-store' );
 		return $response;
 	}
@@ -189,6 +203,7 @@ class WA_AI {
 			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
 			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
 			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
+			delete_post_meta( $post_id, WA_Meta::AI_CLAIMED_KEY );
 			$queued++;
 		}
 		return $queued;
@@ -236,6 +251,130 @@ class WA_AI {
 	}
 
 	/**
+	 * Take ownership of the next queued post, or 0 when the queue is empty.
+	 *
+	 * Drafting runs several requests at once, so "read the next queued id and
+	 * start work on it" isn't safe on its own — two workers would read the
+	 * same id and both pay for the same AI call. The claim is therefore a
+	 * compare-and-swap: flip the status row from queued to processing with
+	 * the old value in the WHERE clause, and treat the update's affected-row
+	 * count as the answer. Exactly one worker can win; the losers simply try
+	 * the next post.
+	 *
+	 * @return int Post ID now owned by this caller, or 0.
+	 */
+	public static function claim_next_queued() {
+		global $wpdb;
+
+		// Walk a batch of candidates rather than re-querying per attempt.
+		// Re-querying would be both slower and wrong: the lookup is a normal
+		// cacheable query, so on a site with a persistent object cache every
+		// retry would be served the same already-claimed post, and the worker
+		// would give up and report an empty queue while work remained.
+		for ( $round = 0; $round < 3; $round++ ) {
+			$candidates = self::queued_ids( 50 );
+			if ( empty( $candidates ) ) {
+				return 0;
+			}
+
+			foreach ( $candidates as $post_id ) {
+				$claimed = $wpdb->update(
+					$wpdb->postmeta,
+					array( 'meta_value' => self::STATUS_PROCESSING ),
+					array(
+						'post_id'    => $post_id,
+						'meta_key'   => WA_Meta::AI_STATUS_KEY,
+						'meta_value' => self::STATUS_QUEUED,
+					),
+					array( '%s' ),
+					array( '%d', '%s', '%s' )
+				);
+
+				// Written round WordPress's meta API, so drop the cached copy.
+				wp_cache_delete( $post_id, 'post_meta' );
+
+				if ( $claimed ) {
+					update_post_meta( $post_id, WA_Meta::AI_CLAIMED_KEY, time() );
+					return (int) $post_id;
+				}
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Queued post IDs, oldest first, read live.
+	 *
+	 * Deliberately uncached: claiming races against other workers, so a
+	 * cached list of "what's queued" is worse than useless here.
+	 *
+	 * @param int $limit How many to fetch.
+	 * @return int[]
+	 */
+	private static function queued_ids( $limit ) {
+		$query = new WP_Query(
+			array(
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'fields'         => 'ids',
+				'posts_per_page' => max( 1, (int) $limit ),
+				'orderby'        => 'ID',
+				'order'          => 'ASC',
+				'no_found_rows'  => true,
+				'cache_results'  => false,
+				'meta_query'     => array(
+					array(
+						'key'   => WA_Meta::AI_STATUS_KEY,
+						'value' => self::STATUS_QUEUED,
+					),
+				),
+			)
+		);
+
+		return array_map( 'intval', $query->posts );
+	}
+
+	/**
+	 * Return abandoned claims to the queue.
+	 *
+	 * A worker that never reports back — closed tab, timed-out request, fatal
+	 * error — would otherwise leave its post stuck in "processing" forever.
+	 * Called when a batch is enqueued, which is the natural moment to sweep.
+	 *
+	 * @param int $older_than Seconds after which a claim counts as abandoned.
+	 * @return int Number of posts returned to the queue.
+	 */
+	public static function requeue_stale_processing( $older_than = self::CLAIM_TIMEOUT ) {
+		global $wpdb;
+
+		$cutoff = time() - max( 1, (int) $older_than );
+
+		$post_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT s.post_id
+				 FROM {$wpdb->postmeta} s
+				 LEFT JOIN {$wpdb->postmeta} c
+				   ON c.post_id = s.post_id AND c.meta_key = %s
+				 WHERE s.meta_key = %s
+				   AND s.meta_value = %s
+				   AND ( c.meta_value IS NULL OR CAST( c.meta_value AS SIGNED ) < %d )",
+				WA_Meta::AI_CLAIMED_KEY,
+				WA_Meta::AI_STATUS_KEY,
+				self::STATUS_PROCESSING,
+				$cutoff
+			)
+		);
+
+		foreach ( $post_ids as $post_id ) {
+			update_post_meta( (int) $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
+			delete_post_meta( (int) $post_id, WA_Meta::AI_CLAIMED_KEY );
+		}
+
+		return count( $post_ids );
+	}
+
+	/**
 	 * Get the next queued post id (oldest queued first), or 0 if none.
 	 *
 	 * @return int
@@ -274,8 +413,16 @@ class WA_AI {
 			'error'  => 0,
 		);
 
-		foreach ( array_keys( $counts ) as $status ) {
-			$query           = new WP_Query(
+		// A post being drafted right now still counts as queued from the
+		// outside — it's outstanding work, not a finished result.
+		$values = array(
+			'queued' => array( self::STATUS_QUEUED, self::STATUS_PROCESSING ),
+			'ready'  => array( self::STATUS_READY ),
+			'error'  => array( self::STATUS_ERROR ),
+		);
+
+		foreach ( $values as $status => $meta_values ) {
+			$query             = new WP_Query(
 				array(
 					'post_type'      => 'post',
 					'post_status'    => 'publish',
@@ -284,8 +431,9 @@ class WA_AI {
 					'no_found_rows'  => false,
 					'meta_query'     => array(
 						array(
-							'key'   => WA_Meta::AI_STATUS_KEY,
-							'value' => $status,
+							'key'     => WA_Meta::AI_STATUS_KEY,
+							'value'   => $meta_values,
+							'compare' => 'IN',
 						),
 					),
 				)

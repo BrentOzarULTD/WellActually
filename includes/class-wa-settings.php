@@ -68,6 +68,7 @@ class WA_Settings {
 			'ai_provider'         => '',
 			'ai_model'            => '',
 			'excluded_categories' => array(),
+			'ai_concurrency'      => 5,
 			'debug_logging'       => false,
 		);
 	}
@@ -274,6 +275,14 @@ class WA_Settings {
 			'wa_ai_section'
 		);
 
+		add_settings_field(
+			'wa_ai_concurrency',
+			__( 'Parallel requests', 'wellactually' ),
+			array( $this, 'render_ai_concurrency_field' ),
+			'wellactually_setup',
+			'wa_ai_section'
+		);
+
 		add_settings_section(
 			'wa_diagnostics_section',
 			__( 'Diagnostics', 'wellactually' ),
@@ -288,6 +297,45 @@ class WA_Settings {
 			'wellactually_setup',
 			'wa_diagnostics_section'
 		);
+	}
+
+	/**
+	 * How many drafting requests may run at once.
+	 *
+	 * @return int Between 1 and 20.
+	 */
+	public static function ai_concurrency() {
+		$value = (int) wa_get_setting( 'ai_concurrency', 5 );
+
+		/**
+		 * Filter how many AI drafting requests run in parallel.
+		 *
+		 * @param int $value Configured concurrency.
+		 */
+		$value = (int) apply_filters( 'wa_ai_concurrency', $value );
+
+		return max( 1, min( 20, $value ) );
+	}
+
+	/**
+	 * Render the drafting concurrency field.
+	 */
+	public function render_ai_concurrency_field() {
+		$settings = self::get_settings();
+		?>
+		<input
+			type="number"
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_concurrency]"
+			value="<?php echo esc_attr( (int) $settings['ai_concurrency'] ); ?>"
+			min="1"
+			max="20"
+			step="1"
+			class="small-text"
+		/>
+		<p class="description">
+			<?php esc_html_e( 'How many posts to draft at the same time. Drafting spends nearly all of its time waiting on the AI provider, so sending several requests at once is much faster than one after another — 5 is roughly five times quicker than 1. Lower this if your provider starts refusing requests for being too frequent.', 'wellactually' ); ?>
+		</p>
+		<?php
 	}
 
 	/**
@@ -354,6 +402,10 @@ class WA_Settings {
 
 		// Model id is free text (providers like Nano-GPT proxy many models).
 		$output['ai_model'] = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : '';
+
+		// How many drafting requests may be in flight at once.
+		$concurrency              = isset( $input['ai_concurrency'] ) ? absint( $input['ai_concurrency'] ) : 5;
+		$output['ai_concurrency'] = max( 1, min( 20, $concurrency ) );
 
 		// Set explicitly rather than only when present: an unchecked checkbox
 		// submits nothing, so without this a box could be ticked but never
