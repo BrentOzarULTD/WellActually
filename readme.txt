@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,11 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.2.0 =
+* AI drafting: send needs-setup posts to a configured AI provider (via WordPress 7's AI client) to draft a swipe statement and verdict for your review. Pick the provider and model in Settings → WellActually; works with any registered provider, including Nano-GPT.
+* On Swipe Setup, a "Draft with AI" panel queues a batch (default 10, respects the category filter) and drafts them in the background with live progress. Drafts appear under a new "Has AI suggestions" filter, pre-filled for review — nothing goes live until you Save it.
+* New per-post "Skip for now" checkbox: set a post aside (out of the deck and the review lists) without deleting its statement, verdict, or AI suggestion. Distinct from the permanent "Never" exclude. A "Skipped" filter lists them.
 
 = 1.1.0 =
 * New "Swipe Setup" screen (Posts → Swipe Setup) for configuring many existing posts at once: filter by status (needs setup / in deck / excluded / all), category, and date; edit the statement and verdict inline, or mark a post as never getting a swipe setup; save a whole page at once.

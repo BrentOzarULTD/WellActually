@@ -319,27 +319,72 @@ class WA_AI {
 			return self::store_error( $post_id, __( 'No AI provider is selected in settings.', 'well-actually' ) );
 		}
 
+		// The WP AI client wrapper uses snake_case method names (it translates
+		// them to the underlying builder's camelCase), and returns a WP_Error
+		// from generating methods on failure rather than throwing.
 		try {
 			$builder = wp_ai_client_prompt( self::user_prompt( $post ) )
-				->usingSystemInstruction( self::system_instruction() );
+				->using_system_instruction( self::system_instruction() );
 
 			if ( '' !== $model ) {
-				$builder = $builder->usingModelPreference( array( $provider, $model ) );
+				$builder = $builder->using_model_preference( array( $provider, $model ) );
 			} else {
-				$builder = $builder->usingProvider( $provider );
+				$builder = $builder->using_provider( $provider );
 			}
 
-			$json = $builder->asJsonResponse( self::response_schema() )->generateText();
+			$json = $builder->as_json_response( self::response_schema() )->generate_text();
 		} catch ( \Throwable $e ) {
 			return self::store_error( $post_id, $e->getMessage() );
 		}
 
-		$data = json_decode( $json, true );
+		if ( is_wp_error( $json ) ) {
+			return self::store_error( $post_id, $json->get_error_message() );
+		}
+		if ( ! is_string( $json ) ) {
+			return self::store_error( $post_id, __( 'The AI returned an unexpected response type.', 'well-actually' ) );
+		}
+
+		$data = self::parse_json_object( $json );
 		if ( ! is_array( $data ) || empty( $data['statement'] ) || empty( $data['verdict'] ) ) {
 			return self::store_error( $post_id, __( 'The AI returned an unexpected response.', 'well-actually' ) );
 		}
 
 		return self::store_result( $post_id, $data );
+	}
+
+	/**
+	 * Parse a JSON object from a model response, tolerating the common ways
+	 * LLMs deviate from clean JSON: leading/trailing prose, or a ```json
+	 * fenced code block.
+	 *
+	 * @param string $raw Raw model output.
+	 * @return array|null Decoded associative array, or null if none found.
+	 */
+	private static function parse_json_object( $raw ) {
+		$raw = trim( $raw );
+
+		$data = json_decode( $raw, true );
+		if ( is_array( $data ) ) {
+			return $data;
+		}
+
+		// Strip a Markdown code fence if present (```json … ``` or ``` … ```).
+		if ( preg_match( '/```(?:json)?\s*(.+?)```/is', $raw, $m ) ) {
+			$data = json_decode( trim( $m[1] ), true );
+			if ( is_array( $data ) ) {
+				return $data;
+			}
+		}
+
+		// Fall back to the first {...} object in the string.
+		if ( preg_match( '/\{.*\}/s', $raw, $m ) ) {
+			$data = json_decode( $m[0], true );
+			if ( is_array( $data ) ) {
+				return $data;
+			}
+		}
+
+		return null;
 	}
 
 	/**
