@@ -186,8 +186,7 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		try {
 			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $current ) ); // phpcs:ignore WordPress.DB
-			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $legacy ) ); // phpcs:ignore WordPress.DB
-			$wpdb->query( $wpdb->prepare( 'CREATE TABLE %i ( id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, post_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (id) )', $legacy ) ); // phpcs:ignore WordPress.DB
+			$this->make_stats_table( $legacy );
 			$wpdb->insert( $legacy, array( 'post_id' => 4242 ) );
 
 			update_option( 'wa_settings', array( 'slug' => 'swipe' ) );
@@ -208,13 +207,119 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 				'The rows must come with it.'
 			);
 
-			// Put the suite back the way the bootstrap left it.
-			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $current ) ); // phpcs:ignore WordPress.DB
-			WellActually_Stats::instance()->create_table();
+			$this->restore_stats_table( $current, $legacy );
 		} finally {
 			add_filter( 'query', array( $this, '_create_temporary_tables' ) );
 			add_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		}
+	}
+
+	/**
+	 * If a table already exists under the new name but is empty — something
+	 * created it ahead of the migration — the legacy table's rows still have
+	 * to win. Dropping the wrong one here loses every swipe score on the site.
+	 */
+	public function test_empty_new_table_does_not_beat_legacy_rows() {
+		global $wpdb;
+
+		$legacy  = $wpdb->prefix . 'wa_stats';
+		$current = $wpdb->prefix . 'wellactually_stats';
+
+		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
+		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		try {
+			$this->make_stats_table( $legacy );
+			$wpdb->insert( $legacy, array( 'post_id' => 4242 ) );
+
+			// An empty table sitting under the new name.
+			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $current ) ); // phpcs:ignore WordPress.DB
+			$this->make_stats_table( $current );
+
+			update_option( 'wa_settings', array( 'slug' => 'swipe' ) );
+
+			WellActually_Migrate::maybe_migrate();
+
+			$this->assertSame(
+				'4242',
+				(string) $wpdb->get_var( $wpdb->prepare( 'SELECT post_id FROM %i', $current ) ), // phpcs:ignore WordPress.DB
+				'The legacy rows must survive an empty table under the new name.'
+			);
+
+			$this->restore_stats_table( $current, $legacy );
+		} finally {
+			add_filter( 'query', array( $this, '_create_temporary_tables' ) );
+			add_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		}
+	}
+
+	/**
+	 * If both tables hold rows, neither is guessed at: the current one is
+	 * left alone and the legacy one is left on disk rather than dropped.
+	 */
+	public function test_two_populated_tables_are_both_kept() {
+		global $wpdb;
+
+		$legacy  = $wpdb->prefix . 'wa_stats';
+		$current = $wpdb->prefix . 'wellactually_stats';
+
+		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
+		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		try {
+			$this->make_stats_table( $legacy );
+			$wpdb->insert( $legacy, array( 'post_id' => 1111 ) );
+
+			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $current ) ); // phpcs:ignore WordPress.DB
+			$this->make_stats_table( $current );
+			$wpdb->insert( $current, array( 'post_id' => 2222 ) );
+
+			update_option( 'wa_settings', array( 'slug' => 'swipe' ) );
+
+			WellActually_Migrate::maybe_migrate();
+
+			$this->assertSame(
+				'2222',
+				(string) $wpdb->get_var( $wpdb->prepare( 'SELECT post_id FROM %i', $current ) ), // phpcs:ignore WordPress.DB
+				'The table the running code reads must be untouched.'
+			);
+			$this->assertNotEmpty(
+				$wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $legacy ) ), // phpcs:ignore WordPress.DB
+				'A populated legacy table must be left for an administrator, not dropped.'
+			);
+
+			$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $legacy ) ); // phpcs:ignore WordPress.DB
+			$this->restore_stats_table( $current, $legacy );
+		} finally {
+			add_filter( 'query', array( $this, '_create_temporary_tables' ) );
+			add_filter( 'query', array( $this, '_drop_temporary_tables' ) );
+		}
+	}
+
+	/**
+	 * A minimal stand-in for the stats table, as a real (not TEMPORARY)
+	 * table so RENAME TABLE can see it.
+	 *
+	 * @param string $table Full table name.
+	 */
+	private function make_stats_table( $table ) {
+		global $wpdb;
+
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $table ) ); // phpcs:ignore WordPress.DB
+		$wpdb->query( $wpdb->prepare( 'CREATE TABLE %i ( id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, post_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (id) )', $table ) ); // phpcs:ignore WordPress.DB
+	}
+
+	/**
+	 * Put the suite back the way the bootstrap left it: the real stats table,
+	 * under its current name, with no legacy copy beside it.
+	 *
+	 * @param string $current Current table name.
+	 * @param string $legacy  Legacy table name.
+	 */
+	private function restore_stats_table( $current, $legacy ) {
+		global $wpdb;
+
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $legacy ) ); // phpcs:ignore WordPress.DB
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $current ) ); // phpcs:ignore WordPress.DB
+		WellActually_Stats::instance()->create_table();
 	}
 
 	/**

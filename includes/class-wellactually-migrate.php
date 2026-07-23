@@ -155,13 +155,22 @@ class WellActually_Migrate {
 				continue;
 			}
 
-			// If both exist, the new one is authoritative (the create-table
-			// routine already ran under the new name). Leave it alone and
-			// drop the stale copy rather than clobbering live rows.
+			// Both exist. This shouldn't happen — the migration runs before
+			// anything can create a table under the new name — but "drop the
+			// wrong one" would silently destroy every swipe score on the
+			// site, so resolve it by which table actually holds data rather
+			// than by which name is newer.
 			if ( self::table_exists( $new_table ) ) {
-				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- a schema change is the entire point of this method.
-				$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $old_table ) );
-				continue;
+				if ( 0 === self::row_count( $new_table ) ) {
+					// An empty table created ahead of us. Safe to discard.
+					// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- a schema change is the entire point of this method.
+					$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $new_table ) );
+				} else {
+					// Both hold rows. Never guess: keep the one the running
+					// code reads and leave the legacy table on disk for an
+					// administrator to look at. Uninstall drops both.
+					continue;
+				}
 			}
 
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- as above; %i binds each name as an identifier.
@@ -182,6 +191,20 @@ class WellActually_Migrate {
 		$found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );
 
 		return ! empty( $found );
+	}
+
+	/**
+	 * How many rows a table holds. Used only to decide which of two tables
+	 * is the real one, so an exact count is what's wanted.
+	 *
+	 * @param string $table Full table name, including the site prefix.
+	 * @return int
+	 */
+	private static function row_count( $table ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one count, once per site, on a table that may not be in any cache.
+		return (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $table ) );
 	}
 
 	/**
