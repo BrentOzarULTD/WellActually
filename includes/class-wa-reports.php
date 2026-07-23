@@ -172,7 +172,7 @@ class WA_Reports {
 			ELSE COALESCE( s.agree_count, 0 ) + COALESCE( s.disagree_count, 0 ) + COALESCE( s.unsure_count, 0 )
 		END";
 
-		$total_sql = "( COALESCE( s.agree_count, 0 ) + COALESCE( s.disagree_count, 0 ) + COALESCE( s.unsure_count, 0 ) )";
+		$total_sql = '( COALESCE( s.agree_count, 0 ) + COALESCE( s.disagree_count, 0 ) + COALESCE( s.unsure_count, 0 ) )';
 
 		$order_map = array(
 			'swipes'    => $total_sql,
@@ -194,7 +194,7 @@ class WA_Reports {
 		if ( in_array( $args['orderby'], array( 'pct_right', 'pct_wrong' ), true ) ) {
 			$no_data_last = "( {$total_sql} = 0 ) ASC, ";
 		}
-		$offset   = ( $args['paged'] - 1 ) * self::PER_PAGE;
+		$offset = ( $args['paged'] - 1 ) * self::PER_PAGE;
 
 		$from = "
 			FROM {$wpdb->posts} p
@@ -230,8 +230,8 @@ class WA_Reports {
 			LIMIT %d OFFSET %d
 		";
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifiers are internal; values are placeheld.
 		$rows = $wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql holds internal identifiers only; every value is placeheld.
 			$wpdb->prepare( $sql, array_merge( $params, array( self::PER_PAGE, $offset ) ) )
 		);
 
@@ -356,13 +356,17 @@ class WA_Reports {
 		<?php $this->render_pagination( $args, $page['total'] ); ?>
 
 		<script>
-		window.waReports = <?php echo wp_json_encode(
+		window.waReports = 
+		<?php
+		echo wp_json_encode(
 			array(
 				'restUrl'  => esc_url_raw( rest_url( 'wellactually/v1/report/quick-edit' ) ),
 				'nonce'    => wp_create_nonce( 'wp_rest' ),
 				'verdicts' => $verdict_labels,
 			)
-		); ?>;
+		);
+		?>
+		;
 		</script>
 		<?php
 		$this->print_quick_edit_script();

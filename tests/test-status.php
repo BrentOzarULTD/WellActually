@@ -10,6 +10,9 @@
  * @package WellActually
  */
 
+/**
+ * Covers WA_Meta's status derivation, storage, and repair.
+ */
 class Test_WA_Status extends WP_UnitTestCase {
 
 	/**
@@ -21,18 +24,18 @@ class Test_WA_Status extends WP_UnitTestCase {
 	 */
 	public function status_provider() {
 		return array(
-			// label                    skipped verdict      ai_status  expected
-			'nothing set'      => array( false, '',          '',        WA_Meta::STATUS_NEEDS_SETUP ),
-			'ready suggestion' => array( false, '',          'ready',   WA_Meta::STATUS_HAS_AI ),
-			'queued not ready' => array( false, '',          'queued',  WA_Meta::STATUS_NEEDS_SETUP ),
-			'errored'          => array( false, '',          'error',   WA_Meta::STATUS_NEEDS_SETUP ),
-			'true verdict'     => array( false, 'true',      '',        WA_Meta::STATUS_CONFIGURED ),
-			'debatable'        => array( false, 'debatable', '',        WA_Meta::STATUS_CONFIGURED ),
-			'excluded'         => array( false, 'excluded',  '',        WA_Meta::STATUS_EXCLUDED ),
-			'verdict beats ai' => array( false, 'true',      'ready',   WA_Meta::STATUS_CONFIGURED ),
-			'skip beats verdict' => array( true, 'true',     '',        WA_Meta::STATUS_SKIPPED ),
-			'skip beats ai'    => array( true,  '',          'ready',   WA_Meta::STATUS_SKIPPED ),
-			'skip beats exclude' => array( true, 'excluded', '',        WA_Meta::STATUS_SKIPPED ),
+			// Label => skipped, verdict, ai_status, expected.
+			'nothing set'        => array( false, '', '', WA_Meta::STATUS_NEEDS_SETUP ),
+			'ready suggestion'   => array( false, '', 'ready', WA_Meta::STATUS_HAS_AI ),
+			'queued not ready'   => array( false, '', 'queued', WA_Meta::STATUS_NEEDS_SETUP ),
+			'errored'            => array( false, '', 'error', WA_Meta::STATUS_NEEDS_SETUP ),
+			'true verdict'       => array( false, 'true', '', WA_Meta::STATUS_CONFIGURED ),
+			'debatable'          => array( false, 'debatable', '', WA_Meta::STATUS_CONFIGURED ),
+			'excluded'           => array( false, 'excluded', '', WA_Meta::STATUS_EXCLUDED ),
+			'verdict beats ai'   => array( false, 'true', 'ready', WA_Meta::STATUS_CONFIGURED ),
+			'skip beats verdict' => array( true, 'true', '', WA_Meta::STATUS_SKIPPED ),
+			'skip beats ai'      => array( true, '', 'ready', WA_Meta::STATUS_SKIPPED ),
+			'skip beats exclude' => array( true, 'excluded', '', WA_Meta::STATUS_SKIPPED ),
 		);
 	}
 

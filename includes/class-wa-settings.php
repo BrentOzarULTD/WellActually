@@ -307,7 +307,6 @@ class WA_Settings {
 			'wellactually_setup',
 			'wa_diagnostics_section'
 		);
-
 	}
 
 	/**
@@ -483,8 +482,8 @@ class WA_Settings {
 		$tab      = isset( $input['_tab'] ) ? sanitize_key( $input['_tab'] ) : 'setup';
 
 		if ( 'categories' === $tab ) {
-			$raw                            = ( isset( $input['excluded_categories'] ) && is_array( $input['excluded_categories'] ) ) ? $input['excluded_categories'] : array();
-			$output['excluded_categories']  = array_values( array_unique( array_map( 'absint', $raw ) ) );
+			$raw                           = ( isset( $input['excluded_categories'] ) && is_array( $input['excluded_categories'] ) ) ? $input['excluded_categories'] : array();
+			$output['excluded_categories'] = array_values( array_unique( array_map( 'absint', $raw ) ) );
 			return $output;
 		}
 
@@ -502,7 +501,7 @@ class WA_Settings {
 		// Blank means "use the built-in prompt", so this is stored as typed
 		// rather than being filled in with the default — otherwise the
 		// default would freeze at whatever it said the day they saved.
-		$prompt = isset( $input['ai_system_prompt'] ) ? sanitize_textarea_field( $input['ai_system_prompt'] ) : '';
+		$prompt                     = isset( $input['ai_system_prompt'] ) ? sanitize_textarea_field( $input['ai_system_prompt'] ) : '';
 		$output['ai_system_prompt'] = mb_substr( trim( $prompt ), 0, 4000 );
 
 		// How many drafting requests may be in flight at once.
@@ -850,7 +849,7 @@ class WA_Settings {
  * @param mixed  $default Fallback value if the key isn't set.
  * @return mixed
  */
-function wa_get_setting( $key, $default = null ) {
+function wa_get_setting( $key, $default = null ) { // phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed, Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound -- one small helper, kept beside the class it wraps.
 	$settings = WA_Settings::get_settings();
 	return isset( $settings[ $key ] ) ? $settings[ $key ] : $default;
 }

@@ -10,6 +10,9 @@
  * @package WellActually
  */
 
+/**
+ * Covers admission, claiming, fencing, and recovery in WA_AI_Queue.
+ */
 class Test_WA_AI_Queue extends WP_UnitTestCase {
 
 	/**
@@ -129,8 +132,8 @@ class Test_WA_AI_Queue extends WP_UnitTestCase {
 
 		sort( $claimed );
 		sort( $a_posts );
-		$this->assertSame( $a_posts, $claimed, "A batch must drain only its own posts." );
-		$this->assertSame( 2, WA_AI_Queue::batch_counts( $batch_b )['remaining'], "The other batch must be untouched." );
+		$this->assertSame( $a_posts, $claimed, 'A batch must drain only its own posts.' );
+		$this->assertSame( 2, WA_AI_Queue::batch_counts( $batch_b )['remaining'], 'The other batch must be untouched.' );
 	}
 
 	/**
@@ -150,7 +153,7 @@ class Test_WA_AI_Queue extends WP_UnitTestCase {
 
 		global $wpdb;
 		$processing = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
-			"SELECT COUNT(*) FROM " . WA_AI_Queue::table_name() . " WHERE status = 'processing'"
+			'SELECT COUNT(*) FROM ' . WA_AI_Queue::table_name() . " WHERE status = 'processing'"
 		);
 		$this->assertSame( 3, $processing );
 	}

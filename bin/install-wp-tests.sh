@@ -13,21 +13,37 @@ WP_VERSION=${5:-latest}
 WP_TESTS_DIR=${WP_TESTS_DIR:-/tmp/wordpress-tests-lib}
 
 if [ "$WP_VERSION" = "latest" ]; then
-	WP_VERSION=$(curl -s https://api.wordpress.org/core/version-check/1.7/ | sed -E 's/.*"version":"([^"]+)".*/\1/' | head -1)
+	# The version-check API lists an offer per supported branch, newest first.
+	# Take the first one; a greedy match here silently picks the oldest branch,
+	# which is how CI ended up testing against WordPress 4.7.
+	WP_VERSION=$(curl -fsS https://api.wordpress.org/core/version-check/1.7/ \
+		| grep -o '"version":"[0-9.]*"' | head -1 | cut -d'"' -f4)
 fi
 
-echo "Installing the WordPress ${WP_VERSION} test library into ${WP_TESTS_DIR}"
+if [ -z "$WP_VERSION" ]; then
+	echo "Could not work out which WordPress version to install." >&2
+	exit 1
+fi
+
+# wordpress-develop tags are always three-part: 6.5 is tagged 6.5.0.
+case "$WP_VERSION" in
+	*.*.*) WP_TAG="$WP_VERSION" ;;
+	*.*)   WP_TAG="${WP_VERSION}.0" ;;
+	*)     WP_TAG="${WP_VERSION}.0.0" ;;
+esac
+
+echo "Installing the WordPress ${WP_TAG} test library into ${WP_TESTS_DIR}"
 
 if [ ! -d "$WP_TESTS_DIR/includes" ]; then
 	mkdir -p "$WP_TESTS_DIR"
 	tmp=$(mktemp -d)
-	curl -sSL "https://github.com/WordPress/wordpress-develop/archive/refs/tags/${WP_VERSION}.tar.gz" -o "$tmp/wp.tar.gz"
+	# -f so a 404 fails here rather than as a confusing tar error.
+	curl -fsSL "https://github.com/WordPress/wordpress-develop/archive/refs/tags/${WP_TAG}.tar.gz" -o "$tmp/wp.tar.gz"
 	tar xzf "$tmp/wp.tar.gz" -C "$tmp"
-	cp -R "$tmp/wordpress-develop-${WP_VERSION}/tests/phpunit/includes" "$WP_TESTS_DIR/"
-	cp -R "$tmp/wordpress-develop-${WP_VERSION}/tests/phpunit/data" "$WP_TESTS_DIR/" 2>/dev/null || true
+	cp -R "$tmp/wordpress-develop-${WP_TAG}/tests/phpunit/includes" "$WP_TESTS_DIR/"
+	cp -R "$tmp/wordpress-develop-${WP_TAG}/tests/phpunit/data" "$WP_TESTS_DIR/" 2>/dev/null || true
 	# The test library boots WordPress itself, so it needs core too.
-	cp -R "$tmp/wordpress-develop-${WP_VERSION}/src" "$WP_TESTS_DIR/wordpress"
-	cp "$tmp/wordpress-develop-${WP_VERSION}/wp-tests-config-sample.php" "$WP_TESTS_DIR/wp-tests-config.php" 2>/dev/null || true
+	cp -R "$tmp/wordpress-develop-${WP_TAG}/src" "$WP_TESTS_DIR/wordpress"
 	rm -rf "$tmp"
 fi
 

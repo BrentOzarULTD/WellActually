@@ -23,11 +23,13 @@ if ( ! $wa_tests_dir ) {
 	$wa_tests_dir = rtrim( sys_get_temp_dir(), '/\\' ) . '/wordpress-tests-lib';
 }
 
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- CLI bootstrap; WordPress isn't loaded yet.
 if ( ! file_exists( $wa_tests_dir . '/includes/functions.php' ) ) {
 	echo "Could not find the WordPress test library at {$wa_tests_dir}." . PHP_EOL;
 	echo 'Set WP_TESTS_DIR, or run bin/install-wp-tests.sh first.' . PHP_EOL;
 	exit( 1 );
 }
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
 
 require_once $wa_tests_dir . '/includes/functions.php';
 

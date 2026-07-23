@@ -14,8 +14,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WA_User_Progress {
 
-	const META_KEY   = '_wa_progress';
-	const MAX_SEEN   = 10000;
+	const META_KEY       = '_wa_progress';
+	const MAX_SEEN       = 10000;
 	const NAMESPACE_NAME = 'wellactually/v1';
 
 	/**

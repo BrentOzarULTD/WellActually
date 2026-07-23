@@ -5,20 +5,23 @@
  * @package WellActually
  */
 
+/**
+ * Covers the deck, swipe scoring, and Quick Edit REST routes.
+ */
 class Test_WA_Rest extends WP_UnitTestCase {
 
 	/**
 	 * Reach a private static method for testing.
 	 *
-	 * setAccessible() is required on PHP < 8.1 and deprecated from 8.5, and
+	 * SetAccessible() is required on PHP < 8.1 and deprecated from 8.5, and
 	 * this plugin supports 7.4, so it's called only where it's needed.
 	 *
-	 * @param string $class  Class name.
-	 * @param string $method Method name.
+	 * @param string $class_name Class name.
+	 * @param string $method     Method name.
 	 * @return ReflectionMethod
 	 */
-	private function private_method( $class, $method ) {
-		$reflected = new ReflectionMethod( $class, $method );
+	private function private_method( $class_name, $method ) {
+		$reflected = new ReflectionMethod( $class_name, $method );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$reflected->setAccessible( true );
 		}
@@ -85,22 +88,58 @@ class Test_WA_Rest extends WP_UnitTestCase {
 		// true verdict: wrong = disagree + unsure = 9 of 12.
 		$this->assertSame(
 			75,
-			$method->invoke( null, 'true', array( 'agree' => 3, 'disagree' => 8, 'unsure' => 1, 'total' => 12 ) )
+			$method->invoke(
+				null,
+				'true',
+				array(
+					'agree'    => 3,
+					'disagree' => 8,
+					'unsure'   => 1,
+					'total'    => 12,
+				)
+			)
 		);
 
 		// false verdict: wrong = agree + unsure = 10 of 12.
 		$this->assertSame(
 			83,
-			$method->invoke( null, 'false', array( 'agree' => 9, 'disagree' => 2, 'unsure' => 1, 'total' => 12 ) )
+			$method->invoke(
+				null,
+				'false',
+				array(
+					'agree'    => 9,
+					'disagree' => 2,
+					'unsure'   => 1,
+					'total'    => 12,
+				)
+			)
 		);
 
 		$this->assertNull(
-			$method->invoke( null, 'debatable', array( 'agree' => 9, 'disagree' => 2, 'unsure' => 1, 'total' => 12 ) ),
+			$method->invoke(
+				null,
+				'debatable',
+				array(
+					'agree'    => 9,
+					'disagree' => 2,
+					'unsure'   => 1,
+					'total'    => 12,
+				)
+			),
 			'A debatable card has no wrong answer; showing 0% would reveal the verdict.'
 		);
 
 		$this->assertNull(
-			$method->invoke( null, 'true', array( 'agree' => 1, 'disagree' => 3, 'unsure' => 0, 'total' => 4 ) ),
+			$method->invoke(
+				null,
+				'true',
+				array(
+					'agree'    => 1,
+					'disagree' => 3,
+					'unsure'   => 0,
+					'total'    => 4,
+				)
+			),
 			'Below the sample threshold no figure should be shown.'
 		);
 

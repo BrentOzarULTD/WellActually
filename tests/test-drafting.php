@@ -5,20 +5,23 @@
  * @package WellActually
  */
 
+/**
+ * Covers candidate selection, prompt assembly, and rate-limit handling.
+ */
 class Test_WA_Drafting extends WP_UnitTestCase {
 
 	/**
 	 * Reach a private static method for testing.
 	 *
-	 * setAccessible() is required on PHP < 8.1 and deprecated from 8.5, and
+	 * SetAccessible() is required on PHP < 8.1 and deprecated from 8.5, and
 	 * this plugin supports 7.4, so it's called only where it's needed.
 	 *
-	 * @param string $class  Class name.
-	 * @param string $method Method name.
+	 * @param string $class_name Class name.
+	 * @param string $method     Method name.
 	 * @return ReflectionMethod
 	 */
-	private function private_method( $class, $method ) {
-		$reflected = new ReflectionMethod( $class, $method );
+	private function private_method( $class_name, $method ) {
+		$reflected = new ReflectionMethod( $class_name, $method );
 		if ( PHP_VERSION_ID < 80100 ) {
 			$reflected->setAccessible( true );
 		}

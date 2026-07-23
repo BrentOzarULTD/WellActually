@@ -14,16 +14,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WA_Meta {
 
-	const STATEMENT_KEY   = '_wa_statement';
-	const VERDICT_KEY     = '_wa_verdict';
+	const STATEMENT_KEY    = '_wa_statement';
+	const VERDICT_KEY      = '_wa_verdict';
 	const VERDICT_EXCLUDED = 'excluded';
-	const NONCE_ACTION    = 'wa_save_meta';
-	const NONCE_NAME      = 'wa_meta_nonce';
+	const NONCE_ACTION     = 'wa_save_meta';
+	const NONCE_NAME       = 'wa_meta_nonce';
 
 	// AI draft suggestions (awaiting human review; not live until accepted).
-	const AI_STATEMENT_KEY = '_wa_ai_statement';
-	const AI_VERDICT_KEY   = '_wa_ai_verdict';
-	const AI_STATUS_KEY    = '_wa_ai_status';    // queued | ready | error
+	const AI_STATEMENT_KEY  = '_wa_ai_statement';
+	const AI_VERDICT_KEY    = '_wa_ai_verdict';
+	const AI_STATUS_KEY     = '_wa_ai_status';    // Queued, ready, or error.
 	const AI_ERROR_KEY      = '_wa_ai_error';
 	const AI_ERROR_TIME_KEY = '_wa_ai_error_time'; // unix timestamp, for the Settings → Errors tab's 7-day retention.
 	const AI_CLAIMED_KEY    = '_wa_ai_claimed';    // unix timestamp a worker claimed the post, so an abandoned claim can be released.
@@ -220,7 +220,7 @@ class WA_Meta {
 			return 'excluded';
 		}
 
-		$has_statement   = '' !== $statement;
+		$has_statement    = '' !== $statement;
 		$has_deck_verdict = in_array( $verdict, self::deck_verdicts(), true );
 
 		if ( $has_statement && $has_deck_verdict ) {
@@ -275,7 +275,9 @@ class WA_Meta {
 	 * serving a stale ID list — including IDs that no longer match — after
 	 * any save here, until something unrelated happens to bump it.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int   $post_id Post ID.
+	 * @param array $known   Values already known to the caller, passed through
+	 *                       to compute_status().
 	 * @return string The stored status value.
 	 */
 	public static function recompute_status( $post_id, array $known = array() ) {
@@ -313,7 +315,10 @@ class WA_Meta {
 	 * just need to verify a stored STATUS_KEY value is still accurate, e.g.
 	 * a filtered listing self-healing a page of stale rows on read.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param int   $post_id Post ID.
+	 * @param array $known   Values already known to the caller, so a derived
+	 *                       status is never computed from a re-read of a
+	 *                       value that was only just written.
 	 * @return string One of the STATUS_* constants.
 	 */
 	public static function compute_status( $post_id, array $known = array() ) {
@@ -498,7 +503,7 @@ class WA_Meta {
 	 * Build a meta_query for a given swipe status. Shared by the Posts list
 	 * filter and the bulk-setup screen so both agree on what each status means.
 	 *
-	 * needs_setup/has_ai/in_deck/skipped/(status-based)excluded all resolve
+	 * The needs_setup/has_ai/in_deck/skipped/excluded statuses all resolve
 	 * against the single denormalized STATUS_KEY (maintained by
 	 * recompute_status()) rather than combining verdict/ai-status/skip meta
 	 * live: at archive scale, a meta_query spanning 3 keys with NOT EXISTS
@@ -645,6 +650,7 @@ class WA_Meta {
 
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql holds identifiers only; every value is placeheld.
 					$sql,
 					array_merge(
 						array( self::STATUS_KEY, self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY ),
@@ -663,12 +669,13 @@ class WA_Meta {
 
 				if ( (string) $row->stored_status !== $derived ) {
 					update_post_meta( (int) $row->post_id, self::STATUS_KEY, $derived );
-					$fixed++;
+					++$fixed;
 				}
 			}
 
-			$offset += $batch_size;
-		} while ( count( $rows ) === $batch_size );
+			$offset   += $batch_size;
+			$row_count = count( $rows );
+		} while ( $row_count === $batch_size );
 
 		if ( $fixed > 0 ) {
 			wp_cache_set_posts_last_changed();
@@ -720,6 +727,7 @@ class WA_Meta {
 		";
 
 		$post_ids = $wpdb->get_col(
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql holds identifiers only; every value is placeheld.
 			$wpdb->prepare( $sql, self::VERDICT_KEY, self::AI_STATUS_KEY, self::SKIP_KEY, self::STATUS_KEY )
 		);
 
