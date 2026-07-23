@@ -20,6 +20,16 @@ class WA_Meta {
 	const NONCE_ACTION    = 'wa_save_meta';
 	const NONCE_NAME      = 'wa_meta_nonce';
 
+	// AI draft suggestions (awaiting human review; not live until accepted).
+	const AI_STATEMENT_KEY = '_wa_ai_statement';
+	const AI_VERDICT_KEY   = '_wa_ai_verdict';
+	const AI_STATUS_KEY    = '_wa_ai_status';    // queued | ready | error
+	const AI_ERROR_KEY     = '_wa_ai_error';
+
+	// "Skip for now": keeps the post's content but holds it out of the deck
+	// and the review lists. Distinct from the permanent 'excluded' verdict.
+	const SKIP_KEY = '_wa_skip';
+
 	/**
 	 * Singleton instance.
 	 *
@@ -341,36 +351,112 @@ class WA_Meta {
 	}
 
 	/**
+	 * An OR-group matching posts that are NOT skipped (skip flag absent or not 1).
+	 *
+	 * @return array
+	 */
+	private static function clause_not_skipped() {
+		return array(
+			'relation' => 'OR',
+			array(
+				'key'     => self::SKIP_KEY,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => self::SKIP_KEY,
+				'value'   => '1',
+				'compare' => '!=',
+			),
+		);
+	}
+
+	/**
+	 * An OR-group matching posts with no verdict set yet.
+	 *
+	 * @return array
+	 */
+	private static function clause_no_verdict() {
+		return array(
+			'relation' => 'OR',
+			array(
+				'key'     => self::VERDICT_KEY,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => self::VERDICT_KEY,
+				'value'   => '',
+				'compare' => '=',
+			),
+		);
+	}
+
+	/**
+	 * An OR-group matching posts that do NOT have a ready AI suggestion.
+	 *
+	 * @return array
+	 */
+	private static function clause_no_ready_ai() {
+		return array(
+			'relation' => 'OR',
+			array(
+				'key'     => self::AI_STATUS_KEY,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => self::AI_STATUS_KEY,
+				'value'   => 'ready',
+				'compare' => '!=',
+			),
+		);
+	}
+
+	/**
 	 * Build a meta_query for a given swipe status. Shared by the Posts list
 	 * filter and the bulk-setup screen so both agree on what each status means.
 	 *
-	 * @param string $status One of needs_setup|in_deck|true|false|debatable|excluded.
+	 * @param string $status One of needs_setup|has_ai|in_deck|true|false|debatable|excluded|skipped.
 	 * @return array A WP_Query 'meta_query' array, or empty array for "all".
 	 */
 	public static function status_meta_query( $status ) {
 		switch ( $status ) {
 			case 'needs_setup':
-				// No verdict at all yet (neither a deck verdict nor excluded).
+				// Untouched: no verdict, no ready AI suggestion, not skipped.
+				// These are the candidates to send to the AI.
 				return array(
-					'relation' => 'OR',
+					'relation' => 'AND',
+					self::clause_no_verdict(),
+					self::clause_no_ready_ai(),
+					self::clause_not_skipped(),
+				);
+
+			case 'has_ai':
+				// A ready AI suggestion awaiting review, not skipped.
+				return array(
+					'relation' => 'AND',
 					array(
-						'key'     => self::VERDICT_KEY,
-						'compare' => 'NOT EXISTS',
+						'key'   => self::AI_STATUS_KEY,
+						'value' => 'ready',
 					),
+					self::clause_not_skipped(),
+				);
+
+			case 'skipped':
+				return array(
 					array(
-						'key'     => self::VERDICT_KEY,
-						'value'   => '',
-						'compare' => '=',
+						'key'   => self::SKIP_KEY,
+						'value' => '1',
 					),
 				);
 
 			case 'in_deck':
 				return array(
+					'relation' => 'AND',
 					array(
 						'key'     => self::VERDICT_KEY,
 						'value'   => self::deck_verdicts(),
 						'compare' => 'IN',
 					),
+					self::clause_not_skipped(),
 				);
 
 			case 'excluded':

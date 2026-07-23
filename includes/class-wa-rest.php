@@ -149,6 +149,19 @@ class WA_Rest {
 					'value'   => array( 'true', 'false', 'debatable' ),
 					'compare' => 'IN',
 				),
+				// "Skip for now" posts keep their content but stay out of the deck.
+				array(
+					'relation' => 'OR',
+					array(
+						'key'     => WA_Meta::SKIP_KEY,
+						'compare' => 'NOT EXISTS',
+					),
+					array(
+						'key'     => WA_Meta::SKIP_KEY,
+						'value'   => '1',
+						'compare' => '!=',
+					),
+				),
 			),
 		);
 	}

@@ -28,6 +28,7 @@ define( 'WA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 require_once WA_PLUGIN_DIR . 'includes/class-wa-settings.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-meta.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-bulk-setup.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-ai.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-template.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-stats.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-rest.php';
@@ -42,6 +43,7 @@ function wa_init() {
 	WA_Settings::instance();
 	WA_Meta::instance();
 	WA_Bulk_Setup::instance();
+	WA_AI::instance();
 	WA_Template::instance();
 	WA_Stats::instance();
 	WA_Rest::instance();
