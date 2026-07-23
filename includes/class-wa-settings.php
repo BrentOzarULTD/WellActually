@@ -41,6 +41,19 @@ class WA_Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_filter( 'plugin_action_links_' . plugin_basename( WA_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
+	}
+
+	/**
+	 * Add a "Settings" link to this plugin's row on the Plugins list page.
+	 *
+	 * @param string[] $links Existing action links.
+	 * @return string[]
+	 */
+	public function add_settings_link( $links ) {
+		$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=wellactually' ) ) . '">' . esc_html__( 'Settings', 'wellactually' ) . '</a>';
+		array_unshift( $links, $settings_link );
+		return $links;
 	}
 
 	/**
