@@ -267,10 +267,11 @@ class WA_Bulk_Setup {
 	/**
 	 * Record what a page build actually did, when diagnostics are turned on.
 	 *
-	 * Off unless the site defines WA_DEBUG_SETUP (or filters
-	 * `wa_debug_setup` true), so it's safe to switch on in production for a
-	 * few page loads to see real numbers instead of guessing: how many rows
-	 * the query returned, how many were stale, and how many made the page.
+	 * Off unless "Logging" is ticked on Settings → "Well, Actually..." (or a
+	 * `wa_debug_setup` filter forces it on), so it's safe to switch on in
+	 * production for a few page loads to see real numbers instead of
+	 * guessing: how many rows the query returned, how many had stale status
+	 * data, and how many made the page.
 	 *
 	 * @param array $args     Current view args.
 	 * @param array $verified Verified posts for the page.
@@ -279,7 +280,7 @@ class WA_Bulk_Setup {
 	 * @param int   $found    Adjusted total.
 	 */
 	private function log_page_build( $args, $verified, $dropped, $scanned, $found ) {
-		$enabled = ( defined( 'WA_DEBUG_SETUP' ) && WA_DEBUG_SETUP );
+		$enabled = WA_Settings::debug_logging_enabled();
 
 		/**
 		 * Filter whether the "Well, Actually..." screen logs how it built a page.

@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -55,9 +55,12 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 
 == Changelog ==
 
+= 1.3.6 =
+* The diagnostic logging switch is now a checkbox under Settings → "Well, Actually..." → Setup, instead of needing a line added to wp-config.php — which isn't practical on managed hosting where that file isn't readily editable.
+
 = 1.3.5 =
 * Fix, for real this time: the empty "No posts match this filter" screen after saving a page. The previous two attempts both assumed the stale data came from WordPress's query cache, and neither held up. The deeper problem is that this screen finds rows with a database query but double-checks each one against freshly-read post meta — and on managed hosting those two can legitimately disagree for a while after a save, because reads may be served by a database replica that hasn't caught up yet. When every row on the page was affected, the check discarded all of them and left an empty screen under an accurate, non-zero count. The page is no longer whatever a single query returned: it now scans forward past any rows that don't hold up until it has assembled a full page, so stale data costs an extra lookup instead of an empty screen — whatever the cause.
-* Add opt-in diagnostics for that screen. Define WA_DEBUG_SETUP as true in wp-config.php (or filter `wa_debug_setup`) and each page load logs how many rows were examined, how many were stale, how many were shown, and the total — so this can be diagnosed from real numbers instead of guesswork.
+* Add opt-in diagnostics for that screen: when enabled, each page load logs how many rows were examined, how many had out-of-date status information, how many were shown, and the total — so this can be diagnosed from real numbers instead of guesswork.
 * Skipping a category now skips its child categories too, at every level. Checking a parent on Settings → "Well, Actually..." → Categories ticks and locks everything beneath it, and the exclusion is expanded server-side, so child categories created later are covered automatically without having to revisit the setting.
 
 = 1.3.4 =
