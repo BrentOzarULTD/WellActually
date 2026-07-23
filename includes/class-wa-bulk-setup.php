@@ -59,8 +59,8 @@ class WA_Bulk_Setup {
 	public function register_page() {
 		$this->hook = add_submenu_page(
 			'edit.php',
-			__( 'Well Actually Setup', 'wellactually' ),
-			__( 'Well Actually Setup', 'wellactually' ),
+			__( 'Well, Actually...', 'wellactually' ),
+			__( 'Well, Actually...', 'wellactually' ),
 			'edit_posts',
 			self::MENU_SLUG,
 			array( $this, 'render_page' )
@@ -115,6 +115,14 @@ class WA_Bulk_Setup {
 			$query_args['cat'] = $args['cat'];
 		}
 
+		// Categories marked "Skip This Category" in Settings → Categories are
+		// never eligible here, in any status view — they're meant to be
+		// treated as if they don't exist for this screen at all.
+		$excluded_cats = WA_Settings::excluded_categories();
+		if ( ! empty( $excluded_cats ) ) {
+			$query_args['category__not_in'] = $excluded_cats;
+		}
+
 		if ( 'all' !== $args['status'] ) {
 			$meta_query = WA_Meta::status_meta_query( $args['status'] );
 			if ( ! empty( $meta_query ) ) {
@@ -122,7 +130,66 @@ class WA_Bulk_Setup {
 			}
 		}
 
-		return new WP_Query( $query_args );
+		$query = new WP_Query( $query_args );
+
+		$this->verify_page_statuses( $query, $args['status'] );
+
+		return $query;
+	}
+
+	/**
+	 * Self-heal a page of results against a filtered status view: the
+	 * denormalized STATUS_KEY drives the query for performance, but if it
+	 * ever drifts from a post's actual verdict/AI-status/skip meta (a stale
+	 * value from before this field existed, a missed recompute, etc.), a
+	 * post can wrongly linger in — or be missing from — a filtered list.
+	 * Re-derive each row's status live and drop any that no longer belong,
+	 * correcting the stored value at the same time. Bounded to one page
+	 * (PER_PAGE posts), so this is cheap even at archive scale.
+	 *
+	 * @param WP_Query $query  The query to filter in place.
+	 * @param string   $status Requested status view.
+	 */
+	private function verify_page_statuses( $query, $status ) {
+		$expected_map = array(
+			'needs_setup' => WA_Meta::STATUS_NEEDS_SETUP,
+			'has_ai'      => WA_Meta::STATUS_HAS_AI,
+			'in_deck'     => WA_Meta::STATUS_CONFIGURED,
+			'excluded'    => WA_Meta::STATUS_EXCLUDED,
+			'skipped'     => WA_Meta::STATUS_SKIPPED,
+		);
+
+		if ( ! isset( $expected_map[ $status ] ) || empty( $query->posts ) ) {
+			return;
+		}
+
+		$expected = $expected_map[ $status ];
+		$verified = array();
+		$dropped  = 0;
+
+		foreach ( $query->posts as $post ) {
+			$post_id = is_object( $post ) ? $post->ID : (int) $post;
+			$actual  = WA_Meta::compute_status( $post_id );
+
+			if ( $actual === $expected ) {
+				$verified[] = $post;
+				continue;
+			}
+
+			// Stale — correct the stored value so future queries don't
+			// need to re-check this post.
+			update_post_meta( $post_id, WA_Meta::STATUS_KEY, $actual );
+			$dropped++;
+		}
+
+		if ( $dropped > 0 ) {
+			$query->posts       = $verified;
+			$query->post_count  = count( $verified );
+			$query->found_posts = max( 0, $query->found_posts - $dropped );
+			$query->max_num_pages = $query->found_posts > 0
+				? (int) ceil( $query->found_posts / self::PER_PAGE )
+				: 0;
+		}
 	}
 
 	/**
@@ -259,7 +326,7 @@ class WA_Bulk_Setup {
 		$query = $this->build_query( $args );
 
 		echo '<div class="wrap wa-bulk-setup">';
-		echo '<h1>' . esc_html__( 'Well Actually Setup', 'wellactually' ) . '</h1>';
+		echo '<h1>' . esc_html__( 'Well, Actually...', 'wellactually' ) . '</h1>';
 		echo '<p class="description">' . esc_html__( 'Add a swipe statement and mark it True, False, or Debatable — or exclude a post from swipe mode entirely. Fill in as many as you like, then Save at the bottom.', 'wellactually' ) . '</p>';
 
 		$this->render_notice();
@@ -351,7 +418,7 @@ class WA_Bulk_Setup {
 			} else {
 				esc_html_e( 'Choose a configured AI provider and model to enable drafting.', 'wellactually' );
 			}
-			echo ' <a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'Open WellActually settings', 'wellactually' ) . '</a>';
+			echo ' <a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'Open Well, Actually... settings', 'wellactually' ) . '</a>';
 			echo '</p></div>';
 			return;
 		}
@@ -361,12 +428,22 @@ class WA_Bulk_Setup {
 		$model         = wa_get_setting( 'ai_model', '' );
 		$counts        = WA_AI::queue_counts();
 
+		if ( '' === $model ) {
+			$default_model = WA_AI::preferred_model_for_provider( $provider_id );
+			$model_label   = '' !== $default_model
+				/* translators: %s: model id */
+				? sprintf( __( '%s, the provider default', 'wellactually' ), $default_model )
+				: __( 'provider default', 'wellactually' );
+		} else {
+			$model_label = $model;
+		}
+
 		echo '<p class="description">';
 		printf(
 			/* translators: 1: provider name, 2: model id */
 			esc_html__( 'Sends needs-setup posts to %1$s (%2$s) to draft a statement and verdict. Suggestions appear here for your review — nothing goes live until you Save it.', 'wellactually' ),
 			'<strong>' . esc_html( $provider_name ) . '</strong>',
-			esc_html( '' !== $model ? $model : __( 'provider default', 'wellactually' ) )
+			esc_html( $model_label )
 		);
 		echo '</p>';
 		?>
@@ -426,10 +503,10 @@ class WA_Bulk_Setup {
 	 */
 	private function render_filters( $args, $query ) {
 		$statuses = array(
-			'needs_setup' => __( 'Needs setup', 'wellactually' ),
+			'needs_setup' => __( 'Needs to be set up', 'wellactually' ),
 			'has_ai'      => __( 'Has AI suggestions', 'wellactually' ),
 			'in_deck'     => __( 'In swipe deck', 'wellactually' ),
-			'skipped'     => __( 'Skipped', 'wellactually' ),
+			'skipped'     => __( 'Skipped for Now', 'wellactually' ),
 			'excluded'    => __( 'Excluded', 'wellactually' ),
 			'all'         => __( 'All posts', 'wellactually' ),
 		);
@@ -512,7 +589,7 @@ class WA_Bulk_Setup {
 						<th class="wa-col-post"><?php esc_html_e( 'Post', 'wellactually' ); ?></th>
 						<th class="wa-col-statement"><?php esc_html_e( 'Swipe Statement', 'wellactually' ); ?></th>
 						<th class="wa-col-verdict"><?php esc_html_e( 'Verdict', 'wellactually' ); ?></th>
-						<th class="wa-col-skip"><?php esc_html_e( 'Skip', 'wellactually' ); ?></th>
+						<th class="wa-col-skip"><?php esc_html_e( 'Skip for Now', 'wellactually' ); ?></th>
 						<th class="wa-col-exclude"><?php esc_html_e( 'Never', 'wellactually' ); ?></th>
 					</tr>
 				</thead>
@@ -567,7 +644,13 @@ class WA_Bulk_Setup {
 								<?php if ( $is_ai ) : ?>
 									<span class="wa-ai-badge"><?php esc_html_e( 'AI suggestion', 'wellactually' ); ?></span>
 								<?php elseif ( WA_AI::STATUS_ERROR === $ai_status && '' !== $ai_error ) : ?>
-									<span class="wa-ai-error" title="<?php echo esc_attr( $ai_error ); ?>"><?php esc_html_e( 'AI error', 'wellactually' ); ?></span>
+									<a
+										class="wa-ai-error"
+										href="<?php echo esc_url( admin_url( 'options-general.php?page=wellactually&tab=errors' ) ); ?>"
+										target="_blank"
+										rel="noopener"
+										title="<?php echo esc_attr( $ai_error ); ?>"
+									><?php esc_html_e( 'AI error', 'wellactually' ); ?></a>
 								<?php endif; ?>
 								<textarea
 									name="<?php echo esc_attr( $name ); ?>[statement]"
@@ -701,7 +784,8 @@ class WA_Bulk_Setup {
 			.wa-bulk-table .wa-statement-input { width: 100%; }
 			.wa-bulk-table .wa-verdict-input { width: 100%; max-width: 160px; }
 			.wa-ai-badge { display: inline-block; background: #2271b1; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; }
-			.wa-ai-error { display: inline-block; background: #d63638; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; cursor: help; }
+			.wa-ai-error { display: inline-block; background: #d63638; color: #fff; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 3px; margin-bottom: 4px; text-decoration: none; }
+			.wa-ai-error:hover, .wa-ai-error:focus { background: #e65054; color: #fff; }
 			.wa-bulk-table tr.wa-row-ai { background: #f0f6fc; }
 			.wa-bulk-table tr.wa-row-excluded .wa-statement-input,
 			.wa-bulk-table tr.wa-row-excluded .wa-verdict-input,

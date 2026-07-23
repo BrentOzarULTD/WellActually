@@ -24,7 +24,8 @@ class WA_Meta {
 	const AI_STATEMENT_KEY = '_wa_ai_statement';
 	const AI_VERDICT_KEY   = '_wa_ai_verdict';
 	const AI_STATUS_KEY    = '_wa_ai_status';    // queued | ready | error
-	const AI_ERROR_KEY     = '_wa_ai_error';
+	const AI_ERROR_KEY      = '_wa_ai_error';
+	const AI_ERROR_TIME_KEY = '_wa_ai_error_time'; // unix timestamp, for the Settings → Errors tab's 7-day retention.
 
 	// "Skip for now": keeps the post's content but holds it out of the deck
 	// and the review lists. Distinct from the permanent 'excluded' verdict.
@@ -118,7 +119,7 @@ class WA_Meta {
 	public function add_meta_box() {
 		add_meta_box(
 			'wa_swipe_meta_box',
-			__( 'WellActually Swipe', 'wellactually' ),
+			__( 'Well, Actually... Swipe', 'wellactually' ),
 			array( $this, 'render_meta_box' ),
 			'post',
 			'normal',
@@ -266,25 +267,41 @@ class WA_Meta {
 	 * @return string The stored status value.
 	 */
 	public static function recompute_status( $post_id ) {
+		$status = self::compute_status( $post_id );
+
+		update_post_meta( $post_id, self::STATUS_KEY, $status );
+
+		return $status;
+	}
+
+	/**
+	 * Work out what a post's status *should* be right now, from its live
+	 * verdict/AI-status/skip meta — without writing anything. Used both by
+	 * recompute_status() (which persists the result) and by callers that
+	 * just need to verify a stored STATUS_KEY value is still accurate, e.g.
+	 * a filtered listing self-healing a page of stale rows on read.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string One of the STATUS_* constants.
+	 */
+	public static function compute_status( $post_id ) {
 		$skipped   = '1' === get_post_meta( $post_id, self::SKIP_KEY, true );
 		$verdict   = get_post_meta( $post_id, self::VERDICT_KEY, true );
 		$ai_status = get_post_meta( $post_id, self::AI_STATUS_KEY, true );
 
 		if ( $skipped ) {
-			$status = self::STATUS_SKIPPED;
-		} elseif ( self::VERDICT_EXCLUDED === $verdict ) {
-			$status = self::STATUS_EXCLUDED;
-		} elseif ( in_array( $verdict, self::deck_verdicts(), true ) ) {
-			$status = self::STATUS_CONFIGURED;
-		} elseif ( 'ready' === $ai_status ) {
-			$status = self::STATUS_HAS_AI;
-		} else {
-			$status = self::STATUS_NEEDS_SETUP;
+			return self::STATUS_SKIPPED;
 		}
-
-		update_post_meta( $post_id, self::STATUS_KEY, $status );
-
-		return $status;
+		if ( self::VERDICT_EXCLUDED === $verdict ) {
+			return self::STATUS_EXCLUDED;
+		}
+		if ( in_array( $verdict, self::deck_verdicts(), true ) ) {
+			return self::STATUS_CONFIGURED;
+		}
+		if ( 'ready' === $ai_status ) {
+			return self::STATUS_HAS_AI;
+		}
+		return self::STATUS_NEEDS_SETUP;
 	}
 
 	/**
@@ -374,7 +391,7 @@ class WA_Meta {
 
 		$options = array(
 			''            => __( 'All swipe statuses', 'wellactually' ),
-			'needs_setup' => __( 'Needs setup', 'wellactually' ),
+			'needs_setup' => __( 'Needs to be set up', 'wellactually' ),
 			'in_deck'     => __( 'In swipe deck', 'wellactually' ),
 			'true'        => __( 'True', 'wellactually' ),
 			'false'       => __( 'False', 'wellactually' ),

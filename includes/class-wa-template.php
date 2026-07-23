@@ -182,7 +182,12 @@ class WA_Template {
 				'nonce'      => wp_create_nonce( 'wp_rest' ),
 				'isLoggedIn' => is_user_logged_in(),
 				'homeUrl'    => esc_url_raw( home_url( '/' ) ),
-				'siteName'   => get_bloginfo( 'name' ),
+				// get_bloginfo( 'name' ) returns HTML-entity-encoded text (e.g. a
+				// straight apostrophe becomes &#039;) even with no 'display'
+				// filter requested. Decode it back to plain text here so the
+				// frontend's own HTML-escaping (when building the share text)
+				// doesn't double-encode it into a literal "&#039;" on screen.
+				'siteName'   => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
 			)
 		);
 	}

@@ -1,10 +1,10 @@
-=== WellActually ===
+=== Well, Actually... ===
 Contributors: brento
 Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.4
+Stable tag: 1.3.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -12,7 +12,7 @@ Swipe mode for your blog. Show readers a bold statement, let them swipe agree/di
 
 == Description ==
 
-WellActually turns your archive of blog posts into a Tinder-style knowledge game. Mark any post with a one-line "Swipe Statement" and a True/False/Debatable verdict, and visitors at your chosen URL (default `/swipe`) will see it full screen. They swipe right to agree, left to disagree, or up if they're not sure. Get it wrong — or aren't sure — and they'll see the post that explains why.
+"Well, Actually..." turns your archive of blog posts into a Tinder-style knowledge game. Mark any post with a one-line "Swipe Statement" and a True/False/Debatable verdict, and visitors at your chosen URL (default `/swipe`) will see it full screen. They swipe right to agree, left to disagree, or up if they're not sure. Get it wrong — or aren't sure — and they'll see the post that explains why.
 
 Progress is tracked locally for anonymous visitors and synced to their account when logged in, so their score follows them.
 
@@ -20,7 +20,7 @@ Progress is tracked locally for anonymous visitors and synced to their account w
 
 1. Upload the plugin to `/wp-content/plugins/wellactually` or install via the Plugins screen.
 2. Activate the plugin.
-3. Visit Settings → WellActually to set the swipe page slug (default `swipe`).
+3. Visit Settings → "Well, Actually..." to set the swipe page slug (default `swipe`).
 4. Edit any post and fill in the "Swipe Statement" and verdict fields to add it to the deck.
 5. Send visitors to `yoursite.com/swipe`.
 
@@ -54,6 +54,20 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.3.0 =
+* Rebrand: the plugin now displays on-screen as "Well, Actually..." everywhere (Plugins list, admin screens, share text). No change to the plugin's internal slug, files, or database keys.
+* Rename the Posts submenu screen (formerly "Well Actually Setup") to just "Well, Actually...".
+* Add category exclusion: Settings → "Well, Actually..." → Categories lists every category (with parent/child indenting and post counts) with a "Skip This Category" checkbox. Skipped categories' posts are hidden from every status view on the "Well, Actually..." screen and are never offered to AI drafting.
+* Settings → "Well, Actually..." is now a tabbed page: Setup, Categories, and a new Errors tab listing AI drafting failures from the last 7 days (with the post title, error message, and a link to fix it) — previously a failed draft was silently discarded with no way to see why.
+* Fix: the "AI error" chip on the "Well, Actually..." screen looked clickable (cursor changed to a question mark) but did nothing. It's now a real link to the new Errors tab.
+* Fix: a denormalized status value could go stale and let an already-configured post linger in the "Needs to be set up" filter (or a similar mismatch in the other status filters). Each filtered page of results now double-checks its own rows against the post's actual verdict/AI-status/skip meta and self-corrects any mismatch — bounded to one page of results, so it stays cheap at archive scale.
+* Fix: clicking "Draft with AI" without an explicit model chosen in this plugin's settings would fail outright on providers (like Nano-GPT) that reject a request with no model at all, even when the site owner had already picked a default model in that provider's own settings. It now asks the provider for its published default model first.
+* Rename: "Needs setup" → "Needs to be set up", "Skipped" → "Skipped for Now", and the "Skip" column header → "Skip for Now", for clarity.
+* Fix: the site name in the share-your-score text could show a raw HTML entity (e.g. "Brent&#8217;s Blog") instead of an apostrophe. WordPress's get_bloginfo('name') returns HTML-entity-encoded text even without asking for it, and the frontend was escaping it a second time.
+* Fix: a literal double-quote character in the share text (from the new "Well, Actually..." branding) could break the share text box and corrupt the markup after it — the frontend's HTML-escaping helper wasn't escaping quote characters, only the ones unsafe in plain text.
+* The share-score prompt now includes a link back to the quiz so whoever it's shared with can play, and appears every 20 swipes in addition to the end-of-deck screen, so players who don't finish a (large) deck still get invited to share.
+* Hardened the reveal card's Continue button against a first-tap-does-nothing issue some players hit — it now also responds to the pointer-down that starts a tap/click, rather than waiting on the full click event alone.
 
 = 1.2.4 =
 * Fix: Well Actually Setup (and the Posts list filter behind it) could still take many seconds — or time out — on a large archive, even after the 1.2.3 caching fix. The "Needs setup" / "Has AI suggestions" / "In swipe deck" views were built from a meta_query spanning three separate post-meta keys with NOT EXISTS branches on each, which at real archive scale (thousands of posts, tens of thousands of postmeta rows once other plugins' data is counted) required several joins across the entire postmeta table — measured at 6.6 seconds for a single query against a 3,000-post/50,000-row test table, versus 7 milliseconds for an equivalent single-key lookup. Replaced it with one denormalized status field, recomputed automatically whenever a post's verdict, AI suggestion, or skip flag changes, cutting that same query to well under a tenth of a second. Existing sites are migrated automatically the first time any admin page loads after updating — no action needed.
