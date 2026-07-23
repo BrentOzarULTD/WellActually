@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.2
+Stable tag: 1.3.3
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,10 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.3.3 =
+* Fix: the empty "No posts match this filter" screen after saving, properly this time. The 1.3.2 fix invalidated WordPress's cached query results on every status change, but that only helps if the invalidation is seen immediately — on managed hosting it isn't, which is why the screen would right itself on its own after roughly 30-60 seconds (the cache entry's own lifetime). Rather than depending on any host's invalidation timing, the "Well, Actually..." screen and the AI candidate picker now always read live from the database. Both are small, already-indexed queries, so there's no meaningful cost — and it means a save is reflected on the very next page load, every time.
+* Fix: post titles and excerpts could show raw HTML entities ("There&#8217;s a Bug…" instead of "There's a Bug…") on the swipe cards, the reveal card, and the setup screen. WordPress hands back titles and excerpts already HTML-encoded, and both the game and the admin screen were then escaping them a second time. All post text is now decoded once before display, and swipe statements are shown decoded when editing too, so what you type is what gets stored.
 
 = 1.3.2 =
 * Fix: saving a page of the "Well, Actually..." screen and landing back on the same filtered view could show "No posts match this filter" even though the post count at the top was correct and nonzero. On sites with a persistent object cache (common on managed hosting), WordPress caches a query's matching post IDs and only invalidates that cache when a post itself changes — not when post meta does, which is all our status field is. Saving changed the meta but left the cached ID list stale, so the very next page load re-served the posts that were *just* handled; this plugin's own stale-status safety net then (correctly) recognized every one of them as no longer belonging and dropped them all, emptying the page. Every place that changes a post's swipe status now also invalidates that cache, so the next query is always fresh.
