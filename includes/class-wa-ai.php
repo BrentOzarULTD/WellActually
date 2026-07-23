@@ -362,20 +362,39 @@ class WA_AI {
 		// them to the underlying builder's camelCase), and returns a WP_Error
 		// from generating methods on failure rather than throwing.
 		try {
-			$builder = wp_ai_client_prompt( self::user_prompt( $post ) )
+			$builder         = wp_ai_client_prompt( self::user_prompt( $post ) )
 				->using_system_instruction( self::system_instruction() );
+			$supports_schema = true;
 
 			if ( '' === $model ) {
 				$model = self::preferred_model_for_provider( $provider );
 			}
 
 			if ( '' !== $model ) {
-				$builder = $builder->using_model_preference( array( $provider, $model ) );
+				/*
+				 * A model preference is allowed to fall back silently when the
+				 * preferred model does not advertise every requested option.
+				 * That made the UI report one model while WordPress selected
+				 * another. Resolve an explicit model instance so the selected
+				 * provider/model pair is the one that receives the request.
+				 */
+				$selected_model = \WordPress\AiClient\AiClient::defaultRegistry()
+					->getProviderModel( $provider, $model );
+				$builder        = $builder->using_model( $selected_model );
+				$supports_schema = self::model_supports_response_schema( $selected_model );
 			} else {
 				$builder = $builder->using_provider( $provider );
 			}
 
-			$json = $builder->as_json_response( self::response_schema() )->generate_text();
+			/*
+			 * Use native schema enforcement when the selected model advertises
+			 * it. Otherwise rely on the explicit JSON instruction and the
+			 * tolerant parser, without excluding or replacing that model.
+			 */
+			if ( $supports_schema ) {
+				$builder = $builder->as_json_response( self::response_schema() );
+			}
+			$json = $builder->generate_text();
 		} catch ( \Throwable $e ) {
 			return self::store_error( $post_id, $e->getMessage() );
 		}
@@ -583,7 +602,8 @@ class WA_AI {
 			. "- \"debatable\": reasonable experts disagree, or the honest answer is \"it depends\".\n"
 			. "Choose whichever makes the most engaging swipe for THIS post; a varied mix across posts is good. "
 			. 'Keep the statement concrete and under about 15 words, with no hedging and no question marks. '
-			. 'Base it only on the post content. Respond only as JSON matching the provided schema.';
+			. 'Base it only on the post content. Respond only as a JSON object with exactly two fields: '
+			. '"statement" (a string) and "verdict" (one of "true", "false", or "debatable").';
 
 		/**
 		 * Filter the AI system instruction used for drafting swipe statements.
@@ -644,7 +664,34 @@ class WA_AI {
 	}
 
 	/**
-	 * The JSON output schema for the drafted result.
+	 * Whether a selected model advertises schema-constrained JSON output.
+	 *
+	 * @param object $model AI Client model instance.
+	 * @return bool
+	 */
+	private static function model_supports_response_schema( $model ) {
+		if ( ! method_exists( $model, 'metadata' ) ) {
+			return false;
+		}
+		$metadata = $model->metadata();
+		if ( ! is_object( $metadata ) || ! method_exists( $metadata, 'getSupportedOptions' ) ) {
+			return false;
+		}
+		foreach ( $metadata->getSupportedOptions() as $option ) {
+			if (
+				is_object( $option )
+				&& method_exists( $option, 'getName' )
+				&& $option->getName()->isOutputSchema()
+			) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The JSON output schema for models that advertise native support.
 	 *
 	 * @return array
 	 */
@@ -666,4 +713,5 @@ class WA_AI {
 			'additionalProperties' => false,
 		);
 	}
+
 }
