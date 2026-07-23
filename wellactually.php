@@ -4,7 +4,7 @@
  * Plugin URI:        https://github.com/BrentOzarULTD/WellActually
  * Description:       Swipe mode for your blog. Show readers a statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong.
  * Version:           1.7.0
- * Requires at least: 6.0
+ * Requires at least: 7.0
  * Requires PHP:      7.4
  * Author:            Brent Ozar
  * License:            MIT
