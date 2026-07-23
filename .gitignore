@@ -1,3 +1,6 @@
+# macOS metadata
+.DS_Store
+
 # Secrets — never commit. Holds API keys (e.g. NANOGPT_API_KEY) used only to
 # configure the local test install.
 .env
