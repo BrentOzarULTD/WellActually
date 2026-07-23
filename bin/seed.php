@@ -4,7 +4,7 @@
  * and verdicts, for load-testing the deck/swipe REST endpoints.
  *
  * Usage (from the site root, with WP-CLI installed):
- *   wp eval-file wp-content/plugins/well-actually/bin/seed.php
+ *   wp eval-file wp-content/plugins/wellactually/bin/seed.php
  *
  * Safe to re-run; it only adds new posts, it never touches existing ones.
  *

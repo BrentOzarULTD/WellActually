@@ -15,7 +15,7 @@ Mark any post with a one-line **Swipe Statement** and a **True / False / Debatab
 
 ## Installation
 
-1. Upload to `wp-content/plugins/well-actually` (or install the zip via Plugins → Add New).
+1. Upload to `wp-content/plugins/wellactually` (or install the zip via Plugins → Add New).
 2. Activate the plugin.
 3. Visit **Settings → WellActually** to set the swipe page slug (default `swipe`).
 4. Edit any post and fill in the **Swipe Statement** and **Verdict** fields in the meta box.
@@ -26,7 +26,7 @@ Mark any post with a one-line **Swipe Statement** and a **True / False / Debatab
 Plain PHP + vanilla ES6/CSS, no build step. See [TESTING.md](TESTING.md) for the manual test checklist and `bin/seed.php` for a WP-CLI script that generates test posts for load testing:
 
 ```bash
-wp eval-file wp-content/plugins/well-actually/bin/seed.php
+wp eval-file wp-content/plugins/wellactually/bin/seed.php
 ```
 
 ## License

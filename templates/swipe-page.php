@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php WA_Template::instance()->print_robots_meta(); ?>
 	<title><?php echo esc_html( sprintf(
 		/* translators: %s: site name */
-		__( 'Swipe – %s', 'well-actually' ),
+		__( 'Swipe – %s', 'wellactually' ),
 		get_bloginfo( 'name' )
 	) ); ?></title>
 	<?php WA_Template::instance()->print_head_assets(); ?>
@@ -31,11 +31,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</a>
 
 	<div id="wa-app" aria-live="polite">
-		<div class="wa-loading"><?php esc_html_e( 'Loading…', 'well-actually' ); ?></div>
+		<div class="wa-loading"><?php esc_html_e( 'Loading…', 'wellactually' ); ?></div>
 	</div>
 
 	<noscript>
-		<p class="wa-noscript"><?php esc_html_e( 'Swipe mode needs JavaScript.', 'well-actually' ); ?></p>
+		<p class="wa-noscript"><?php esc_html_e( 'Swipe mode needs JavaScript.', 'wellactually' ); ?></p>
 	</noscript>
 
 	<?php WA_Template::instance()->print_footer_assets(); ?>

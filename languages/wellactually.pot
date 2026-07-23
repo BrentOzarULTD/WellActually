@@ -2,20 +2,20 @@
 # This file is distributed under the MIT.
 msgid ""
 msgstr ""
-"Project-Id-Version: WellActually 1.2.0\n"
+"Project-Id-Version: WellActually 1.2.1\n"
 "Report-Msgid-Bugs-To: https://github.com/BrentOzarULTD/WellActually/issues\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-23T00:28:17+00:00\n"
+"POT-Creation-Date: 2026-07-23T00:58:53+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
-"X-Domain: well-actually\n"
+"X-Domain: wellactually\n"
 
 #. Plugin Name of the plugin
-#: well-actually.php
+#: wellactually.php
 #: includes/class-wa-settings.php:118
 #: includes/class-wa-settings.php:119
 #: includes/class-wa-settings.php:282
@@ -23,17 +23,17 @@ msgid "WellActually"
 msgstr ""
 
 #. Plugin URI of the plugin
-#: well-actually.php
+#: wellactually.php
 msgid "https://github.com/BrentOzarULTD/WellActually"
 msgstr ""
 
 #. Description of the plugin
-#: well-actually.php
+#: wellactually.php
 msgid "Swipe mode for your blog. Show readers a statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong."
 msgstr ""
 
 #. Author of the plugin
-#: well-actually.php
+#: wellactually.php
 msgid "Brent Ozar"
 msgstr ""
 
@@ -445,15 +445,15 @@ msgid "Too many updates, slow down."
 msgstr ""
 
 #. translators: %s: site name
-#: templates/swipe-page.php:22
+#: templates/swipe-page.php:23
 #, php-format
 msgid "Swipe – %s"
 msgstr ""
 
-#: templates/swipe-page.php:33
+#: templates/swipe-page.php:34
 msgid "Loading…"
 msgstr ""
 
-#: templates/swipe-page.php:37
+#: templates/swipe-page.php:38
 msgid "Swipe mode needs JavaScript."
 msgstr ""

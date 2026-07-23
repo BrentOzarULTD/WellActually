@@ -115,10 +115,10 @@ class WA_Settings {
 	 */
 	public function add_settings_page() {
 		add_options_page(
-			__( 'WellActually', 'well-actually' ),
-			__( 'WellActually', 'well-actually' ),
+			__( 'WellActually', 'wellactually' ),
+			__( 'WellActually', 'wellactually' ),
 			'manage_options',
-			'well-actually',
+			'wellactually',
 			array( $this, 'render_settings_page' )
 		);
 	}
@@ -141,37 +141,37 @@ class WA_Settings {
 			'wa_settings_section',
 			'',
 			'__return_false',
-			'well-actually'
+			'wellactually'
 		);
 
 		add_settings_field(
 			'wa_slug',
-			__( 'Swipe page slug', 'well-actually' ),
+			__( 'Swipe page slug', 'wellactually' ),
 			array( $this, 'render_slug_field' ),
-			'well-actually',
+			'wellactually',
 			'wa_settings_section'
 		);
 
 		add_settings_section(
 			'wa_ai_section',
-			__( 'AI drafting', 'well-actually' ),
+			__( 'AI drafting', 'wellactually' ),
 			array( $this, 'render_ai_section_intro' ),
-			'well-actually'
+			'wellactually'
 		);
 
 		add_settings_field(
 			'wa_ai_provider',
-			__( 'AI provider', 'well-actually' ),
+			__( 'AI provider', 'wellactually' ),
 			array( $this, 'render_ai_provider_field' ),
-			'well-actually',
+			'wellactually',
 			'wa_ai_section'
 		);
 
 		add_settings_field(
 			'wa_ai_model',
-			__( 'AI model', 'well-actually' ),
+			__( 'AI model', 'wellactually' ),
 			array( $this, 'render_ai_model_field' ),
-			'well-actually',
+			'wellactually',
 			'wa_ai_section'
 		);
 	}
@@ -206,12 +206,12 @@ class WA_Settings {
 		if ( function_exists( 'wp_supports_ai' ) && wp_supports_ai() ) {
 			$providers = self::ai_providers();
 			if ( empty( $providers ) ) {
-				echo '<p>' . esc_html__( 'No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting.', 'well-actually' ) . '</p>';
+				echo '<p>' . esc_html__( 'No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting.', 'wellactually' ) . '</p>';
 			} else {
-				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the Swipe Setup screen. You can change these between batches.', 'well-actually' ) . '</p>';
+				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the Swipe Setup screen. You can change these between batches.', 'wellactually' ) . '</p>';
 			}
 		} else {
-			echo '<p>' . esc_html__( 'AI features are not available in this environment.', 'well-actually' ) . '</p>';
+			echo '<p>' . esc_html__( 'AI features are not available in this environment.', 'wellactually' ) . '</p>';
 		}
 	}
 
@@ -223,20 +223,20 @@ class WA_Settings {
 		$providers = self::ai_providers();
 		?>
 		<select name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_provider]">
-			<option value=""><?php esc_html_e( '— Select a provider —', 'well-actually' ); ?></option>
+			<option value=""><?php esc_html_e( '— Select a provider —', 'wellactually' ); ?></option>
 			<?php foreach ( $providers as $id => $name ) : ?>
 				<?php $configured = self::is_ai_provider_configured( $id ); ?>
 				<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $settings['ai_provider'], $id ); ?>>
 					<?php
 					echo esc_html( $name );
 					if ( ! $configured ) {
-						echo ' ' . esc_html__( '(no API key set)', 'well-actually' );
+						echo ' ' . esc_html__( '(no API key set)', 'wellactually' );
 					}
 					?>
 				</option>
 			<?php endforeach; ?>
 		</select>
-		<p class="description"><?php esc_html_e( 'Providers come from your WordPress AI connector settings.', 'well-actually' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Providers come from your WordPress AI connector settings.', 'wellactually' ); ?></p>
 		<?php
 	}
 
@@ -246,8 +246,8 @@ class WA_Settings {
 	public function render_ai_model_field() {
 		$settings = self::get_settings();
 		?>
-		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'well-actually' ); ?>" />
-		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Recommended: most providers (including Nano-GPT) need an explicit model rather than a default.', 'well-actually' ); ?></p>
+		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'wellactually' ); ?>" />
+		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Recommended: most providers (including Nano-GPT) need an explicit model rather than a default.', 'wellactually' ); ?></p>
 		<?php
 	}
 
@@ -262,7 +262,7 @@ class WA_Settings {
 			<?php
 			printf(
 				/* translators: %s: example URL */
-				esc_html__( 'Visitors will play swipe mode at %s.', 'well-actually' ),
+				esc_html__( 'Visitors will play swipe mode at %s.', 'wellactually' ),
 				'<code>' . esc_html( home_url( '/' ) ) . '<strong>' . esc_html( $settings['slug'] ) . '</strong></code>'
 			);
 			?>
@@ -279,11 +279,11 @@ class WA_Settings {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'WellActually', 'well-actually' ); ?></h1>
+			<h1><?php esc_html_e( 'WellActually', 'wellactually' ); ?></h1>
 			<form action="options.php" method="post">
 				<?php
 				settings_fields( 'wa_settings_group' );
-				do_settings_sections( 'well-actually' );
+				do_settings_sections( 'wellactually' );
 				submit_button();
 				?>
 			</form>

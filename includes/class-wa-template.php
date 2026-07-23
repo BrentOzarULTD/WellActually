@@ -20,7 +20,7 @@ class WA_Template {
 	 * REST namespace handed to the frontend. The JS joins routes onto this,
 	 * so it must not carry a trailing slash of its own.
 	 */
-	const NAMESPACE_ROUTE = 'well-actually/v1';
+	const NAMESPACE_ROUTE = 'wellactually/v1';
 
 	/**
 	 * Singleton instance.

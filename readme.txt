@@ -18,7 +18,7 @@ Progress is tracked locally for anonymous visitors and synced to their account w
 
 == Installation ==
 
-1. Upload the plugin to `/wp-content/plugins/well-actually` or install via the Plugins screen.
+1. Upload the plugin to `/wp-content/plugins/wellactually` or install via the Plugins screen.
 2. Activate the plugin.
 3. Visit Settings → WellActually to set the swipe page slug (default `swipe`).
 4. Edit any post and fill in the "Swipe Statement" and verdict fields to add it to the deck.

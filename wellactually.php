@@ -9,7 +9,7 @@
  * Author:            Brent Ozar
  * License:            MIT
  * License URI:       https://opensource.org/licenses/MIT
- * Text Domain:       well-actually
+ * Text Domain:       wellactually
  * Domain Path:       /languages
  *
  * @package WellActually
@@ -38,7 +38,7 @@ require_once WA_PLUGIN_DIR . 'includes/class-wa-user-progress.php';
  * Boot the plugin.
  */
 function wa_init() {
-	load_plugin_textdomain( 'well-actually', false, dirname( plugin_basename( WA_PLUGIN_FILE ) ) . '/languages' );
+	load_plugin_textdomain( 'wellactually', false, dirname( plugin_basename( WA_PLUGIN_FILE ) ) . '/languages' );
 
 	WA_Settings::instance();
 	WA_Meta::instance();
