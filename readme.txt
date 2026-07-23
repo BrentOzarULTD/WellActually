@@ -28,11 +28,11 @@ The optional "Draft with AI" feature uses the AI client APIs that ship in WordPr
 
 == External Services ==
 
-The optional "Draft with AI" feature sends post content to an external AI service. Nothing else in this plugin contacts any external service: activating the plugin, playing the swipe game, and every other admin screen work entirely on your own site.
+The optional "Draft with AI" feature sends post content to an external AI service. All external contact is confined to that feature and its admin screens: activating the plugin and the public swipe game your readers play never contact any external service.
 
 **What is sent:** the post's title, plus either its manual excerpt (if one exists) or up to the first 3,000 characters of the post's body as plain text (HTML and code blocks stripped). No reader data, user accounts, or site credentials are ever sent.
 
-**When it is sent:** only when a logged-in administrator or editor clicks "Draft with AI" on the Swipe Setup screen, and only for the posts queued in that run. Nothing is sent automatically or on a schedule.
+**When it is sent:** post content is sent only when a logged-in administrator or editor clicks "Draft with AI" on the Swipe Setup screen, and only for the posts queued in that run — nothing automatic, nothing on a schedule. Separately, when an administrator opens this plugin's settings or Swipe Setup screens, the plugin asks the selected provider plugin whether it's configured; depending on the provider, that check may involve a round-trip to the provider's API (no post content is included in it, and the result is cached briefly).
 
 **Where it goes:** to the AI provider *you* select and configure. This plugin does not bundle or default to any vendor — it talks to whatever provider plugin the site administrator has registered with the WordPress AI client (see the [WordPress AI documentation](https://make.wordpress.org/ai/)) and chosen in Settings → Well, Actually... Examples include Nano-GPT or any other AI-client-compatible provider. You will generally need your own account and API key with that provider.
 
