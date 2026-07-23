@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.4.3
+Stable tag: 1.4.4
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,10 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.4.4 =
+* Fix: posts could appear under the wrong filter on the "Well, Actually..." screen — most visibly, posts with "Never" already ticked showing up under "Needs to be set up". Each post carries a summary of its state that those filters sort on, and if that summary was ever written incorrectly (see 1.4.2 for how that could happen), the post stays in the wrong list indefinitely: the filters read the summary, so nothing that reads them can spot the mistake. Every mismatched post is now corrected automatically on update, whatever the cause.
+* Add a "Rebuild status index" button under Settings → "Well, Actually..." → Diagnostics. It rechecks every post and repairs any that are filed wrongly, so this is fixable on the spot rather than waiting for a plugin update. Safe to run whenever.
 
 = 1.4.3 =
 * Fix: saving a page of posts could land you back on the same screen with the same posts still listed, as though the save hadn't happened — even though it had. After saving, the screen asked the database which posts still needed attention, and on managed hosting that question can be answered by a database copy that hasn't caught up yet, which truthfully replies with the posts you just dealt with. No amount of adjusting the query could fix that, because the updated information genuinely isn't visible to it yet. The screen no longer asks: the save already knows which posts it handled, and passes that list forward so they're hidden on the page you land on. It applies to that one page load only, and only to the view you were working in, so those posts still appear normally under "All posts" or whichever status they moved to.
