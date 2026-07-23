@@ -20,6 +20,11 @@ class WA_Bulk_Setup {
 	const NONCE_NAME   = 'wa_bulk_nonce';
 	const PER_PAGE     = 20;
 
+	// How many chunks build_query() will read while skipping past rows whose
+	// stored status has gone stale. Bounds the worst case (a whole run of
+	// stale rows) to a handful of fast indexed queries.
+	const MAX_SCAN_CHUNKS = 10;
+
 	/**
 	 * Singleton instance.
 	 *
@@ -105,20 +110,62 @@ class WA_Bulk_Setup {
 	}
 
 	/**
-	 * Build the WP_Query for the current view.
+	 * Statuses this screen can independently verify a row against, mapped to
+	 * the STATUS_KEY value a matching post must currently compute to.
+	 *
+	 * @param string $status Requested status view.
+	 * @return string|null The expected status, or null when the view can't be
+	 *                     verified (e.g. "all", which filters on nothing).
+	 */
+	private function expected_status_for( $status ) {
+		$map = array(
+			'needs_setup' => WA_Meta::STATUS_NEEDS_SETUP,
+			'has_ai'      => WA_Meta::STATUS_HAS_AI,
+			'in_deck'     => WA_Meta::STATUS_CONFIGURED,
+			'excluded'    => WA_Meta::STATUS_EXCLUDED,
+			'skipped'     => WA_Meta::STATUS_SKIPPED,
+		);
+
+		return isset( $map[ $status ] ) ? $map[ $status ] : null;
+	}
+
+	/**
+	 * Build the list of posts for the current view.
+	 *
+	 * The filtered views select on the denormalized STATUS_KEY meta, because
+	 * that's the only shape of query that stays fast on a large archive. But
+	 * a SQL result and a freshly-read post meta value can legitimately
+	 * disagree for a while: on managed hosting, reads may be served by a
+	 * database replica that hasn't caught up with the write that just
+	 * happened, and object caches add their own lag. Right after saving a
+	 * page, that's exactly the situation — the rows just handled can still
+	 * look unhandled to the query.
+	 *
+	 * Earlier versions queried one page, dropped the rows whose live meta
+	 * disagreed, and rendered whatever survived. When a whole page was stale
+	 * that left "No posts match this filter" on screen above an accurate,
+	 * non-zero count — the bug this screen kept coming back with.
+	 *
+	 * So the page is no longer whatever one query happened to return. We scan
+	 * forward from the requested offset, keeping only rows whose live meta
+	 * still agrees, until a full page is assembled or the results run out.
+	 * Stale rows cost an extra chunk fetch, not an empty screen.
 	 *
 	 * @param array $args Result of current_args().
-	 * @return WP_Query
+	 * @return WP_Query A query whose posts are the verified page.
 	 */
 	private function build_query( $args ) {
 		$query_args = array(
-			'post_type'      => 'post',
-			'post_status'    => 'publish',
-			'posts_per_page' => self::PER_PAGE,
-			'paged'          => $args['paged'],
-			'orderby'        => $args['orderby'],
-			'order'          => $args['order'],
+			'post_type'           => 'post',
+			'post_status'         => 'publish',
+			'posts_per_page'      => self::PER_PAGE,
+			'orderby'             => $args['orderby'],
+			'order'               => $args['order'],
 			'ignore_sticky_posts' => true,
+			// Always read live. WP's post-query cache is keyed to a marker
+			// that only moves when a POST changes, never when its meta does,
+			// and this screen filters entirely on meta.
+			'cache_results'       => false,
 		);
 
 		if ( $args['cat'] > 0 ) {
@@ -140,86 +187,121 @@ class WA_Bulk_Setup {
 			}
 		}
 
-		// Never serve this screen from WP_Query's cached result set. The
-		// status this screen filters on lives in post meta, and WordPress
-		// keys its post-query cache to a marker that only moves when a POST
-		// changes — not when its meta does. On hosts with a persistent
-		// object cache that leaves a window (observed at ~30-60 seconds on
-		// managed hosting, i.e. the cache entry's own TTL) where saving a
-		// page and landing back on the same filtered view re-serves the
-		// posts that were just handled. Rather than trying to out-guess
-		// each host's invalidation, this one admin query — 20 rows, already
-		// a single indexed lookup — simply always reads live.
-		$query_args['cache_results'] = false;
+		$expected = $this->expected_status_for( $args['status'] );
 
-		$query = new WP_Query( $query_args );
-
-		// cache_results=false also skips WP's bulk meta priming, and both
-		// the verify pass and the render loop read several meta keys per
-		// row. Prime them in one query instead of ~20.
-		if ( ! empty( $query->posts ) ) {
-			update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
+		// Unverifiable view ("all"): nothing to reconcile, one plain page.
+		if ( null === $expected ) {
+			$query_args['paged'] = $args['paged'];
+			$query               = new WP_Query( $query_args );
+			if ( ! empty( $query->posts ) ) {
+				update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
+			}
+			return $query;
 		}
 
-		$this->verify_page_statuses( $query, $args['status'] );
+		$start    = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
+		$carrier  = null;
+		$verified = array();
+		$dropped  = 0;
+		$scanned  = 0;
 
-		return $query;
+		// Bounded so a pathologically stale archive can't spin: worst case
+		// this reads MAX_SCAN_CHUNKS pages of IDs, still a handful of fast
+		// indexed queries.
+		for ( $chunk = 0; $chunk < self::MAX_SCAN_CHUNKS; $chunk++ ) {
+			$chunk_args           = $query_args;
+			$chunk_args['offset'] = $start + $scanned;
+
+			$query = new WP_Query( $chunk_args );
+
+			if ( null === $carrier ) {
+				$carrier = $query;
+			}
+
+			if ( empty( $query->posts ) ) {
+				break;
+			}
+
+			$batch = $query->posts;
+			update_meta_cache( 'post', wp_list_pluck( $batch, 'ID' ) );
+
+			foreach ( $batch as $post ) {
+				$scanned++;
+
+				if ( WA_Meta::compute_status( $post->ID ) === $expected ) {
+					$verified[] = $post;
+				} else {
+					// Correct the stored value so this row stops coming back.
+					WA_Meta::recompute_status( $post->ID );
+					$dropped++;
+				}
+
+				if ( count( $verified ) >= self::PER_PAGE ) {
+					break 2;
+				}
+			}
+
+			// Short batch means we reached the end of the results.
+			if ( count( $batch ) < self::PER_PAGE ) {
+				break;
+			}
+		}
+
+		if ( null === $carrier ) {
+			$carrier = new WP_Query( array_merge( $query_args, array( 'post__in' => array( 0 ) ) ) );
+		}
+
+		$found = max( 0, (int) $carrier->found_posts - $dropped );
+
+		$carrier->posts         = $verified;
+		$carrier->post_count    = count( $verified );
+		$carrier->found_posts   = $found;
+		$carrier->max_num_pages = $found > 0 ? (int) ceil( $found / self::PER_PAGE ) : 0;
+		$carrier->current_post  = -1;
+
+		$this->log_page_build( $args, $verified, $dropped, $scanned, $found );
+
+		return $carrier;
 	}
 
 	/**
-	 * Self-heal a page of results against a filtered status view: the
-	 * denormalized STATUS_KEY drives the query for performance, but if it
-	 * ever drifts from a post's actual verdict/AI-status/skip meta (a stale
-	 * value from before this field existed, a missed recompute, etc.), a
-	 * post can wrongly linger in — or be missing from — a filtered list.
-	 * Re-derive each row's status live and drop any that no longer belong,
-	 * correcting the stored value at the same time. Bounded to one page
-	 * (PER_PAGE posts), so this is cheap even at archive scale.
+	 * Record what a page build actually did, when diagnostics are turned on.
 	 *
-	 * @param WP_Query $query  The query to filter in place.
-	 * @param string   $status Requested status view.
+	 * Off unless the site defines WA_DEBUG_SETUP (or filters
+	 * `wa_debug_setup` true), so it's safe to switch on in production for a
+	 * few page loads to see real numbers instead of guessing: how many rows
+	 * the query returned, how many were stale, and how many made the page.
+	 *
+	 * @param array $args     Current view args.
+	 * @param array $verified Verified posts for the page.
+	 * @param int   $dropped  Rows whose live status disagreed with the query.
+	 * @param int   $scanned  Rows examined to fill the page.
+	 * @param int   $found    Adjusted total.
 	 */
-	private function verify_page_statuses( $query, $status ) {
-		$expected_map = array(
-			'needs_setup' => WA_Meta::STATUS_NEEDS_SETUP,
-			'has_ai'      => WA_Meta::STATUS_HAS_AI,
-			'in_deck'     => WA_Meta::STATUS_CONFIGURED,
-			'excluded'    => WA_Meta::STATUS_EXCLUDED,
-			'skipped'     => WA_Meta::STATUS_SKIPPED,
-		);
+	private function log_page_build( $args, $verified, $dropped, $scanned, $found ) {
+		$enabled = ( defined( 'WA_DEBUG_SETUP' ) && WA_DEBUG_SETUP );
 
-		if ( ! isset( $expected_map[ $status ] ) || empty( $query->posts ) ) {
+		/**
+		 * Filter whether the "Well, Actually..." screen logs how it built a page.
+		 *
+		 * @param bool  $enabled Whether to log.
+		 * @param array $args    Current view args.
+		 */
+		if ( ! apply_filters( 'wa_debug_setup', $enabled, $args ) ) {
 			return;
 		}
 
-		$expected = $expected_map[ $status ];
-		$verified = array();
-		$dropped  = 0;
-
-		foreach ( $query->posts as $post ) {
-			$post_id = is_object( $post ) ? $post->ID : (int) $post;
-			$actual  = WA_Meta::compute_status( $post_id );
-
-			if ( $actual === $expected ) {
-				$verified[] = $post;
-				continue;
-			}
-
-			// Stale — correct the stored value (and bump the posts cache
-			// marker, via recompute_status()) so future queries don't need
-			// to re-check this post.
-			WA_Meta::recompute_status( $post_id );
-			$dropped++;
-		}
-
-		if ( $dropped > 0 ) {
-			$query->posts       = $verified;
-			$query->post_count  = count( $verified );
-			$query->found_posts = max( 0, $query->found_posts - $dropped );
-			$query->max_num_pages = $query->found_posts > 0
-				? (int) ceil( $query->found_posts / self::PER_PAGE )
-				: 0;
-		}
+		error_log(
+			sprintf(
+				'[wellactually] page build: status=%s paged=%d scanned=%d stale=%d shown=%d found=%d',
+				$args['status'],
+				(int) $args['paged'],
+				(int) $scanned,
+				(int) $dropped,
+				count( $verified ),
+				(int) $found
+			)
+		);
 	}
 
 	/**

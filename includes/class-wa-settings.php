@@ -173,7 +173,29 @@ class WA_Settings {
 	 */
 	public static function excluded_categories() {
 		$ids = wa_get_setting( 'excluded_categories', array() );
-		return is_array( $ids ) ? array_map( 'absint', $ids ) : array();
+		$ids = is_array( $ids ) ? array_filter( array_map( 'absint', $ids ) ) : array();
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		// Skipping a category skips everything under it. Expanding here rather
+		// than storing the descendants means a child category created *after*
+		// the parent was checked is covered automatically, and it's required
+		// for correctness regardless: WP_Query's category__not_in matches only
+		// the exact terms given, with no descendant expansion of its own (in
+		// contrast to the positive `cat` argument, which does include
+		// children). get_term_children() returns all descendants, not just
+		// direct children, so a whole branch comes along.
+		$all = $ids;
+		foreach ( $ids as $id ) {
+			$children = get_term_children( $id, 'category' );
+			if ( is_array( $children ) ) {
+				$all = array_merge( $all, array_map( 'absint', $children ) );
+			}
+		}
+
+		return array_values( array_unique( array_filter( $all ) ) );
 	}
 
 	/**
@@ -478,6 +500,45 @@ class WA_Settings {
 				<?php $this->render_category_rows( $by_parent, 0, 0, $excluded ); ?>
 			</tbody>
 		</table>
+		<script>
+		( function () {
+			var boxes = Array.prototype.slice.call( document.querySelectorAll( '.wa-cat-checkbox' ) );
+			if ( ! boxes.length ) { return; }
+
+			// term id -> its direct child checkboxes.
+			var childrenOf = {};
+			boxes.forEach( function ( box ) {
+				var parent = box.getAttribute( 'data-parent-id' );
+				if ( ! childrenOf[ parent ] ) { childrenOf[ parent ] = []; }
+				childrenOf[ parent ].push( box );
+			} );
+
+			// Skipping a category skips everything beneath it, so show the
+			// descendants as checked and lock them while the parent is. They
+			// submit nothing while disabled, which is fine — only the parent
+			// needs storing, and the server expands it back out to the whole
+			// branch (so categories added under it later are covered too).
+			function apply( box ) {
+				var kids = childrenOf[ box.getAttribute( 'data-term-id' ) ] || [];
+				kids.forEach( function ( kid ) {
+					if ( box.checked || box.disabled ) {
+						kid.checked = true;
+						kid.disabled = true;
+					} else {
+						kid.disabled = false;
+					}
+					apply( kid );
+				} );
+			}
+
+			boxes.forEach( function ( box ) {
+				box.addEventListener( 'change', function () { apply( box ); } );
+			} );
+
+			// Top-level first, so locking cascades down the tree on load.
+			( childrenOf[ '0' ] || [] ).forEach( apply );
+		} )();
+		</script>
 		<?php
 	}
 
@@ -509,8 +570,11 @@ class WA_Settings {
 					<input
 						type="checkbox"
 						id="<?php echo esc_attr( $checkbox_id ); ?>"
+						class="wa-cat-checkbox"
 						name="<?php echo esc_attr( self::OPTION_NAME ); ?>[excluded_categories][]"
 						value="<?php echo esc_attr( $category->term_id ); ?>"
+						data-term-id="<?php echo esc_attr( $category->term_id ); ?>"
+						data-parent-id="<?php echo esc_attr( $category->parent ); ?>"
 						<?php checked( in_array( $category->term_id, $excluded, true ) ); ?>
 					/>
 				</td>
