@@ -236,8 +236,13 @@ class Test_WA_AI_Queue extends WP_UnitTestCase {
 		WA_AI_Queue::admit( $posts, $batch );
 
 		$filter = $this->force_get_lock( '0' );
-		$result = WA_AI_Queue::claim( $batch, 5 );
-		remove_filter( 'query', $filter );
+		try {
+			$result = WA_AI_Queue::claim( $batch, 5 );
+		} finally {
+			// Remove in finally so a throwing claim() can't leak the filter
+			// into later tests.
+			remove_filter( 'query', $filter );
+		}
 
 		$this->assertSame( 'busy', $result, 'A lock timeout must be retryable, not treated as capacity or empty.' );
 
@@ -259,8 +264,11 @@ class Test_WA_AI_Queue extends WP_UnitTestCase {
 		WA_AI_Queue::admit( $posts, $batch );
 
 		$filter = $this->force_get_lock( 'NULL' );
-		$result = WA_AI_Queue::claim( $batch, 5 );
-		remove_filter( 'query', $filter );
+		try {
+			$result = WA_AI_Queue::claim( $batch, 5 );
+		} finally {
+			remove_filter( 'query', $filter );
+		}
 
 		$this->assertSame( 'busy', $result );
 
