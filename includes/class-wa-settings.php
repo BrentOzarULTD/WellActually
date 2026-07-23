@@ -246,8 +246,8 @@ class WA_Settings {
 	public function render_ai_model_field() {
 		$settings = self::get_settings();
 		?>
-		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. gpt-4o-mini', 'well-actually' ); ?>" />
-		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the provider default.', 'well-actually' ); ?></p>
+		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'well-actually' ); ?>" />
+		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Recommended: most providers (including Nano-GPT) need an explicit model rather than a default.', 'well-actually' ); ?></p>
 		<?php
 	}
 
