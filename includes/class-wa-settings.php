@@ -102,11 +102,50 @@ class WA_Settings {
 		if ( '' === $provider_id || ! class_exists( '\WordPress\AiClient\AiClient' ) ) {
 			return false;
 		}
+
+		// Some providers' isProviderConfigured() does a live round-trip to the
+		// provider's API (e.g. validating the key or fetching account/balance
+		// info) rather than just checking that a key string is present. That
+		// call runs once per provider on the settings page (looped over every
+		// registered provider) and once per page load of Well Actually Setup,
+		// which made both screens visibly slow to load. Cache the result
+		// briefly so repeat page loads don't repeat that round-trip; a save in
+		// Settings → WellActually clears it immediately (see
+		// sanitize_settings()) so a key/provider change is reflected right away.
+		$cache_key = 'wa_ai_provider_configured_' . $provider_id;
+		$cached    = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return '1' === $cached;
+		}
+
 		try {
-			$registry = \WordPress\AiClient\AiClient::defaultRegistry();
-			return $registry->hasProvider( $provider_id ) && $registry->isProviderConfigured( $provider_id );
+			$registry  = \WordPress\AiClient\AiClient::defaultRegistry();
+			$configured = $registry->hasProvider( $provider_id ) && $registry->isProviderConfigured( $provider_id );
 		} catch ( \Throwable $e ) {
-			return false;
+			$configured = false;
+		}
+
+		set_transient( $cache_key, $configured ? '1' : '0', 5 * MINUTE_IN_SECONDS );
+
+		return $configured;
+	}
+
+	/**
+	 * Clear the cached provider-configured check(s). Called after a settings
+	 * save so a provider/key change is reflected immediately rather than
+	 * waiting out the cache TTL.
+	 *
+	 * @param string $provider_id Specific provider to clear, or '' for all
+	 *                            registered providers.
+	 */
+	public static function clear_provider_configured_cache( $provider_id = '' ) {
+		if ( '' !== $provider_id ) {
+			delete_transient( 'wa_ai_provider_configured_' . $provider_id );
+			return;
+		}
+
+		foreach ( array_keys( self::ai_providers() ) as $id ) {
+			delete_transient( 'wa_ai_provider_configured_' . $id );
 		}
 	}
 
@@ -208,6 +247,11 @@ class WA_Settings {
 
 		// Model id is free text (providers like Nano-GPT proxy many models).
 		$output['ai_model'] = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : '';
+
+		// A save always clears the cached provider-configured check, so a
+		// provider/key change is reflected immediately rather than waiting
+		// out the transient's TTL.
+		self::clear_provider_configured_cache();
 
 		return $output;
 	}
