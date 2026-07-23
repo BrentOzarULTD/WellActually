@@ -16,10 +16,16 @@ $table_name = $wpdb->prefix . 'wa_stats';
 // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name isn't user input.
 $wpdb->query( "DROP TABLE IF EXISTS {$table_name}" );
 
+// Drop the AI drafting queue table.
+$queue_table = $wpdb->prefix . 'wa_ai_queue';
+// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name isn't user input.
+$wpdb->query( "DROP TABLE IF EXISTS {$queue_table}" );
+
 // Remove options.
 delete_option( 'wa_settings' );
 delete_option( 'wa_db_version' );
 delete_option( 'wa_status_backfilled' );
+delete_option( 'wa_ai_queue_db_version' );
 
 // Remove all post meta added by the plugin.
 delete_post_meta_by_key( '_wa_statement' );

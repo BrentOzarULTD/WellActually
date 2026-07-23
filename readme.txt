@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,15 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.4.1 =
+* Fix a set of race conditions in 1.4.0's parallel drafting, found in code review. Drafting work is now tracked in its own small database table instead of post meta. Post meta has no way to enforce "only one drafting run may hold this post", so every check-then-write left a gap; a table can enforce it outright, and each change of state is now a single conditional statement that either wins or doesn't.
+* Fix: starting a second drafting run while one was in progress could take over posts the first run was actively drafting — paying for the same post twice and letting the two results overwrite each other. A run can no longer touch another run's posts.
+* Fix: the recovery sweep for interrupted runs could overwrite a suggestion that had just been saved, reverting finished work and drafting it again. Recovery now only reclaims a post if nothing has happened to it since, and a request that lost ownership while running discards its result instead of overwriting the newer one.
+* Fix: two drafting runs (two browser tabs, or two people) drew from the same pool and consumed each other's work, so each reported nonsense progress. Each run now owns its own set of posts.
+* Fix: failed requests could display impossible progress such as "Done — -5 drafted". Successes, provider errors and unconfirmed requests are now counted separately and never subtracted from one another, and a run only reports "Done" when the server confirms no work is left — otherwise it says how much remains and invites you to resume.
+* Fix: the "Parallel requests" limit was only enforced per browser tab, so several tabs could multiply it and overload the provider (and the site's PHP workers). The ceiling is now enforced site-wide; requests over it are told to wait briefly and retry rather than failing.
+* An interrupted run can be resumed by clicking Draft with AI again, picking up exactly the posts it didn't finish. Runs abandoned for an hour release their posts automatically.
 
 = 1.4.0 =
 * Drafting with AI is several times faster. Nearly all of the time was spent waiting on the AI provider — about 2.2 seconds per post, of which under 10 milliseconds was this plugin — and posts were being sent one at a time. Several are now drafted at once: in testing, 10 posts went from roughly 22 seconds to under 6.

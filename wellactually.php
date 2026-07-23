@@ -3,7 +3,7 @@
  * Plugin Name:       Well, Actually...
  * Plugin URI:        https://github.com/BrentOzarULTD/WellActually
  * Description:       Swipe mode for your blog. Show readers a statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong.
- * Version:           1.4.0
+ * Version:           1.4.1
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Brent Ozar
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WA_VERSION', '1.4.0' );
+define( 'WA_VERSION', '1.4.1' );
 define( 'WA_PLUGIN_FILE', __FILE__ );
 define( 'WA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -28,6 +28,7 @@ define( 'WA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 require_once WA_PLUGIN_DIR . 'includes/class-wa-settings.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-meta.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-bulk-setup.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-ai-queue.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-ai.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-template.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-stats.php';
