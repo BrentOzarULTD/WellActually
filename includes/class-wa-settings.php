@@ -68,6 +68,7 @@ class WA_Settings {
 			'ai_provider'         => '',
 			'ai_model'            => '',
 			'excluded_categories' => array(),
+			'debug_logging'       => false,
 		);
 	}
 
@@ -272,6 +273,51 @@ class WA_Settings {
 			'wellactually_setup',
 			'wa_ai_section'
 		);
+
+		add_settings_section(
+			'wa_diagnostics_section',
+			__( 'Diagnostics', 'wellactually' ),
+			'__return_false',
+			'wellactually_setup'
+		);
+
+		add_settings_field(
+			'wa_debug_logging',
+			__( 'Logging', 'wellactually' ),
+			array( $this, 'render_debug_logging_field' ),
+			'wellactually_setup',
+			'wa_diagnostics_section'
+		);
+	}
+
+	/**
+	 * Whether diagnostic logging for the "Well, Actually..." screen is on.
+	 *
+	 * @return bool
+	 */
+	public static function debug_logging_enabled() {
+		return (bool) wa_get_setting( 'debug_logging', false );
+	}
+
+	/**
+	 * Render the diagnostic logging checkbox.
+	 */
+	public function render_debug_logging_field() {
+		$settings = self::get_settings();
+		?>
+		<label>
+			<input
+				type="checkbox"
+				name="<?php echo esc_attr( self::OPTION_NAME ); ?>[debug_logging]"
+				value="1"
+				<?php checked( ! empty( $settings['debug_logging'] ) ); ?>
+			/>
+			<?php esc_html_e( 'Log how the "Well, Actually..." screen builds each page', 'wellactually' ); ?>
+		</label>
+		<p class="description">
+			<?php esc_html_e( 'Writes one line to your site\'s error log per page load of that screen, recording how many posts were examined, how many had out-of-date status information, how many were shown, and the total. Useful when that screen shows the wrong posts (or none at all) and you want real numbers rather than guesswork. Leave off for normal use.', 'wellactually' ); ?>
+		</p>
+		<?php
 	}
 
 	/**
@@ -308,6 +354,11 @@ class WA_Settings {
 
 		// Model id is free text (providers like Nano-GPT proxy many models).
 		$output['ai_model'] = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : '';
+
+		// Set explicitly rather than only when present: an unchecked checkbox
+		// submits nothing, so without this a box could be ticked but never
+		// un-ticked.
+		$output['debug_logging'] = ! empty( $input['debug_logging'] );
 
 		// A Setup save always clears the cached provider-configured check, so
 		// a provider/key change is reflected immediately rather than waiting
