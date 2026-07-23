@@ -222,6 +222,9 @@ class WA_AI {
 			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
 			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
 			delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
+			// A post being re-queued may have had a ready suggestion, which
+			// this supersedes.
+			WA_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_QUEUED ) );
 		}
 	}
 
@@ -374,23 +377,43 @@ class WA_AI {
 			'error'  => array( self::STATUS_ERROR ),
 		);
 
+		// Same scope and read semantics as the grid, so the panel can't
+		// advertise suggestions the grid won't show: skipped posts are out,
+		// skipped categories are out, and nothing is served from a cached
+		// result set.
+		$excluded_cats = WA_Settings::excluded_categories();
+
 		foreach ( $values as $status => $meta_values ) {
-			$query             = new WP_Query(
-				array(
-					'post_type'      => 'post',
-					'post_status'    => 'publish',
-					'fields'         => 'ids',
-					'posts_per_page' => 1,
-					'no_found_rows'  => false,
-					'meta_query'     => array(
-						array(
-							'key'     => WA_Meta::AI_STATUS_KEY,
-							'value'   => $meta_values,
-							'compare' => 'IN',
-						),
+			$args = array(
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'fields'         => 'ids',
+				'posts_per_page' => 1,
+				'no_found_rows'  => false,
+				'cache_results'  => false,
+				'meta_query'     => array(
+					'relation' => 'AND',
+					array(
+						'key'     => WA_Meta::AI_STATUS_KEY,
+						'value'   => $meta_values,
+						'compare' => 'IN',
 					),
-				)
+					array(
+						'key'     => WA_Meta::SKIP_KEY,
+						'compare' => 'NOT EXISTS',
+					),
+					array(
+						'key'     => WA_Meta::VERDICT_KEY,
+						'compare' => 'NOT EXISTS',
+					),
+				),
 			);
+
+			if ( ! empty( $excluded_cats ) ) {
+				$args['category__not_in'] = $excluded_cats;
+			}
+
+			$query             = new WP_Query( $args );
 			$counts[ $status ] = (int) $query->found_posts;
 		}
 
@@ -686,7 +709,10 @@ class WA_AI {
 		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_READY );
 		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
 		delete_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY );
-		WA_Meta::recompute_status( $post_id );
+		// Hand the status we just wrote to recompute rather than letting it
+		// read the value back — a lagging read here would persist the wrong
+		// derived status and hide this suggestion from review for good.
+		WA_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_READY ) );
 
 		return array(
 			'status'    => self::STATUS_READY,
@@ -707,7 +733,7 @@ class WA_AI {
 		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_ERROR );
 		update_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, $message );
 		update_post_meta( $post_id, WA_Meta::AI_ERROR_TIME_KEY, time() );
-		WA_Meta::recompute_status( $post_id );
+		WA_Meta::recompute_status( $post_id, array( 'ai_status' => self::STATUS_ERROR ) );
 
 		return array(
 			'status' => self::STATUS_ERROR,
