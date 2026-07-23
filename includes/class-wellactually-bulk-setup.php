@@ -193,11 +193,11 @@ class WellActually_Bulk_Setup {
 	 * A note on what used to be here, because it caused the same visible bug
 	 * twice and the fix is to do less, not more.
 	 *
-	 * This screen selects rows on the denormalized `_wa_status` meta. Earlier
+	 * This screen selects rows on the denormalized `_wellactually_status` meta. Earlier
 	 * versions then re-derived each row's status from its *other* meta keys
 	 * and discarded any row where the two disagreed, on the theory that the
 	 * stored value might have drifted. It hadn't: every write path updates
-	 * `_wa_status` in the same breath as the meta it's derived from (see
+	 * `_wellactually_status` in the same breath as the meta it's derived from (see
 	 * WellActually_Meta::recompute_status()), so the stored value is correct.
 	 *
 	 * What actually differs is *when each read sees it*. The row select and

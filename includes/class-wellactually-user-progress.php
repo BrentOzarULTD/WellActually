@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Handles reading/writing the _wa_progress user meta over REST.
+ * Handles reading/writing the _wellactually_progress user meta over REST.
  */
 class WellActually_User_Progress {
 

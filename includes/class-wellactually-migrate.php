@@ -130,8 +130,11 @@ class WellActually_Migrate {
 			if ( null === get_option( $new, null ) ) {
 				// Autoloaded to match how the plugin writes these itself:
 				// settings are read on every request, the db-version and
-				// marker options are not.
-				add_option( $new, $value, '', 'wellactually_settings' === $new );
+				// marker options are not. add_option() takes a bool here and
+				// normalizes it ('on'/'off' since 6.6).
+				$autoload = ( 'wellactually_settings' === $new );
+
+				add_option( $new, $value, '', $autoload );
 			}
 
 			delete_option( $old );

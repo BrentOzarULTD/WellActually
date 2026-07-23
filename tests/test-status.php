@@ -136,4 +136,27 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 		$this->assertContains( $child, $excluded, 'A child of an excluded category must be excluded too.' );
 		$this->assertContains( $grand, $excluded, 'Exclusion must reach the whole branch, not just direct children.' );
 	}
+
+	/**
+	 * The "Rebuild status index" button posts to admin-post.php with an
+	 * action name; the handler has to be registered under exactly that name.
+	 * The two are written in different files and a rename broke the pairing
+	 * once already — the button silently did nothing.
+	 */
+	public function test_rebuild_status_action_is_registered_under_the_posted_name() {
+		WellActually_Settings::instance();
+
+		ob_start();
+		WellActually_Settings::instance()->render_rebuild_status_block();
+		$form = ob_get_clean();
+
+		preg_match( '/name="action" value="([^"]+)"/', $form, $matches );
+		$posted_action = isset( $matches[1] ) ? $matches[1] : '';
+
+		$this->assertNotSame( '', $posted_action, 'The rebuild form must post an action.' );
+		$this->assertNotFalse(
+			has_action( 'admin_post_' . $posted_action, array( WellActually_Settings::instance(), 'handle_rebuild_status' ) ),
+			"Nothing handles admin_post_{$posted_action}, so the button would do nothing."
+		);
+	}
 }

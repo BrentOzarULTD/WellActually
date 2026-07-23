@@ -3,7 +3,7 @@
  * WordPress privacy tooling: suggested policy text, and the personal-data
  * exporter/eraser for logged-in swipe progress.
  *
- * The only personal data this plugin stores server-side is the `_wa_progress`
+ * The only personal data this plugin stores server-side is the `_wellactually_progress`
  * user meta for logged-in players (which posts they've seen and gotten wrong,
  * plus two counters). Everything else is either anonymous by construction
  * (aggregate per-post counts with no user attached), confined to the
@@ -157,7 +157,7 @@ class WellActually_Privacy {
 	}
 
 	/**
-	 * Erase a user's stored swipe progress — just the `_wa_progress` meta,
+	 * Erase a user's stored swipe progress — just the `_wellactually_progress` meta,
 	 * nothing else. The anonymous aggregate counters are left alone: they
 	 * were never attributable to the user, and removing this player's share
 	 * from a public tally is neither possible nor required.

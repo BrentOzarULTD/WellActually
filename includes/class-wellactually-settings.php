@@ -49,7 +49,7 @@ class WellActually_Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'admin_post_wa_rebuild_status', array( $this, 'handle_rebuild_status' ) );
+		add_action( 'admin_post_wellactually_rebuild_status', array( $this, 'handle_rebuild_status' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( WELLACTUALLY_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
 	}

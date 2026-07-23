@@ -213,7 +213,7 @@ class WellActually_Reports {
 	 * being sorted on (swipe count, percent right/wrong) live in the stats
 	 * table and depend on the post's verdict, so they can't be expressed as
 	 * a meta_query orderby. Doing it directly also keeps it to a single
-	 * round trip, driven by the indexed `_wa_status = configured` lookup that
+	 * round trip, driven by the indexed `_wellactually_status = configured` lookup that
 	 * already backs the rest of the plugin.
 	 *
 	 * @param array $args Result of current_args().

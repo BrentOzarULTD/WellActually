@@ -254,7 +254,7 @@ class WellActually_Meta {
 	}
 
 	/**
-	 * Recompute and store the single denormalized _wa_status value for a
+	 * Recompute and store the single denormalized _wellactually_status value for a
 	 * post, from its current verdict/AI-status/skip meta. Call this
 	 * whenever any of those three change — apply_meta() covers the
 	 * statement/verdict/exclude paths; WellActually_Bulk_Setup's skip toggle and
@@ -512,7 +512,7 @@ class WellActually_Meta {
 	 * measured in the seconds per query on a ~3,000-post, ~50,000-row
 	 * postmeta table in testing; a single indexed meta_key lookup on
 	 * STATUS_KEY measured in milliseconds on the same data. true/false/
-	 * debatable stay direct _wa_verdict lookups since STATUS_KEY only
+	 * debatable stay direct _wellactually_verdict lookups since STATUS_KEY only
 	 * distinguishes "configured" in general, not which of the three verdicts.
 	 *
 	 * @param string $status One of needs_setup|has_ai|in_deck|true|false|debatable|excluded|skipped.
@@ -537,8 +537,8 @@ class WellActually_Meta {
 				);
 
 			case 'has_ai':
-				// Queried from the authoritative _wa_ai_status, not the
-				// denormalized _wa_status. The derived field can only ever
+				// Queried from the authoritative _wellactually_ai_status, not the
+				// denormalized _wellactually_status. The derived field can only ever
 				// hide a ready suggestion (if it was written from a stale
 				// read it says needs_setup, and then the post is never
 				// returned at all, so nothing downstream can notice or repair
