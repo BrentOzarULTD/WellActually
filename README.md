@@ -39,4 +39,4 @@ Copies just the files a live site needs (main plugin file, `includes/`, `templat
 
 ## License
 
-MIT
+GPL-2.0-or-later

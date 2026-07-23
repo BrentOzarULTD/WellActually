@@ -8,7 +8,7 @@ Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Swipe mode for your blog: readers see a bold statement, swipe agree or disagree, and see the post behind it when they get it wrong.
+Swipe mode for your blog: readers agree, disagree, or admit they're not sure about a bold statement, and see the post that settles it.
 
 == Description ==
 
