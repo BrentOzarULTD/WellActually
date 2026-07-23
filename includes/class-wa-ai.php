@@ -406,6 +406,7 @@ class WA_AI {
 		update_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY, $verdict );
 		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_READY );
 		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+		WA_Meta::recompute_status( $post_id );
 
 		return array(
 			'status'    => self::STATUS_READY,
@@ -425,6 +426,7 @@ class WA_AI {
 		$message = sanitize_text_field( $message );
 		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_ERROR );
 		update_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, $message );
+		WA_Meta::recompute_status( $post_id );
 
 		return array(
 			'status' => self::STATUS_ERROR,

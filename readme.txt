@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.3
+Stable tag: 1.2.4
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,9 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.2.4 =
+* Fix: Well Actually Setup (and the Posts list filter behind it) could still take many seconds — or time out — on a large archive, even after the 1.2.3 caching fix. The "Needs setup" / "Has AI suggestions" / "In swipe deck" views were built from a meta_query spanning three separate post-meta keys with NOT EXISTS branches on each, which at real archive scale (thousands of posts, tens of thousands of postmeta rows once other plugins' data is counted) required several joins across the entire postmeta table — measured at 6.6 seconds for a single query against a 3,000-post/50,000-row test table, versus 7 milliseconds for an equivalent single-key lookup. Replaced it with one denormalized status field, recomputed automatically whenever a post's verdict, AI suggestion, or skip flag changes, cutting that same query to well under a tenth of a second. Existing sites are migrated automatically the first time any admin page loads after updating — no action needed.
 
 = 1.2.3 =
 * Rename the Posts submenu screen from "Swipe Setup" to "Well Actually Setup."

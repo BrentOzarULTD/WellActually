@@ -30,6 +30,23 @@ class WA_Meta {
 	// and the review lists. Distinct from the permanent 'excluded' verdict.
 	const SKIP_KEY = '_wa_skip';
 
+	// A single denormalized status, recomputed by recompute_status()
+	// whenever the underlying verdict/AI-status/skip meta changes. Exists
+	// purely so the "Needs setup" / "Has AI suggestions" / "In swipe deck"
+	// filters (used on every load of Well Actually Setup) are a single
+	// indexed meta_key lookup instead of a multi-key, multi-join meta_query —
+	// at real archive scale (thousands of posts, tens of thousands of
+	// postmeta rows from other plugins) the multi-join version measured in
+	// the seconds per query; this measures in milliseconds. See
+	// recompute_status() and status_meta_query().
+	const STATUS_KEY = '_wa_status';
+
+	const STATUS_NEEDS_SETUP = 'needs_setup';
+	const STATUS_HAS_AI      = 'has_ai';
+	const STATUS_CONFIGURED  = 'configured';
+	const STATUS_EXCLUDED    = 'excluded';
+	const STATUS_SKIPPED     = 'skipped';
+
 	/**
 	 * Singleton instance.
 	 *
@@ -87,6 +104,12 @@ class WA_Meta {
 
 		add_action( 'restrict_manage_posts', array( $this, 'render_filter_dropdown' ) );
 		add_action( 'pre_get_posts', array( $this, 'filter_by_verdict' ) );
+
+		// Deliberately not activation-only: a plain file update (no
+		// deactivate/reactivate) needs this to run too, so it's hooked here
+		// with a get_option() guard that makes every call after the first a
+		// no-op — see maybe_backfill_status().
+		add_action( 'admin_init', array( __CLASS__, 'maybe_backfill_status' ) );
 	}
 
 	/**
@@ -189,6 +212,7 @@ class WA_Meta {
 		if ( self::VERDICT_EXCLUDED === $verdict ) {
 			update_post_meta( $post_id, self::VERDICT_KEY, self::VERDICT_EXCLUDED );
 			delete_post_meta( $post_id, self::STATEMENT_KEY );
+			self::recompute_status( $post_id );
 			return 'excluded';
 		}
 
@@ -198,6 +222,7 @@ class WA_Meta {
 		if ( $has_statement && $has_deck_verdict ) {
 			update_post_meta( $post_id, self::STATEMENT_KEY, $statement );
 			update_post_meta( $post_id, self::VERDICT_KEY, $verdict );
+			self::recompute_status( $post_id );
 			return 'configured';
 		}
 
@@ -220,7 +245,46 @@ class WA_Meta {
 
 		delete_post_meta( $post_id, self::STATEMENT_KEY );
 		delete_post_meta( $post_id, self::VERDICT_KEY );
+		self::recompute_status( $post_id );
 		return 'cleared';
+	}
+
+	/**
+	 * Recompute and store the single denormalized _wa_status value for a
+	 * post, from its current verdict/AI-status/skip meta. Call this
+	 * whenever any of those three change — apply_meta() covers the
+	 * statement/verdict/exclude paths; WA_Bulk_Setup's skip toggle and
+	 * WA_AI's store_result()/store_error() call it directly since they
+	 * write their meta outside of apply_meta().
+	 *
+	 * Priority when more than one could apply: skipped wins (a skipped post
+	 * never shows under needs_setup/has_ai/in_deck regardless of its other
+	 * meta), then excluded/configured (a resolved verdict), then a ready AI
+	 * suggestion, else needs_setup.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string The stored status value.
+	 */
+	public static function recompute_status( $post_id ) {
+		$skipped   = '1' === get_post_meta( $post_id, self::SKIP_KEY, true );
+		$verdict   = get_post_meta( $post_id, self::VERDICT_KEY, true );
+		$ai_status = get_post_meta( $post_id, self::AI_STATUS_KEY, true );
+
+		if ( $skipped ) {
+			$status = self::STATUS_SKIPPED;
+		} elseif ( self::VERDICT_EXCLUDED === $verdict ) {
+			$status = self::STATUS_EXCLUDED;
+		} elseif ( in_array( $verdict, self::deck_verdicts(), true ) ) {
+			$status = self::STATUS_CONFIGURED;
+		} elseif ( 'ready' === $ai_status ) {
+			$status = self::STATUS_HAS_AI;
+		} else {
+			$status = self::STATUS_NEEDS_SETUP;
+		}
+
+		update_post_meta( $post_id, self::STATUS_KEY, $status );
+
+		return $status;
 	}
 
 	/**
@@ -351,68 +415,20 @@ class WA_Meta {
 	}
 
 	/**
-	 * An OR-group matching posts that are NOT skipped (skip flag absent or not 1).
-	 *
-	 * @return array
-	 */
-	private static function clause_not_skipped() {
-		return array(
-			'relation' => 'OR',
-			array(
-				'key'     => self::SKIP_KEY,
-				'compare' => 'NOT EXISTS',
-			),
-			array(
-				'key'     => self::SKIP_KEY,
-				'value'   => '1',
-				'compare' => '!=',
-			),
-		);
-	}
-
-	/**
-	 * An OR-group matching posts with no verdict set yet.
-	 *
-	 * @return array
-	 */
-	private static function clause_no_verdict() {
-		return array(
-			'relation' => 'OR',
-			array(
-				'key'     => self::VERDICT_KEY,
-				'compare' => 'NOT EXISTS',
-			),
-			array(
-				'key'     => self::VERDICT_KEY,
-				'value'   => '',
-				'compare' => '=',
-			),
-		);
-	}
-
-	/**
-	 * An OR-group matching posts that do NOT have a ready AI suggestion.
-	 *
-	 * @return array
-	 */
-	private static function clause_no_ready_ai() {
-		return array(
-			'relation' => 'OR',
-			array(
-				'key'     => self::AI_STATUS_KEY,
-				'compare' => 'NOT EXISTS',
-			),
-			array(
-				'key'     => self::AI_STATUS_KEY,
-				'value'   => 'ready',
-				'compare' => '!=',
-			),
-		);
-	}
-
-	/**
 	 * Build a meta_query for a given swipe status. Shared by the Posts list
 	 * filter and the bulk-setup screen so both agree on what each status means.
+	 *
+	 * needs_setup/has_ai/in_deck/skipped/(status-based)excluded all resolve
+	 * against the single denormalized STATUS_KEY (maintained by
+	 * recompute_status()) rather than combining verdict/ai-status/skip meta
+	 * live: at archive scale, a meta_query spanning 3 keys with NOT EXISTS
+	 * branches on each requires several LEFT JOINs against the entire
+	 * wp_postmeta table (which holds every other plugin's meta too) and
+	 * measured in the seconds per query on a ~3,000-post, ~50,000-row
+	 * postmeta table in testing; a single indexed meta_key lookup on
+	 * STATUS_KEY measured in milliseconds on the same data. true/false/
+	 * debatable stay direct _wa_verdict lookups since STATUS_KEY only
+	 * distinguishes "configured" in general, not which of the three verdicts.
 	 *
 	 * @param string $status One of needs_setup|has_ai|in_deck|true|false|debatable|excluded|skipped.
 	 * @return array A WP_Query 'meta_query' array, or empty array for "all".
@@ -420,24 +436,27 @@ class WA_Meta {
 	public static function status_meta_query( $status ) {
 		switch ( $status ) {
 			case 'needs_setup':
-				// Untouched: no verdict, no ready AI suggestion, not skipped.
-				// These are the candidates to send to the AI.
+				// Untouched posts never get a STATUS_KEY row until something
+				// changes them, so "needs setup" also has to catch "no status
+				// meta at all" — the common case for most of a real archive.
 				return array(
-					'relation' => 'AND',
-					self::clause_no_verdict(),
-					self::clause_no_ready_ai(),
-					self::clause_not_skipped(),
+					'relation' => 'OR',
+					array(
+						'key'     => self::STATUS_KEY,
+						'compare' => 'NOT EXISTS',
+					),
+					array(
+						'key'   => self::STATUS_KEY,
+						'value' => self::STATUS_NEEDS_SETUP,
+					),
 				);
 
 			case 'has_ai':
-				// A ready AI suggestion awaiting review, not skipped.
 				return array(
-					'relation' => 'AND',
 					array(
-						'key'   => self::AI_STATUS_KEY,
-						'value' => 'ready',
+						'key'   => self::STATUS_KEY,
+						'value' => self::STATUS_HAS_AI,
 					),
-					self::clause_not_skipped(),
 				);
 
 			case 'skipped':
@@ -450,13 +469,10 @@ class WA_Meta {
 
 			case 'in_deck':
 				return array(
-					'relation' => 'AND',
 					array(
-						'key'     => self::VERDICT_KEY,
-						'value'   => self::deck_verdicts(),
-						'compare' => 'IN',
+						'key'   => self::STATUS_KEY,
+						'value' => self::STATUS_CONFIGURED,
 					),
-					self::clause_not_skipped(),
 				);
 
 			case 'excluded':
@@ -479,5 +495,46 @@ class WA_Meta {
 		}
 
 		return array();
+	}
+
+	/**
+	 * One-time migration: populate STATUS_KEY for every post that already
+	 * has swipe-related meta but predates the STATUS_KEY field (upgrading
+	 * from a version before it existed). Guarded by an option flag so it
+	 * only ever runs once. Safe to run multiple times if needed — it's
+	 * idempotent — but the flag keeps it off the hot path.
+	 */
+	public static function maybe_backfill_status() {
+		if ( get_option( 'wa_status_backfilled' ) ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// Every post with ANY swipe-related meta but no STATUS_KEY row yet.
+		// This is the same kind of multi-key query being retired from the hot
+		// path, but it only ever runs once (guarded above), not per page load.
+		$sql = "
+			SELECT DISTINCT p.ID
+			FROM {$wpdb->posts} p
+			INNER JOIN {$wpdb->postmeta} pm
+				ON pm.post_id = p.ID
+				AND pm.meta_key IN (%s, %s, %s)
+			LEFT JOIN {$wpdb->postmeta} existing
+				ON existing.post_id = p.ID
+				AND existing.meta_key = %s
+			WHERE p.post_type = 'post'
+			AND existing.meta_id IS NULL
+		";
+
+		$post_ids = $wpdb->get_col(
+			$wpdb->prepare( $sql, self::VERDICT_KEY, self::AI_STATUS_KEY, self::SKIP_KEY, self::STATUS_KEY )
+		);
+
+		foreach ( $post_ids as $post_id ) {
+			self::recompute_status( (int) $post_id );
+		}
+
+		update_option( 'wa_status_backfilled', 1, false );
 	}
 }

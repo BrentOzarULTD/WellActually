@@ -170,12 +170,19 @@ class WA_Bulk_Setup {
 			// pending AI suggestion — it just sets it aside. Exclude wins if both.
 			if ( $skip && ! $exclude ) {
 				update_post_meta( $post_id, WA_Meta::SKIP_KEY, '1' );
+				WA_Meta::recompute_status( $post_id );
 				$counts['skipped']++;
 				continue;
 			}
 
-			// Not held: make sure the skip flag is cleared.
+			// Not held: make sure the skip flag is cleared. Recompute the
+			// denormalized status here explicitly rather than relying on
+			// apply_meta() below — if the post has no statement/verdict to
+			// change, apply_meta() takes its 'unchanged' branch and never
+			// touches status, which would leave a just-cleared skip flag's
+			// old 'skipped' status stale.
 			delete_post_meta( $post_id, WA_Meta::SKIP_KEY );
+			WA_Meta::recompute_status( $post_id );
 
 			$statement = isset( $fields['statement'] ) ? sanitize_textarea_field( $fields['statement'] ) : '';
 			$verdict   = isset( $fields['verdict'] ) ? sanitize_text_field( $fields['verdict'] ) : '';
