@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,10 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.2.3 =
+* Rename the Posts submenu screen from "Swipe Setup" to "Well Actually Setup."
+* Fix: opening that screen (and Settings → WellActually) could take tens of seconds because checking whether an AI provider is configured can involve a live round-trip to the provider (e.g. validating the key or checking account balance) — some providers do this on every check. That check is now cached for 5 minutes and cleared immediately whenever you save settings, so only the first load after a change pays the cost.
 
 = 1.2.2 =
 * Add a "Settings" quick link to this plugin's row on the Plugins list page.

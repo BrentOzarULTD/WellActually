@@ -59,8 +59,8 @@ class WA_Bulk_Setup {
 	public function register_page() {
 		$this->hook = add_submenu_page(
 			'edit.php',
-			__( 'Swipe Setup', 'wellactually' ),
-			__( 'Swipe Setup', 'wellactually' ),
+			__( 'Well Actually Setup', 'wellactually' ),
+			__( 'Well Actually Setup', 'wellactually' ),
 			'edit_posts',
 			self::MENU_SLUG,
 			array( $this, 'render_page' )
@@ -252,7 +252,7 @@ class WA_Bulk_Setup {
 		$query = $this->build_query( $args );
 
 		echo '<div class="wrap wa-bulk-setup">';
-		echo '<h1>' . esc_html__( 'Swipe Setup', 'wellactually' ) . '</h1>';
+		echo '<h1>' . esc_html__( 'Well Actually Setup', 'wellactually' ) . '</h1>';
 		echo '<p class="description">' . esc_html__( 'Add a swipe statement and mark it True, False, or Debatable — or exclude a post from swipe mode entirely. Fill in as many as you like, then Save at the bottom.', 'wellactually' ) . '</p>';
 
 		$this->render_notice();
