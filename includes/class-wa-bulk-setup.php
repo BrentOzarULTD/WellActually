@@ -140,7 +140,26 @@ class WA_Bulk_Setup {
 			}
 		}
 
+		// Never serve this screen from WP_Query's cached result set. The
+		// status this screen filters on lives in post meta, and WordPress
+		// keys its post-query cache to a marker that only moves when a POST
+		// changes — not when its meta does. On hosts with a persistent
+		// object cache that leaves a window (observed at ~30-60 seconds on
+		// managed hosting, i.e. the cache entry's own TTL) where saving a
+		// page and landing back on the same filtered view re-serves the
+		// posts that were just handled. Rather than trying to out-guess
+		// each host's invalidation, this one admin query — 20 rows, already
+		// a single indexed lookup — simply always reads live.
+		$query_args['cache_results'] = false;
+
 		$query = new WP_Query( $query_args );
+
+		// cache_results=false also skips WP's bulk meta priming, and both
+		// the verify pass and the render loop read several meta keys per
+		// row. Prime them in one query instead of ~20.
+		if ( ! empty( $query->posts ) ) {
+			update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
+		}
 
 		$this->verify_page_statuses( $query, $args['status'] );
 
@@ -626,7 +645,9 @@ class WA_Bulk_Setup {
 					while ( $query->have_posts() ) :
 						$query->the_post();
 						$post_id   = get_the_ID();
-						$statement = get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true );
+						// Decoded for editing: an author should see (and save) a
+						// real apostrophe, not a stored "&#8217;".
+						$statement = WA_Meta::plain_text( get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true ) );
 						$verdict   = get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true );
 						$excluded  = ( WA_Meta::VERDICT_EXCLUDED === $verdict );
 						$skipped   = ( '1' === get_post_meta( $post_id, WA_Meta::SKIP_KEY, true ) );
@@ -641,7 +662,7 @@ class WA_Bulk_Setup {
 							$ai_stmt = get_post_meta( $post_id, WA_Meta::AI_STATEMENT_KEY, true );
 							$ai_vdct = get_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY, true );
 							if ( '' !== $ai_stmt && in_array( $ai_vdct, WA_Meta::deck_verdicts(), true ) ) {
-								$statement = $ai_stmt;
+								$statement = WA_Meta::plain_text( $ai_stmt );
 								$verdict   = $ai_vdct;
 								$is_ai     = true;
 							}
@@ -661,7 +682,7 @@ class WA_Bulk_Setup {
 						<tr class="<?php echo esc_attr( $row_classes ); ?>" data-post="<?php echo esc_attr( $post_id ); ?>">
 							<td class="wa-col-post">
 								<strong>
-									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? get_the_title() : __( '(no title)', 'wellactually' ) ); ?></a>
+									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? WA_Meta::plain_text( get_the_title() ) : __( '(no title)', 'wellactually' ) ); ?></a>
 								</strong>
 								<div class="wa-post-meta">
 									<?php echo esc_html( get_the_date() ); ?>
@@ -769,7 +790,7 @@ class WA_Bulk_Setup {
 	 */
 	private function post_preview( $post ) {
 		if ( has_excerpt( $post ) ) {
-			return wp_strip_all_tags( get_the_excerpt( $post ) );
+			return WA_Meta::plain_text( wp_strip_all_tags( get_the_excerpt( $post ) ) );
 		}
 
 		$content = get_the_content( '', false, $post );
@@ -778,6 +799,8 @@ class WA_Bulk_Setup {
 			$content = excerpt_remove_blocks( $content );
 		}
 		$content = wp_strip_all_tags( $content );
+		// Decode before trimming so a word-trim can't slice an entity in half.
+		$content = WA_Meta::plain_text( $content );
 		$content = trim( preg_replace( '/\s+/', ' ', $content ) );
 
 		return wp_trim_words( $content, 55, '…' );

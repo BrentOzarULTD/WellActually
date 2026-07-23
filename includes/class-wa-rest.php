@@ -259,7 +259,7 @@ class WA_Rest {
 			}
 			$cards[] = array(
 				'id'        => (int) $post_id,
-				'statement' => $statement,
+				'statement' => WA_Meta::plain_text( $statement ),
 			);
 		}
 
@@ -315,14 +315,18 @@ class WA_Rest {
 
 		$stats = WA_Stats::get( $post_id );
 
+		// Decode entities before trimming, so a word-trim can never cut an
+		// entity in half — and before handing off to the frontend, which
+		// escapes these itself.
 		$excerpt = wp_strip_all_tags( strip_shortcodes( get_the_excerpt( $post ) ) );
+		$excerpt = WA_Meta::plain_text( $excerpt );
 		$excerpt = wp_trim_words( $excerpt, 40, '…' );
 
 		$response = array(
 			'verdict'    => $verdict,
 			'correct'    => $correct,
 			'show_post'  => $show_post,
-			'title'      => get_the_title( $post ),
+			'title'      => WA_Meta::plain_text( get_the_title( $post ) ),
 			'excerpt'    => $excerpt,
 			'url'        => get_permalink( $post ),
 			'pct_agreed' => $stats['pct_agreed'],

@@ -135,7 +135,8 @@ class WA_Meta {
 	public function render_meta_box( $post ) {
 		wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME );
 
-		$statement = get_post_meta( $post->ID, self::STATEMENT_KEY, true );
+		// Decoded for editing: show a real apostrophe, not a stored "&#8217;".
+		$statement = self::plain_text( get_post_meta( $post->ID, self::STATEMENT_KEY, true ) );
 		$verdict   = get_post_meta( $post->ID, self::VERDICT_KEY, true );
 		?>
 		<p>
@@ -282,6 +283,25 @@ class WA_Meta {
 		wp_cache_set_posts_last_changed();
 
 		return $status;
+	}
+
+	/**
+	 * Decode HTML entities into real characters, for text that's about to be
+	 * handed to something that will do its own escaping (the swipe frontend's
+	 * JSON payloads, an esc_html() call in an admin template).
+	 *
+	 * Post titles and excerpts routinely arrive entity-encoded — WordPress
+	 * stores them that way and get_the_title()/get_the_excerpt() apply
+	 * filters that add more — so escaping them a second time is what turns a
+	 * curly apostrophe into a literal "&#8217;" on screen. Note this has to
+	 * be html_entity_decode(), not wp_specialchars_decode(): the latter only
+	 * handles &amp;/&lt;/&gt;/&quot;/&#039; and would leave &#8217; alone.
+	 *
+	 * @param string $text Possibly entity-encoded text.
+	 * @return string Plain text.
+	 */
+	public static function plain_text( $text ) {
+		return html_entity_decode( (string) $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 	}
 
 	/**

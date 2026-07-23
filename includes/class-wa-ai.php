@@ -213,6 +213,11 @@ class WA_AI {
 			'no_found_rows'       => true,
 			'ignore_sticky_posts' => true,
 			'meta_query'          => WA_Meta::status_meta_query( 'needs_setup' ),
+			// Always read live: this filters on a meta-backed status, which
+			// WP's post-query cache doesn't invalidate on (see the same note
+			// in WA_Bulk_Setup::build_query()). A stale list here would spend
+			// real AI calls re-drafting posts that were just set up.
+			'cache_results'       => false,
 		);
 
 		if ( $cat > 0 ) {
