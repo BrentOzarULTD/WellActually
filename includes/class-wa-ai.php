@@ -224,7 +224,9 @@ class WA_AI {
 			$args['cat'] = (int) $cat;
 		}
 
-		$excluded_cats = wa_get_setting( 'excluded_categories', array() );
+		// Via the helper, not the raw setting: it expands a skipped category
+		// to its descendants, which the bulk-setup screen also relies on.
+		$excluded_cats = WA_Settings::excluded_categories();
 		if ( ! empty( $excluded_cats ) ) {
 			$args['category__not_in'] = $excluded_cats;
 		}
