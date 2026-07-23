@@ -374,8 +374,8 @@ class WellActually_Settings {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'       => 'wellactually',
-					'tab'        => 'setup',
+					'page'                 => 'wellactually',
+					'tab'                  => 'setup',
 					'wellactually_rebuilt' => (int) $fixed,
 				),
 				admin_url( 'options-general.php' )

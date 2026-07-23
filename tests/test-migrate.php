@@ -47,9 +47,9 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 	/**
 	 * A legacy site that never saved the settings form still has to migrate.
 	 *
-	 * register_setting() doesn't create `wa_settings` — it only appears once
-	 * an administrator saves Settings → "Well, Actually...". A site set up
-	 * entirely through Posts → "Well, Actually..." therefore has swipe meta
+	 * Calling register_setting() doesn't create `wa_settings` — it appears
+	 * only once an administrator saves Settings → "Well, Actually...". A site
+	 * set up entirely through Posts → "Well, Actually..." has swipe meta
 	 * and user progress with no settings row at all, and an earlier version
 	 * of this migration mistook exactly that for a fresh install and skipped
 	 * it, stranding the data permanently.

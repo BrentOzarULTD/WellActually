@@ -140,7 +140,7 @@ class WellActually_Migrate {
 	/**
 	 * Take the migration lock, or report that someone else holds it.
 	 *
-	 * add_option() is the test-and-set: option_name is uniquely indexed, so
+	 * The test-and-set is add_option(): option_name is uniquely indexed, so
 	 * exactly one concurrent caller can insert the row.
 	 *
 	 * @return bool

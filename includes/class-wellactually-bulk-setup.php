@@ -112,7 +112,7 @@ class WellActually_Bulk_Setup {
 				'reviewUrl'   => esc_url_raw(
 					add_query_arg(
 						array(
-							'page'      => self::MENU_SLUG,
+							'page'                => self::MENU_SLUG,
 							'wellactually_status' => 'has_ai',
 						),
 						admin_url( 'edit.php' )
@@ -418,12 +418,12 @@ class WellActually_Bulk_Setup {
 
 		$redirect = add_query_arg(
 			array(
-				'page'          => self::MENU_SLUG,
+				'page'                    => self::MENU_SLUG,
 				'wellactually_status'     => $args['status'],
 				'wellactually_cat'        => $args['cat'],
 				'wellactually_order'      => $args['order'],
 				'wellactually_orderby'    => $args['orderby'],
-				'paged'         => $args['paged'],
+				'paged'                   => $args['paged'],
 				'wellactually_configured' => $counts['configured'],
 				'wellactually_excluded'   => $counts['excluded'],
 				'wellactually_cleared'    => $counts['cleared'],
@@ -610,7 +610,7 @@ class WellActually_Bulk_Setup {
 		if ( $counts['ready'] > 0 ) {
 			$review_url = add_query_arg(
 				array(
-					'page'      => self::MENU_SLUG,
+					'page'                => self::MENU_SLUG,
 					'wellactually_status' => 'has_ai',
 				),
 				admin_url( 'edit.php' )
@@ -865,12 +865,12 @@ class WellActually_Bulk_Setup {
 
 		$base = add_query_arg(
 			array(
-				'page'       => self::MENU_SLUG,
+				'page'                 => self::MENU_SLUG,
 				'wellactually_status'  => $args['status'],
 				'wellactually_cat'     => $args['cat'],
 				'wellactually_order'   => $args['order'],
 				'wellactually_orderby' => $args['orderby'],
-				'paged'      => '%#%',
+				'paged'                => '%#%',
 			),
 			admin_url( 'edit.php' )
 		);
