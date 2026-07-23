@@ -50,8 +50,51 @@ class WA_Settings {
 	 */
 	public static function defaults() {
 		return array(
-			'slug' => 'swipe',
+			'slug'        => 'swipe',
+			'ai_provider' => '',
+			'ai_model'    => '',
 		);
+	}
+
+	/**
+	 * Registered AI providers, keyed by provider id => display name.
+	 *
+	 * @return array
+	 */
+	public static function ai_providers() {
+		$providers = array();
+
+		if ( ! function_exists( 'wp_get_connectors' ) ) {
+			return $providers;
+		}
+
+		foreach ( wp_get_connectors() as $id => $connector ) {
+			$type = isset( $connector['type'] ) ? $connector['type'] : '';
+			if ( 'ai_provider' !== $type ) {
+				continue;
+			}
+			$providers[ $id ] = isset( $connector['name'] ) ? $connector['name'] : $id;
+		}
+
+		return $providers;
+	}
+
+	/**
+	 * Whether a given AI provider currently has usable credentials.
+	 *
+	 * @param string $provider_id Provider id.
+	 * @return bool
+	 */
+	public static function is_ai_provider_configured( $provider_id ) {
+		if ( '' === $provider_id || ! class_exists( '\WordPress\AiClient\AiClient' ) ) {
+			return false;
+		}
+		try {
+			$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+			return $registry->hasProvider( $provider_id ) && $registry->isProviderConfigured( $provider_id );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
 	}
 
 	/**
@@ -108,6 +151,29 @@ class WA_Settings {
 			'well-actually',
 			'wa_settings_section'
 		);
+
+		add_settings_section(
+			'wa_ai_section',
+			__( 'AI drafting', 'well-actually' ),
+			array( $this, 'render_ai_section_intro' ),
+			'well-actually'
+		);
+
+		add_settings_field(
+			'wa_ai_provider',
+			__( 'AI provider', 'well-actually' ),
+			array( $this, 'render_ai_provider_field' ),
+			'well-actually',
+			'wa_ai_section'
+		);
+
+		add_settings_field(
+			'wa_ai_model',
+			__( 'AI model', 'well-actually' ),
+			array( $this, 'render_ai_model_field' ),
+			'well-actually',
+			'wa_ai_section'
+		);
 	}
 
 	/**
@@ -123,7 +189,66 @@ class WA_Settings {
 		$slug            = isset( $input['slug'] ) ? sanitize_title( $input['slug'] ) : '';
 		$output['slug']  = ( '' !== $slug ) ? $slug : $defaults['slug'];
 
+		// AI provider must be one of the registered AI providers.
+		$provider              = isset( $input['ai_provider'] ) ? sanitize_text_field( $input['ai_provider'] ) : '';
+		$output['ai_provider'] = array_key_exists( $provider, self::ai_providers() ) ? $provider : '';
+
+		// Model id is free text (providers like Nano-GPT proxy many models).
+		$output['ai_model'] = isset( $input['ai_model'] ) ? sanitize_text_field( $input['ai_model'] ) : '';
+
 		return $output;
+	}
+
+	/**
+	 * Intro text for the AI drafting section.
+	 */
+	public function render_ai_section_intro() {
+		if ( function_exists( 'wp_supports_ai' ) && wp_supports_ai() ) {
+			$providers = self::ai_providers();
+			if ( empty( $providers ) ) {
+				echo '<p>' . esc_html__( 'No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting.', 'well-actually' ) . '</p>';
+			} else {
+				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the Swipe Setup screen. You can change these between batches.', 'well-actually' ) . '</p>';
+			}
+		} else {
+			echo '<p>' . esc_html__( 'AI features are not available in this environment.', 'well-actually' ) . '</p>';
+		}
+	}
+
+	/**
+	 * Render the AI provider dropdown.
+	 */
+	public function render_ai_provider_field() {
+		$settings  = self::get_settings();
+		$providers = self::ai_providers();
+		?>
+		<select name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_provider]">
+			<option value=""><?php esc_html_e( '— Select a provider —', 'well-actually' ); ?></option>
+			<?php foreach ( $providers as $id => $name ) : ?>
+				<?php $configured = self::is_ai_provider_configured( $id ); ?>
+				<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $settings['ai_provider'], $id ); ?>>
+					<?php
+					echo esc_html( $name );
+					if ( ! $configured ) {
+						echo ' ' . esc_html__( '(no API key set)', 'well-actually' );
+					}
+					?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+		<p class="description"><?php esc_html_e( 'Providers come from your WordPress AI connector settings.', 'well-actually' ); ?></p>
+		<?php
+	}
+
+	/**
+	 * Render the AI model text field.
+	 */
+	public function render_ai_model_field() {
+		$settings = self::get_settings();
+		?>
+		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. gpt-4o-mini', 'well-actually' ); ?>" />
+		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the provider default.', 'well-actually' ); ?></p>
+		<?php
 	}
 
 	/**

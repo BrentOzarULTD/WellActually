@@ -23,6 +23,11 @@ delete_option( 'wa_db_version' );
 // Remove all post meta added by the plugin.
 delete_post_meta_by_key( '_wa_statement' );
 delete_post_meta_by_key( '_wa_verdict' );
+delete_post_meta_by_key( '_wa_ai_statement' );
+delete_post_meta_by_key( '_wa_ai_verdict' );
+delete_post_meta_by_key( '_wa_ai_status' );
+delete_post_meta_by_key( '_wa_ai_error' );
+delete_post_meta_by_key( '_wa_skip' );
 
 // Remove user meta added by the plugin.
 $wpdb->query( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = '_wa_progress'" );

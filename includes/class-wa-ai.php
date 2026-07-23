@@ -1,0 +1,458 @@
+<?php
+/**
+ * AI drafting engine: turn a blog post into a suggested swipe statement +
+ * verdict using WordPress 7's AI client, stored as a reviewable draft.
+ *
+ * @package WellActually
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Builds prompts, calls the AI provider, and stores draft suggestions.
+ */
+class WA_AI {
+
+	const STATUS_QUEUED = 'queued';
+	const STATUS_READY  = 'ready';
+	const STATUS_ERROR  = 'error';
+
+	// Safety cap on how much post text we send, to avoid pathological token
+	// blowups on unusually long posts. "Full content" for all realistic posts.
+	const MAX_CONTENT_CHARS = 30000;
+
+	/**
+	 * Singleton instance.
+	 *
+	 * @var WA_AI|null
+	 */
+	private static $instance = null;
+
+	/**
+	 * Get the singleton instance.
+	 *
+	 * @return WA_AI
+	 */
+	public static function instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	/**
+	 * Constructor.
+	 */
+	private function __construct() {
+		add_action( 'rest_api_init', array( $this, 'register_routes' ) );
+	}
+
+	/**
+	 * Register the admin-only AI REST routes.
+	 */
+	public function register_routes() {
+		$permission = function () {
+			return current_user_can( 'edit_posts' );
+		};
+
+		register_rest_route(
+			'well-actually/v1',
+			'/ai/enqueue',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'handle_enqueue' ),
+				'permission_callback' => $permission,
+				'args'                => array(
+					'count' => array(
+						'type'              => 'integer',
+						'default'           => 10,
+						'sanitize_callback' => 'absint',
+					),
+					'cat'   => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			'well-actually/v1',
+			'/ai/process',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( $this, 'handle_process' ),
+				'permission_callback' => $permission,
+			)
+		);
+	}
+
+	/**
+	 * REST: queue up to N needs-setup posts for drafting.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public function handle_enqueue( WP_REST_Request $request ) {
+		$count = min( 200, max( 1, (int) $request->get_param( 'count' ) ) );
+		$cat   = (int) $request->get_param( 'cat' );
+
+		$ids    = self::select_candidates( $count, $cat );
+		$queued = self::enqueue( $ids );
+
+		$response = new WP_REST_Response(
+			array(
+				'queued' => $queued,
+				'ids'    => $ids,
+				'counts' => self::queue_counts(),
+			),
+			200
+		);
+		$response->header( 'Cache-Control', 'no-store' );
+		return $response;
+	}
+
+	/**
+	 * REST: process the next queued post (one per call).
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function handle_process() {
+		$post_id = self::next_queued_id();
+
+		$processed = null;
+		if ( $post_id ) {
+			$result    = self::draft_for_post( $post_id );
+			$processed = array_merge(
+				array(
+					'post_id' => $post_id,
+					'title'   => get_the_title( $post_id ),
+					'url'     => get_edit_post_link( $post_id, 'raw' ),
+				),
+				$result
+			);
+		}
+
+		$response = new WP_REST_Response(
+			array(
+				'processed' => $processed,
+				'counts'    => self::queue_counts(),
+			),
+			200
+		);
+		$response->header( 'Cache-Control', 'no-store' );
+		return $response;
+	}
+
+	/**
+	 * Whether AI drafting is usable right now (support + a configured provider).
+	 *
+	 * @return bool
+	 */
+	public static function is_available() {
+		$available = true;
+
+		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
+			$available = false;
+		} else {
+			$provider  = wa_get_setting( 'ai_provider', '' );
+			$available = '' !== $provider && WA_Settings::is_ai_provider_configured( $provider );
+		}
+
+		/**
+		 * Filter whether AI drafting is available. Lets integrations (or tests)
+		 * override the default provider-configured check.
+		 *
+		 * @param bool $available Whether drafting is available.
+		 */
+		return (bool) apply_filters( 'wa_ai_available', $available );
+	}
+
+	/**
+	 * Mark posts as queued for AI drafting.
+	 *
+	 * @param int[] $post_ids Post IDs.
+	 * @return int Number of posts queued.
+	 */
+	public static function enqueue( array $post_ids ) {
+		$queued = 0;
+		foreach ( $post_ids as $post_id ) {
+			$post_id = absint( $post_id );
+			if ( ! $post_id ) {
+				continue;
+			}
+			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_QUEUED );
+			delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+			$queued++;
+		}
+		return $queued;
+	}
+
+	/**
+	 * Select up to $limit "needs setup" post IDs to draft, optionally within a
+	 * category. Skips posts that already have a queued or ready suggestion.
+	 *
+	 * @param int $limit Maximum number of posts.
+	 * @param int $cat   Category term id, or 0 for all.
+	 * @return int[]
+	 */
+	public static function select_candidates( $limit, $cat = 0 ) {
+		$args = array(
+			'post_type'           => 'post',
+			'post_status'         => 'publish',
+			'fields'              => 'ids',
+			'posts_per_page'      => max( 1, (int) $limit ),
+			'orderby'             => 'date',
+			'order'               => 'DESC',
+			'no_found_rows'       => true,
+			'ignore_sticky_posts' => true,
+			'meta_query'          => WA_Meta::status_meta_query( 'needs_setup' ),
+		);
+
+		if ( $cat > 0 ) {
+			$args['cat'] = (int) $cat;
+		}
+
+		$query = new WP_Query( $args );
+		return array_map( 'intval', $query->posts );
+	}
+
+	/**
+	 * Get the next queued post id (oldest queued first), or 0 if none.
+	 *
+	 * @return int
+	 */
+	public static function next_queued_id() {
+		$query = new WP_Query(
+			array(
+				'post_type'      => 'post',
+				'post_status'    => 'publish',
+				'fields'         => 'ids',
+				'posts_per_page' => 1,
+				'orderby'        => 'ID',
+				'order'          => 'ASC',
+				'no_found_rows'  => true,
+				'meta_query'     => array(
+					array(
+						'key'   => WA_Meta::AI_STATUS_KEY,
+						'value' => self::STATUS_QUEUED,
+					),
+				),
+			)
+		);
+
+		return $query->posts ? (int) $query->posts[0] : 0;
+	}
+
+	/**
+	 * Count posts in each AI status.
+	 *
+	 * @return array { queued: int, ready: int, error: int }
+	 */
+	public static function queue_counts() {
+		$counts = array(
+			'queued' => 0,
+			'ready'  => 0,
+			'error'  => 0,
+		);
+
+		foreach ( array_keys( $counts ) as $status ) {
+			$query           = new WP_Query(
+				array(
+					'post_type'      => 'post',
+					'post_status'    => 'publish',
+					'fields'         => 'ids',
+					'posts_per_page' => 1,
+					'no_found_rows'  => false,
+					'meta_query'     => array(
+						array(
+							'key'   => WA_Meta::AI_STATUS_KEY,
+							'value' => $status,
+						),
+					),
+				)
+			);
+			$counts[ $status ] = (int) $query->found_posts;
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Draft a suggestion for a single post: build the prompt, call the AI, and
+	 * store the result (or an error) in the post's AI meta.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array { status: 'ready'|'error', statement?: string, verdict?: string, error?: string }
+	 */
+	public static function draft_for_post( $post_id ) {
+		$post = get_post( $post_id );
+		if ( ! $post || 'post' !== $post->post_type ) {
+			return self::store_error( $post_id, __( 'Invalid post.', 'well-actually' ) );
+		}
+
+		$provider = wa_get_setting( 'ai_provider', '' );
+		$model    = wa_get_setting( 'ai_model', '' );
+
+		/**
+		 * Short-circuit the AI call with a pre-built result. Return an array
+		 * with 'statement' and 'verdict' to bypass the provider entirely (used
+		 * for testing and for custom integrations); return null to proceed.
+		 *
+		 * @param array|null $result   The drafted result, or null to run the provider.
+		 * @param WP_Post    $post     The post being drafted.
+		 * @param string     $provider Selected provider id.
+		 * @param string     $model    Selected model id.
+		 */
+		$pre = apply_filters( 'wa_ai_pre_draft', null, $post, $provider, $model );
+		if ( is_array( $pre ) ) {
+			return self::store_result( $post_id, $pre );
+		}
+
+		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
+			return self::store_error( $post_id, __( 'AI is not available in this environment.', 'well-actually' ) );
+		}
+		if ( '' === $provider ) {
+			return self::store_error( $post_id, __( 'No AI provider is selected in settings.', 'well-actually' ) );
+		}
+
+		try {
+			$builder = wp_ai_client_prompt( self::user_prompt( $post ) )
+				->usingSystemInstruction( self::system_instruction() );
+
+			if ( '' !== $model ) {
+				$builder = $builder->usingModelPreference( array( $provider, $model ) );
+			} else {
+				$builder = $builder->usingProvider( $provider );
+			}
+
+			$json = $builder->asJsonResponse( self::response_schema() )->generateText();
+		} catch ( \Throwable $e ) {
+			return self::store_error( $post_id, $e->getMessage() );
+		}
+
+		$data = json_decode( $json, true );
+		if ( ! is_array( $data ) || empty( $data['statement'] ) || empty( $data['verdict'] ) ) {
+			return self::store_error( $post_id, __( 'The AI returned an unexpected response.', 'well-actually' ) );
+		}
+
+		return self::store_result( $post_id, $data );
+	}
+
+	/**
+	 * Store a successful draft.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param array $data    { statement: string, verdict: string }.
+	 * @return array
+	 */
+	private static function store_result( $post_id, $data ) {
+		$statement = isset( $data['statement'] ) ? sanitize_textarea_field( $data['statement'] ) : '';
+		$verdict   = isset( $data['verdict'] ) ? sanitize_text_field( $data['verdict'] ) : '';
+
+		if ( '' === $statement || ! in_array( $verdict, WA_Meta::deck_verdicts(), true ) ) {
+			return self::store_error( $post_id, __( 'The AI returned an incomplete draft.', 'well-actually' ) );
+		}
+
+		update_post_meta( $post_id, WA_Meta::AI_STATEMENT_KEY, $statement );
+		update_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY, $verdict );
+		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_READY );
+		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
+
+		return array(
+			'status'    => self::STATUS_READY,
+			'statement' => $statement,
+			'verdict'   => $verdict,
+		);
+	}
+
+	/**
+	 * Store a draft error.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $message Error message.
+	 * @return array
+	 */
+	private static function store_error( $post_id, $message ) {
+		$message = sanitize_text_field( $message );
+		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, self::STATUS_ERROR );
+		update_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, $message );
+
+		return array(
+			'status' => self::STATUS_ERROR,
+			'error'  => $message,
+		);
+	}
+
+	/**
+	 * The system instruction describing the drafting task.
+	 *
+	 * @return string
+	 */
+	private static function system_instruction() {
+		$instruction = 'You write one-line "swipe statements" for a knowledge game on a technical blog (databases, SQL Server, performance). '
+			. "Given one blog post, produce a single statement a reader can agree or disagree with, plus the correct verdict:\n"
+			. "- \"true\": the statement is accurate and the post supports it.\n"
+			. "- \"false\": the statement is a common misconception that the post debunks or corrects.\n"
+			. "- \"debatable\": reasonable experts disagree, or the honest answer is \"it depends\".\n"
+			. "Choose whichever makes the most engaging swipe for THIS post; a varied mix across posts is good. "
+			. 'Keep the statement concrete and under about 15 words, with no hedging and no question marks. '
+			. 'Base it only on the post content. Respond only as JSON matching the provided schema.';
+
+		/**
+		 * Filter the AI system instruction used for drafting swipe statements.
+		 *
+		 * @param string $instruction The system instruction.
+		 */
+		return (string) apply_filters( 'wa_ai_system_instruction', $instruction );
+	}
+
+	/**
+	 * Build the user prompt (title + plain-text content) for a post.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @return string
+	 */
+	private static function user_prompt( $post ) {
+		$content = get_the_content( '', false, $post );
+		$content = strip_shortcodes( $content );
+		if ( function_exists( 'excerpt_remove_blocks' ) ) {
+			$content = excerpt_remove_blocks( $content );
+		}
+		$content = wp_strip_all_tags( $content );
+		$content = trim( preg_replace( '/\n{3,}/', "\n\n", $content ) );
+
+		if ( strlen( $content ) > self::MAX_CONTENT_CHARS ) {
+			$content = substr( $content, 0, self::MAX_CONTENT_CHARS );
+		}
+
+		return 'Title: ' . get_the_title( $post ) . "\n\nContent:\n" . $content;
+	}
+
+	/**
+	 * The JSON output schema for the drafted result.
+	 *
+	 * @return array
+	 */
+	private static function response_schema() {
+		return array(
+			'type'                 => 'object',
+			'properties'           => array(
+				'statement' => array(
+					'type'        => 'string',
+					'description' => 'A one-line statement the reader can agree or disagree with.',
+				),
+				'verdict'   => array(
+					'type'        => 'string',
+					'enum'        => array( 'true', 'false', 'debatable' ),
+					'description' => 'The correct answer for the statement.',
+				),
+			),
+			'required'             => array( 'statement', 'verdict' ),
+			'additionalProperties' => false,
+		);
+	}
+}
