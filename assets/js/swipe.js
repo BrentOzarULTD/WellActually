@@ -359,9 +359,14 @@
 			var seenPosition = state.progress.answered_count + 1;
 			totalLabel = state.total > 0 ? seenPosition + ' of ' + state.total : String( seenPosition );
 		}
-		var hintText = isCoarsePointer
-			? waSwipeStrings().hintTouch
-			: waSwipeStrings().hintKeyboard;
+		// Where the control hints used to sit: the buttons say what they do,
+		// so the space is better spent on something the player can't work out
+		// for themselves. Only shown once a card has enough swipes to mean
+		// anything, and never on a debatable card (which has no wrong answer,
+		// so a figure there would give the verdict away).
+		var footNote = ( 'number' === typeof card.pct_wrong )
+			? card.pct_wrong + '% got this one wrong'
+			: '';
 
 		appEl.innerHTML =
 			'<div class="wa-game">' +
@@ -385,7 +390,7 @@
 			'<button type="button" class="wa-btn wa-btn-unsure" data-answer="unsure">&uarr; ' + escapeHtml( waSwipeStrings().unsure ) + '</button>' +
 			'<button type="button" class="wa-btn wa-btn-agree" data-answer="agree">' + escapeHtml( waSwipeStrings().agree ) + ' &rarr;</button>' +
 			'</div>' +
-			'<p class="wa-hint-text">' + escapeHtml( hintText ) + '</p>' +
+			( footNote ? '<p class="wa-hint-text">' + escapeHtml( footNote ) + '</p>' : '' ) +
 			'</div>';
 
 		var buttons = appEl.querySelectorAll( '[data-answer]' );
@@ -570,8 +575,6 @@
 			agree: 'Agree',
 			disagree: 'Disagree',
 			unsure: 'Not sure',
-			hintKeyboard: '← Disagree   ↑ Not sure   Agree →',
-			hintTouch: 'Swipe left to disagree, up if not sure, right to agree',
 			scoreLabel: function ( correct, answered ) {
 				return correct + '/' + answered + ' correct';
 			},
@@ -1369,6 +1372,63 @@
 		// fires immediately and reliably for mouse/touch; 'click' remains as
 		// the fallback for keyboard activation. dismiss()'s own guard makes
 		// it safe if both fire for the same interaction.
+		// Swipe the reveal card sideways to carry on, so the gesture that got
+		// the player here also gets them out — no need to travel to a button.
+		// Horizontal only: the card scrolls vertically when it's taller than
+		// the screen, and stealing that would trap longer reveals.
+		( function attachRevealSwipe() {
+			var SWIPE_DISMISS_PX = 90;
+			var startX = 0, startY = 0, tracking = false, pointerId = null;
+
+			cardEl.addEventListener( 'pointerdown', function ( e ) {
+				// Leave links and the button to their own handlers.
+				if ( e.target.closest( 'a, button' ) ) { return; }
+				if ( e.button !== undefined && e.button !== 0 ) { return; }
+				tracking = true;
+				pointerId = e.pointerId;
+				startX = e.clientX;
+				startY = e.clientY;
+			} );
+
+			cardEl.addEventListener( 'pointermove', function ( e ) {
+				if ( ! tracking || e.pointerId !== pointerId ) { return; }
+
+				var dx = e.clientX - startX;
+				var dy = e.clientY - startY;
+
+				// Vertical intent means they're scrolling the card, not
+				// dismissing it.
+				if ( Math.abs( dy ) > Math.abs( dx ) ) {
+					tracking = false;
+					cardEl.style.transform = '';
+					return;
+				}
+
+				if ( ! prefersReducedMotion ) {
+					cardEl.style.transform = 'translateX(' + dx + 'px)';
+					cardEl.style.transition = 'none';
+				}
+
+				if ( Math.abs( dx ) >= SWIPE_DISMISS_PX ) {
+					tracking = false;
+					cardEl.style.transform = '';
+					cardEl.style.transition = '';
+					dismiss();
+				}
+			} );
+
+			function endTracking() {
+				if ( ! tracking ) { return; }
+				tracking = false;
+				// Didn't travel far enough — spring back.
+				cardEl.style.transition = '';
+				cardEl.style.transform = '';
+			}
+
+			cardEl.addEventListener( 'pointerup', endTracking );
+			cardEl.addEventListener( 'pointercancel', endTracking );
+		} )();
+
 		continueBtn.addEventListener( 'pointerdown', dismiss );
 		continueBtn.addEventListener( 'click', dismiss );
 		overlay.addEventListener( 'keydown', onKeydown );

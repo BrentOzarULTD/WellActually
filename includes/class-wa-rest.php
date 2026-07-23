@@ -251,16 +251,33 @@ class WA_Rest {
 		$query = new WP_Query( $args );
 		$ids   = $query->posts;
 
+		// One lookup for the whole batch (see WA_Stats::get_many()).
+		$stats = WA_Stats::get_many( $ids );
+
 		$cards = array();
 		foreach ( $ids as $post_id ) {
 			$statement = get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true );
 			if ( '' === $statement ) {
 				continue;
 			}
-			$cards[] = array(
+
+			$card = array(
 				'id'        => (int) $post_id,
 				'statement' => WA_Meta::plain_text( $statement ),
 			);
+
+			$pct_wrong = self::pct_wrong(
+				get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true ),
+				isset( $stats[ $post_id ] ) ? $stats[ $post_id ] : null
+			);
+
+			// Only the number goes out, never the verdict it was derived
+			// from — that would hand the player the answer.
+			if ( null !== $pct_wrong ) {
+				$card['pct_wrong'] = $pct_wrong;
+			}
+
+			$cards[] = $card;
 		}
 
 		$total = ! empty( $include ) ? count( $include ) : self::get_eligible_total();
@@ -336,6 +353,48 @@ class WA_Rest {
 		$rest_response->header( 'Cache-Control', 'no-store' );
 
 		return $rest_response;
+	}
+
+	// Below this many swipes a percentage is noise rather than information
+	// ("100% got this wrong" off a single answer), so the card shows nothing.
+	// Low enough that a new quiz starts showing figures quickly; raise it with
+	// the wa_min_swipes_for_stat filter to wait for a steadier sample.
+	const MIN_SWIPES_FOR_STAT = 5;
+
+	/**
+	 * What share of players got a card wrong, or null when it shouldn't be
+	 * shown.
+	 *
+	 * Wrong means "not the correct answer", so an unsure counts as wrong on a
+	 * true/false card. A debatable card has no wrong answer, so it never
+	 * shows a figure (and showing 0% would quietly reveal the verdict).
+	 *
+	 * @param string     $verdict The post's verdict.
+	 * @param array|null $stat    Row from WA_Stats::get_many().
+	 * @return int|null Percentage 0-100, or null.
+	 */
+	private static function pct_wrong( $verdict, $stat ) {
+		/**
+		 * Filter how many swipes a card needs before it shows what share of
+		 * players got it wrong.
+		 *
+		 * @param int $minimum Minimum recorded swipes.
+		 */
+		$minimum = (int) apply_filters( 'wa_min_swipes_for_stat', self::MIN_SWIPES_FOR_STAT );
+
+		if ( empty( $stat ) || $stat['total'] < max( 1, $minimum ) ) {
+			return null;
+		}
+
+		if ( 'true' === $verdict ) {
+			$wrong = $stat['disagree'] + $stat['unsure'];
+		} elseif ( 'false' === $verdict ) {
+			$wrong = $stat['agree'] + $stat['unsure'];
+		} else {
+			return null;
+		}
+
+		return (int) round( ( $wrong / $stat['total'] ) * 100 );
 	}
 
 	/**
