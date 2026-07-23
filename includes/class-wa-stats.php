@@ -176,6 +176,53 @@ class WA_Stats {
 	}
 
 	/**
+	 * Stats for many posts in one query.
+	 *
+	 * The deck hands out 20 cards at a time and wants a stat for each; this
+	 * keeps that to a single primary-key lookup rather than 20 round trips.
+	 *
+	 * @param int[] $post_ids Post IDs.
+	 * @return array Keyed by post ID => { agree, disagree, unsure, total }.
+	 */
+	public static function get_many( array $post_ids ) {
+		global $wpdb;
+
+		$post_ids = array_filter( array_map( 'absint', $post_ids ) );
+		if ( empty( $post_ids ) ) {
+			return array();
+		}
+
+		$table        = self::table_name();
+		$placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name isn't user input; ids are placeheld.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT post_id, agree_count, disagree_count, unsure_count
+				 FROM {$table} WHERE post_id IN ( {$placeholders} )",
+				$post_ids
+			),
+			ARRAY_A
+		);
+
+		$out = array();
+		foreach ( (array) $rows as $row ) {
+			$agree    = (int) $row['agree_count'];
+			$disagree = (int) $row['disagree_count'];
+			$unsure   = (int) $row['unsure_count'];
+
+			$out[ (int) $row['post_id'] ] = array(
+				'agree'    => $agree,
+				'disagree' => $disagree,
+				'unsure'   => $unsure,
+				'total'    => $agree + $disagree + $unsure,
+			);
+		}
+
+		return $out;
+	}
+
+	/**
 	 * Add the "Swipe stats" column to the Posts list table.
 	 *
 	 * @param array $columns Existing columns.

@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.4.4
+Stable tag: 1.5.0
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,12 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.5.0 =
+* Swipe left or right on the reveal card to carry on, instead of reaching for the Continue button. The button still works, and vertical swipes still scroll a long reveal rather than dismissing it.
+* Remove the control hints under the swipe buttons — the buttons already say what they do.
+* In that space, cards now show how many players got them wrong ("80% got this one wrong") while the statement is still up, before you answer. It appears once a card has at least 5 swipes recorded, so a single answer can't produce a misleading "100%", and never on Debatable cards — they have no wrong answer, and a figure there would give the verdict away. Developers can change the threshold with the `wa_min_swipes_for_stat` filter.
+* That figure costs one extra database lookup per batch of 20 cards, against a table indexed by post, so it doesn't measurably affect how quickly the quiz loads.
 
 = 1.4.4 =
 * Fix: posts could appear under the wrong filter on the "Well, Actually..." screen — most visibly, posts with "Never" already ticked showing up under "Needs to be set up". Each post carries a summary of its state that those filters sort on, and if that summary was ever written incorrectly (see 1.4.2 for how that could happen), the post stays in the wrong list indefinitely: the filters read the summary, so nothing that reads them can spot the mistake. Every mismatched post is now corrected automatically on update, whatever the cause.
