@@ -321,6 +321,126 @@ class WA_AI {
 	}
 
 	/**
+	 * The model id drafting will actually request for a provider: this
+	 * plugin's own setting when set, otherwise the provider's published
+	 * default. Empty string when neither is available.
+	 *
+	 * @param string $provider Provider id.
+	 * @return string
+	 */
+	public static function effective_model( $provider ) {
+		$model = (string) wa_get_setting( 'ai_model', '' );
+		if ( '' !== $model ) {
+			return $model;
+		}
+		return self::preferred_model_for_provider( $provider );
+	}
+
+	/**
+	 * Get a concrete model instance so drafting can pin it, or null if the
+	 * client/provider can't produce one.
+	 *
+	 * @param string $provider Provider id.
+	 * @param string $model    Model id.
+	 * @return object|null A ModelInterface instance, or null.
+	 */
+	private static function model_instance( $provider, $model ) {
+		if ( ! class_exists( '\WordPress\AiClient\AiClient' ) ) {
+			return null;
+		}
+
+		try {
+			$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+			if ( ! $registry->hasProvider( $provider ) ) {
+				return null;
+			}
+			return $registry->getProviderModel( $provider, $model );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * The model requirements drafting actually imposes: text generation
+	 * returning JSON matching our schema.
+	 *
+	 * @return object|null A ModelRequirements instance, or null if the AI
+	 *                     client isn't available in the expected shape.
+	 */
+	private static function drafting_requirements() {
+		$config_class = '\WordPress\AiClient\Providers\Models\DTO\ModelConfig';
+		$reqs_class   = '\WordPress\AiClient\Providers\Models\DTO\ModelRequirements';
+		$cap_class    = '\WordPress\AiClient\Providers\Models\Enums\CapabilityEnum';
+
+		if ( ! class_exists( $config_class ) || ! class_exists( $reqs_class ) || ! class_exists( $cap_class ) ) {
+			return null;
+		}
+
+		try {
+			$config = new $config_class();
+			$config->setOutputMimeType( 'application/json' );
+			$config->setOutputSchema( self::response_schema() );
+
+			return $reqs_class::fromPromptData( $cap_class::textGeneration(), array(), $config );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Whether a model can actually satisfy what drafting asks for — text
+	 * generation with a JSON schema response.
+	 *
+	 * Worth checking up front because the AI client treats a requested model
+	 * as a *preference*: if the model's published metadata doesn't advertise
+	 * structured JSON output, the client drops it from the candidate list and
+	 * silently runs a different model instead. We pin the model rather than
+	 * let that happen, which means an unsupported model surfaces as a real
+	 * drafting error — so it's much friendlier to say so before the user
+	 * spends a batch finding out.
+	 *
+	 * @param string $provider Provider id.
+	 * @param string $model    Model id.
+	 * @return bool|null True/false, or null if support couldn't be determined
+	 *                   (unknown client shape, provider not registered, …) —
+	 *                   callers should stay quiet rather than guess.
+	 */
+	public static function model_supports_drafting( $provider, $model ) {
+		if ( '' === $provider || '' === $model || ! class_exists( '\WordPress\AiClient\AiClient' ) ) {
+			return null;
+		}
+
+		$requirements = self::drafting_requirements();
+		if ( null === $requirements ) {
+			return null;
+		}
+
+		try {
+			$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+			if ( ! $registry->hasProvider( $provider ) ) {
+				return null;
+			}
+
+			$supported = $registry->findProviderModelsMetadataForSupport( $provider, $requirements );
+
+			$ids = array();
+			foreach ( $supported as $metadata ) {
+				$ids[] = $metadata->getId();
+			}
+
+			// An empty list means we learned nothing useful (provider not
+			// configured, catalog unavailable) rather than "nothing works".
+			if ( empty( $ids ) ) {
+				return null;
+			}
+
+			return in_array( $model, $ids, true );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
 	 * Draft a suggestion for a single post: build the prompt, call the AI, and
 	 * store the result (or an error) in the post's AI meta.
 	 *
@@ -369,7 +489,22 @@ class WA_AI {
 				$model = self::preferred_model_for_provider( $provider );
 			}
 
-			if ( '' !== $model ) {
+			$pinned = '' !== $model ? self::model_instance( $provider, $model ) : null;
+
+			if ( null !== $pinned ) {
+				// Pin the exact model. using_model_preference() is only a
+				// *preference*: the AI client first narrows to models whose
+				// published metadata satisfies the prompt's requirements, and
+				// asking for a JSON-schema response disqualifies any model
+				// that doesn't advertise structured output — at which point
+				// the client silently falls back to the first other candidate
+				// it finds. That's how a request for openai/gpt-5-nano ended
+				// up being served by an unrelated model. Pinning skips that
+				// selection entirely, so the configured model is the one that
+				// actually runs (and if it can't do the job, we get a real
+				// error in the Errors tab rather than a silent substitution).
+				$builder = $builder->using_model( $pinned );
+			} elseif ( '' !== $model ) {
 				$builder = $builder->using_model_preference( array( $provider, $model ) );
 			} else {
 				$builder = $builder->using_provider( $provider );
