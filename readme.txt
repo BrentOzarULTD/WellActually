@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,11 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.6.1 =
+* If your AI provider refuses a request for being too frequent (a "Too Many Requests" rate limit), drafting now stops the whole run straight away and tells you: "Your AI provider said you're sending too many requests at a time, so we stopped here. Try again later." Previously each post would fail separately and be recorded as a drafting error, so a rate limit looked like a batch of broken posts.
+* Posts caught by a rate limit aren't marked as failed — nothing about them was wrong. They stay queued, so clicking Draft with AI again picks up exactly where it stopped once the limit has passed.
+* If the rate limiting is coming from drafting too many at once, lower "Parallel requests" under Settings → "Well, Actually...".
 
 = 1.6.0 =
 * New Reports tab under Settings → "Well, Actually...". Lists every post currently in the swipe deck with its swipe headline, the right answer, how many times it's been swiped, and what percentage of players got it right and wrong. Post titles link through to the live post.
