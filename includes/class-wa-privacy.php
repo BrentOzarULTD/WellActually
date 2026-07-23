@@ -69,7 +69,7 @@ class WA_Privacy {
 
 		wp_add_privacy_policy_content(
 			__( 'Well, Actually...', 'wellactually' ),
-			wp_kses_post( wpautop( $content, false ) )
+			wp_kses_post( $content )
 		);
 	}
 
