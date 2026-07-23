@@ -35,6 +35,7 @@ require_once WA_PLUGIN_DIR . 'includes/class-wa-template.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-stats.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-rest.php';
 require_once WA_PLUGIN_DIR . 'includes/class-wa-user-progress.php';
+require_once WA_PLUGIN_DIR . 'includes/class-wa-privacy.php';
 
 /**
  * Boot the plugin.
@@ -51,6 +52,7 @@ function wa_init() {
 	WA_Stats::instance();
 	WA_Rest::instance();
 	WA_User_Progress::instance();
+	WA_Privacy::instance();
 }
 add_action( 'plugins_loaded', 'wa_init' );
 
