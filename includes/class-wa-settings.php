@@ -345,6 +345,18 @@ class WA_Settings {
 		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'wellactually' ); ?>" />
 		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the default model you\'ve picked in that provider\'s own settings, if it has one.', 'wellactually' ); ?></p>
 		<?php
+		$provider  = $settings['ai_provider'];
+		$effective = '' !== $provider ? WA_AI::effective_model( $provider ) : '';
+
+		if ( '' !== $effective && false === WA_AI::model_supports_drafting( $provider, $effective ) ) {
+			echo '<p class="wa-model-warning">';
+			printf(
+				/* translators: %s: model id */
+				esc_html__( 'Heads up: %s does not advertise support for schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent. A model that supports JSON/structured output is more reliable.', 'wellactually' ),
+				'<strong>' . esc_html( $effective ) . '</strong>'
+			);
+			echo '</p>';
+		}
 	}
 
 	/**
@@ -417,6 +429,7 @@ class WA_Settings {
 		</div>
 		<style>
 			.wa-tab-panel { margin-top: 16px; }
+			.wa-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; max-width: 600px; }
 			.wa-categories-table th.wa-col-count,
 			.wa-categories-table td.wa-col-count { width: 90px; }
 			.wa-categories-table th.wa-col-skip,

@@ -477,6 +477,18 @@ class WA_Bulk_Setup {
 			esc_html( $model_label )
 		);
 		echo '</p>';
+
+		$effective = WA_AI::effective_model( $provider_id );
+		if ( '' !== $effective && false === WA_AI::model_supports_drafting( $provider_id, $effective ) ) {
+			echo '<p class="wa-ai-model-warning">';
+			printf(
+				/* translators: %s: model id */
+				esc_html__( '%s does not advertise schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent.', 'wellactually' ),
+				'<strong>' . esc_html( $effective ) . '</strong>'
+			);
+			echo ' <a href="' . esc_url( admin_url( 'options-general.php?page=wellactually&tab=setup' ) ) . '">' . esc_html__( 'Change the model', 'wellactually' ) . '</a>';
+			echo '</p>';
+		}
 		?>
 		<div class="wa-ai-controls">
 			<label for="wa-ai-count"><?php esc_html_e( 'How many to draft:', 'wellactually' ); ?></label>
@@ -819,6 +831,7 @@ class WA_Bulk_Setup {
 			.wa-ai-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
 			.wa-ai-controls #wa-ai-count { width: 70px; }
 			.wa-ai-cat-note, .wa-ai-progress { color: #646970; }
+			.wa-ai-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; }
 			.wa-ai-standing { margin: 4px 0 0; }
 			.wa-bulk-table { margin-top: 8px; }
 			.wa-bulk-table th.wa-col-post,

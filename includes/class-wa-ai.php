@@ -321,6 +321,82 @@ class WA_AI {
 	}
 
 	/**
+	 * The model id drafting will actually request for a provider: this
+	 * plugin's own setting when set, otherwise the provider's published
+	 * default. Empty string when neither is available.
+	 *
+	 * @param string $provider Provider id.
+	 * @return string
+	 */
+	public static function effective_model( $provider ) {
+		$model = (string) wa_get_setting( 'ai_model', '' );
+		if ( '' !== $model ) {
+			return $model;
+		}
+		return self::preferred_model_for_provider( $provider );
+	}
+
+	/**
+	 * Get a concrete model instance so drafting can pin it, or null if the
+	 * client/provider can't produce one.
+	 *
+	 * @param string $provider Provider id.
+	 * @param string $model    Model id.
+	 * @return object|null A ModelInterface instance, or null.
+	 */
+	private static function model_instance( $provider, $model ) {
+		if ( ! class_exists( '\WordPress\AiClient\AiClient' ) ) {
+			return null;
+		}
+
+		try {
+			$registry = \WordPress\AiClient\AiClient::defaultRegistry();
+			if ( ! $registry->hasProvider( $provider ) ) {
+				return null;
+			}
+			return $registry->getProviderModel( $provider, $model );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Whether a model advertises the schema-enforced JSON output drafting
+	 * prefers, for UI that wants to say so before a batch is run.
+	 *
+	 * Drafting still works without it — draft_for_post() drops the schema
+	 * argument and leans on the explicit JSON instruction plus the tolerant
+	 * parser — but results are less reliably well-formed, which is worth
+	 * mentioning while the model is being chosen.
+	 *
+	 * Deliberately answers via the same check the drafting path uses
+	 * (model_supports_response_schema) so the warning can never disagree
+	 * with what actually happens at run time.
+	 *
+	 * @param string $provider Provider id.
+	 * @param string $model    Model id.
+	 * @return bool|null True/false, or null if it couldn't be determined
+	 *                   (provider not registered, model unknown, unfamiliar
+	 *                   client shape) — callers should stay quiet, not guess.
+	 */
+	public static function model_supports_drafting( $provider, $model ) {
+		if ( '' === $provider || '' === $model ) {
+			return null;
+		}
+
+		$instance = self::model_instance( $provider, $model );
+		if ( null === $instance ) {
+			return null;
+		}
+
+		try {
+			return self::model_supports_response_schema( $instance );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
 	 * Draft a suggestion for a single post: build the prompt, call the AI, and
 	 * store the result (or an error) in the post's AI meta.
 	 *
@@ -370,7 +446,9 @@ class WA_AI {
 				$model = self::preferred_model_for_provider( $provider );
 			}
 
-			if ( '' !== $model ) {
+			$selected_model = '' !== $model ? self::model_instance( $provider, $model ) : null;
+
+			if ( null !== $selected_model ) {
 				/*
 				 * A model preference is allowed to fall back silently when the
 				 * preferred model does not advertise every requested option.
@@ -378,10 +456,13 @@ class WA_AI {
 				 * another. Resolve an explicit model instance so the selected
 				 * provider/model pair is the one that receives the request.
 				 */
-				$selected_model = \WordPress\AiClient\AiClient::defaultRegistry()
-					->getProviderModel( $provider, $model );
-				$builder        = $builder->using_model( $selected_model );
+				$builder         = $builder->using_model( $selected_model );
 				$supports_schema = self::model_supports_response_schema( $selected_model );
+			} elseif ( '' !== $model ) {
+				// No instance available for the configured model (unregistered
+				// provider, unknown id). Name it as a preference rather than
+				// dropping the choice altogether.
+				$builder = $builder->using_model_preference( array( $provider, $model ) );
 			} else {
 				$builder = $builder->using_provider( $provider );
 			}

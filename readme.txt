@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 6.0
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable tag: 1.3.3
+Stable tag: 1.3.4
 License: MIT
 License URI: https://opensource.org/licenses/MIT
 
@@ -54,6 +54,11 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 4. The Swipe Statement meta box on the post edit screen.
 
 == Changelog ==
+
+= 1.3.4 =
+* Fix: drafting could quietly use a completely different model than the one shown. Asking the WordPress AI client for a model is only a *preference* — it first narrows to models whose published capabilities cover what the prompt needs, and because drafting asks for a JSON-schema response, any model that doesn't advertise structured output gets dropped and the client silently substitutes another one. That's how a request for openai/gpt-5-nano ended up being served by an unrelated model. The configured model is now pinned, so the model named on screen is the model that actually runs.
+* Models that don't support schema-enforced JSON are no longer shut out: drafting simply omits the schema for them and asks for JSON in the prompt instead, which the tolerant response parser already handles. So your chosen model is used either way.
+* Add an up-front note, on both Settings → "Well, Actually..." and the Draft with AI panel, when the selected model doesn't advertise schema-enforced JSON — drafting will still work, but results are less consistent, and it's better to know while picking the model than after running a batch. If support can't be determined, nothing is shown rather than guessing.
 
 = 1.3.3 =
 * Fix: the empty "No posts match this filter" screen after saving, properly this time. The 1.3.2 fix invalidated WordPress's cached query results on every status change, but that only helps if the invalidation is seen immediately — on managed hosting it isn't, which is why the screen would right itself on its own after roughly 30-60 seconds (the cache entry's own lifetime). Rather than depending on any host's invalidation timing, the "Well, Actually..." screen and the AI candidate picker now always read live from the database. Both are small, already-indexed queries, so there's no meaningful cost — and it means a save is reflected on the very next page load, every time.
