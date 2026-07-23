@@ -125,14 +125,19 @@ class WA_Stats {
 		$column     = $columns[ $answer ];
 		$table_name = self::table_name();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $column is from a fixed whitelist above, not user input.
-		$sql = $wpdb->prepare(
-			"INSERT INTO {$table_name} (post_id, {$column}) VALUES (%d, 1)
-			ON DUPLICATE KEY UPDATE {$column} = {$column} + 1",
-			$post_id
+		// One atomic statement: insert the row or bump the existing counter.
+		// %i binds the table and the whitelisted column as identifiers.
+		return false !== $wpdb->query(
+			$wpdb->prepare(
+				'INSERT INTO %i (post_id, %i) VALUES (%d, 1)
+				ON DUPLICATE KEY UPDATE %i = %i + 1',
+				$table_name,
+				$column,
+				$post_id,
+				$column,
+				$column
+			)
 		);
-
-		return false !== $wpdb->query( $sql );
 	}
 
 	/**
@@ -155,7 +160,8 @@ class WA_Stats {
 
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT agree_count, disagree_count, unsure_count FROM {$table_name} WHERE post_id = %d",
+				'SELECT agree_count, disagree_count, unsure_count FROM %i WHERE post_id = %d',
+				$table_name,
 				$post_id
 			),
 			ARRAY_A
@@ -195,15 +201,16 @@ class WA_Stats {
 		$table        = self::table_name();
 		$placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name isn't user input; ids are placeheld.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- {$placeholders} is only generated %d markers; every value is bound below.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT post_id, agree_count, disagree_count, unsure_count
-				 FROM {$table} WHERE post_id IN ( {$placeholders} )",
-				$post_ids
+				 FROM %i WHERE post_id IN ( {$placeholders} )",
+				array_merge( array( $table ), $post_ids )
 			),
 			ARRAY_A
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 
 		$out = array();
 		foreach ( (array) $rows as $row ) {

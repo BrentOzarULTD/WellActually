@@ -24,15 +24,11 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 function wa_uninstall_site() {
 	global $wpdb;
 
-	// Drop the stats table.
-	$table_name = $wpdb->prefix . 'wa_stats';
-	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name isn't user input.
-	$wpdb->query( "DROP TABLE IF EXISTS {$table_name}" );
-
-	// Drop the AI drafting queue table.
-	$queue_table = $wpdb->prefix . 'wa_ai_queue';
-	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name isn't user input.
-	$wpdb->query( "DROP TABLE IF EXISTS {$queue_table}" );
+	// Drop the plugin's two tables. Direct queries and a schema change are
+	// the entire point of an uninstall routine; %i binds each table name as
+	// an identifier.
+	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . 'wa_stats' ) );
+	$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . 'wa_ai_queue' ) );
 
 	// Remove options — every option the plugin writes, by exact name:
 	// wa_settings (WA_Settings::OPTION_NAME), wa_db_version

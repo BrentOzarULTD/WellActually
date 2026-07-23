@@ -123,11 +123,11 @@ class WA_AI_Queue {
 				continue;
 			}
 
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 			$inserted = $wpdb->query(
 				$wpdb->prepare(
-					"INSERT IGNORE INTO {$table} ( post_id, batch_id, status, claim_token, claimed_at, created_at )
+					"INSERT IGNORE INTO %i ( post_id, batch_id, status, claim_token, claimed_at, created_at )
 					 VALUES ( %d, %s, %s, '', 0, %d )",
+					$table,
 					$post_id,
 					$batch_id,
 					self::STATUS_QUEUED,
@@ -193,9 +193,8 @@ class WA_AI_Queue {
 		}
 
 		try {
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 			$active = (int) $wpdb->get_var(
-				$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE status = %s", self::STATUS_PROCESSING )
+				$wpdb->prepare( 'SELECT COUNT(*) FROM %i WHERE status = %s', $table, self::STATUS_PROCESSING )
 			);
 
 			if ( $active >= max( 1, (int) $limit ) ) {
@@ -206,14 +205,14 @@ class WA_AI_Queue {
 
 			// One statement picks the row and marks it ours. Nothing else can
 			// select the same row, because the UPDATE takes the row lock.
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 			$claimed = $wpdb->query(
 				$wpdb->prepare(
-					"UPDATE {$table}
+					'UPDATE %i
 					 SET status = %s, claim_token = %s, claimed_at = %d
 					 WHERE batch_id = %s AND status = %s
 					 ORDER BY id ASC
-					 LIMIT 1",
+					 LIMIT 1',
+					$table,
 					self::STATUS_PROCESSING,
 					$token,
 					time(),
@@ -226,9 +225,8 @@ class WA_AI_Queue {
 				return 'empty';
 			}
 
-			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 			$post_id = (int) $wpdb->get_var(
-				$wpdb->prepare( "SELECT post_id FROM {$table} WHERE claim_token = %s", $token )
+				$wpdb->prepare( 'SELECT post_id FROM %i WHERE claim_token = %s', $table, $token )
 			);
 
 			if ( ! $post_id ) {
@@ -264,10 +262,10 @@ class WA_AI_Queue {
 
 		$table = self::table_name();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 		$deleted = $wpdb->query(
 			$wpdb->prepare(
-				"DELETE FROM {$table} WHERE post_id = %d AND claim_token = %s",
+				'DELETE FROM %i WHERE post_id = %d AND claim_token = %s',
+				$table,
 				absint( $post_id ),
 				$token
 			)
@@ -294,12 +292,12 @@ class WA_AI_Queue {
 
 		$table = self::table_name();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 		$released = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table}
+				"UPDATE %i
 				 SET status = %s, claim_token = '', claimed_at = 0
 				 WHERE post_id = %d AND claim_token = %s",
+				$table,
 				self::STATUS_QUEUED,
 				absint( $post_id ),
 				$token
@@ -325,12 +323,12 @@ class WA_AI_Queue {
 		$table  = self::table_name();
 		$cutoff = time() - max( 1, (int) $timeout );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 		$released = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table}
+				"UPDATE %i
 				 SET status = %s, claim_token = '', claimed_at = 0
 				 WHERE status = %s AND claimed_at > 0 AND claimed_at < %d",
+				$table,
 				self::STATUS_QUEUED,
 				self::STATUS_PROCESSING,
 				$cutoff
@@ -355,8 +353,7 @@ class WA_AI_Queue {
 
 		$table = self::table_name();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
-		$ids = $wpdb->get_col( "SELECT post_id FROM {$table}" );
+		$ids = $wpdb->get_col( $wpdb->prepare( 'SELECT post_id FROM %i', $table ) );
 
 		return array_map( 'intval', $ids );
 	}
@@ -372,10 +369,10 @@ class WA_AI_Queue {
 
 		$table = self::table_name();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT status, COUNT(*) AS total FROM {$table} WHERE batch_id = %s GROUP BY status",
+				'SELECT status, COUNT(*) AS total FROM %i WHERE batch_id = %s GROUP BY status',
+				$table,
 				$batch_id
 			)
 		);
@@ -415,10 +412,10 @@ class WA_AI_Queue {
 		$table  = self::table_name();
 		$cutoff = time() - max( 60, (int) $older_than );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 		return (int) $wpdb->query(
 			$wpdb->prepare(
-				"DELETE FROM {$table} WHERE status = %s AND created_at < %d",
+				'DELETE FROM %i WHERE status = %s AND created_at < %d',
+				$table,
 				self::STATUS_QUEUED,
 				$cutoff
 			)
@@ -436,9 +433,8 @@ class WA_AI_Queue {
 
 		$table = self::table_name();
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
 		return (int) $wpdb->query(
-			$wpdb->prepare( "DELETE FROM {$table} WHERE batch_id = %s", $batch_id )
+			$wpdb->prepare( 'DELETE FROM %i WHERE batch_id = %s', $table, $batch_id )
 		);
 	}
 }

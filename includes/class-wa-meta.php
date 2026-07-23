@@ -632,26 +632,22 @@ class WA_Meta {
 		do {
 			// Pivot the four keys into one row per post, so this is a single
 			// indexed scan rather than four joins.
-			$sql = "
-				SELECT pm.post_id,
-					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS stored_status,
-					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS skip_flag,
-					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS verdict,
-					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS ai_status
-				FROM {$wpdb->postmeta} pm
-				INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-				WHERE pm.meta_key IN ( {$in} )
-				  AND p.post_type = 'post'
-				  AND p.post_status = 'publish'
-				GROUP BY pm.post_id
-				ORDER BY pm.post_id ASC
-				LIMIT %d OFFSET %d
-			";
-
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- {$in} is only generated %s markers; every value is bound via the single array argument, which the counting sniff cannot tally.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql holds identifiers only; every value is placeheld.
-					$sql,
+					"SELECT pm.post_id,
+						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS stored_status,
+						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS skip_flag,
+						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS verdict,
+						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS ai_status
+					FROM {$wpdb->postmeta} pm
+					INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+					WHERE pm.meta_key IN ( {$in} )
+					  AND p.post_type = 'post'
+					  AND p.post_status = 'publish'
+					GROUP BY pm.post_id
+					ORDER BY pm.post_id ASC
+					LIMIT %d OFFSET %d",
 					array_merge(
 						array( self::STATUS_KEY, self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY ),
 						$keys,
@@ -659,6 +655,7 @@ class WA_Meta {
 					)
 				)
 			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
 
 			foreach ( $rows as $row ) {
 				$derived = self::derive_status(
@@ -713,22 +710,23 @@ class WA_Meta {
 		// Every post with ANY swipe-related meta but no STATUS_KEY row yet.
 		// This is the same kind of multi-key query being retired from the hot
 		// path, but it only ever runs once (guarded above), not per page load.
-		$sql = "
-			SELECT DISTINCT p.ID
-			FROM {$wpdb->posts} p
-			INNER JOIN {$wpdb->postmeta} pm
-				ON pm.post_id = p.ID
-				AND pm.meta_key IN (%s, %s, %s)
-			LEFT JOIN {$wpdb->postmeta} existing
-				ON existing.post_id = p.ID
-				AND existing.meta_key = %s
-			WHERE p.post_type = 'post'
-			AND existing.meta_id IS NULL
-		";
-
 		$post_ids = $wpdb->get_col(
-			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql holds identifiers only; every value is placeheld.
-			$wpdb->prepare( $sql, self::VERDICT_KEY, self::AI_STATUS_KEY, self::SKIP_KEY, self::STATUS_KEY )
+			$wpdb->prepare(
+				"SELECT DISTINCT p.ID
+				FROM {$wpdb->posts} p
+				INNER JOIN {$wpdb->postmeta} pm
+					ON pm.post_id = p.ID
+					AND pm.meta_key IN (%s, %s, %s)
+				LEFT JOIN {$wpdb->postmeta} existing
+					ON existing.post_id = p.ID
+					AND existing.meta_key = %s
+				WHERE p.post_type = 'post'
+				AND existing.meta_id IS NULL",
+				self::VERDICT_KEY,
+				self::AI_STATUS_KEY,
+				self::SKIP_KEY,
+				self::STATUS_KEY
+			)
 		);
 
 		foreach ( $post_ids as $post_id ) {
