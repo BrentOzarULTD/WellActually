@@ -418,6 +418,42 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 	}
 
 	/**
+	 * A request that couldn't migrate must not boot the plugin.
+	 *
+	 * Components run against half-migrated data don't merely read stale
+	 * values — they create the new names beside the old ones.
+	 * WellActually_Stats::maybe_upgrade_table() on init finds no
+	 * wellactually_db_version, builds an empty wellactually_stats, and one
+	 * swipe recorded into it leaves two populated tables the migration then
+	 * refuses to merge. So booting is gated on the migration completing.
+	 */
+	public function test_blocked_request_does_not_boot_components() {
+		update_option( 'wa_settings', array( 'slug' => 'quiz' ) );
+
+		// Stand in for another request part-way through right now.
+		add_option( WellActually_Migrate::LOCK_OPTION, time(), '', false );
+
+		$this->assertFalse( wellactually_init(), 'A blocked request must decline to boot.' );
+
+		// The tell-tale of a component having run: the db-version option that
+		// maybe_upgrade_table() writes when it builds a table.
+		$this->assertFalse(
+			get_option( WellActually_Stats::DB_VERSION_OPTION ),
+			'No component may write new-name storage while the migration is outstanding.'
+		);
+		$this->assertSame(
+			array( 'slug' => 'quiz' ),
+			get_option( 'wa_settings' ),
+			'The legacy data must be exactly as the blocked request found it.'
+		);
+
+		// Once the lock clears, the next request boots normally.
+		delete_option( WellActually_Migrate::LOCK_OPTION );
+		$this->assertTrue( wellactually_init(), 'The next request must boot once the migration can run.' );
+		$this->assertSame( array( 'slug' => 'quiz' ), get_option( 'wellactually_settings' ) );
+	}
+
+	/**
 	 * The stored rewrite rules map the swipe slug to the old query var, so
 	 * they have to be dropped or the swipe page 404s after the upgrade.
 	 */

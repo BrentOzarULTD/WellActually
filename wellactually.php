@@ -40,6 +40,9 @@ require_once WELLACTUALLY_PLUGIN_DIR . 'includes/class-wellactually-privacy.php'
 
 /**
  * Boot the plugin.
+ *
+ * @return bool Whether the components were booted. False means the site is
+ *              mid-migration and this request deliberately did nothing.
  */
 function wellactually_init() {
 	load_plugin_textdomain( 'wellactually', false, dirname( plugin_basename( WELLACTUALLY_PLUGIN_FILE ) ) . '/languages' );
@@ -47,7 +50,18 @@ function wellactually_init() {
 	// Before any component registers a hook or reads an option: on a site
 	// upgrading from 1.7.0 or earlier, every name below still refers to data
 	// stored under the old `wa_` prefix until this has run.
-	WellActually_Migrate::maybe_migrate();
+	//
+	// Boot nothing if it didn't complete — another request holds the lock, or
+	// a write failed. Components that run against half-migrated data don't
+	// just read stale values, they create the new names beside the old ones:
+	// WellActually_Stats::maybe_upgrade_table() on init finds no
+	// wellactually_db_version, builds an empty wellactually_stats, and a
+	// single swipe recorded into it leaves two populated tables that the
+	// migration then refuses to merge. One request serving nothing is a much
+	// smaller price than data split across both prefixes.
+	if ( ! WellActually_Migrate::maybe_migrate() ) {
+		return false;
+	}
 
 	WellActually_Settings::instance();
 	WellActually_Meta::instance();
@@ -59,6 +73,8 @@ function wellactually_init() {
 	WellActually_Rest::instance();
 	WellActually_User_Progress::instance();
 	WellActually_Privacy::instance();
+
+	return true;
 }
 add_action( 'plugins_loaded', 'wellactually_init' );
 
@@ -71,7 +87,16 @@ function wellactually_activate() {
 	// activates a plugin, so wellactually_init() has not run and none of the
 	// components have registered their hooks yet. Boot them by hand first,
 	// or the wellactually_activate action below fires into the void.
-	wellactually_init();
+	//
+	// If booting was declined, the site is mid-migration and none of the
+	// listeners exist — firing the action anyway would be that same fire into
+	// the void, with the table creation silently skipped. Do nothing instead:
+	// both tables have a maybe_upgrade_table() safety net on init/admin_init,
+	// and the rewrite rules self-heal, so the next request after the
+	// migration finishes puts everything right.
+	if ( ! wellactually_init() ) {
+		return;
+	}
 
 	// Make sure the rewrite rule exists before we flush.
 	WellActually_Template::instance()->register_rewrite_rule();
