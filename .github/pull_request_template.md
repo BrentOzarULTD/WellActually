@@ -20,3 +20,7 @@
 ## Risk
 
 <!-- What would break if this is wrong, and how would you notice? -->
+
+<!-- CI runs lint + the PHPUnit matrix (PHP 7.4/WP 6.5 and PHP 8.2/WP latest);
+     these must pass to merge. GitHub Copilot reviews the diff automatically —
+     a second set of eyes, not a gate. Human review still decides. -->
