@@ -1,8 +1,8 @@
 === Well, Actually... ===
 Contributors: brento
 Tags: quiz, engagement, gamification, blog
-Requires at least: 6.0
-Tested up to: 6.6
+Requires at least: 7.0
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 1.7.0
 License: MIT
@@ -24,7 +24,13 @@ Progress is tracked locally for anonymous visitors and synced to their account w
 4. Edit any post and fill in the "Swipe Statement" and verdict fields to add it to the deck.
 5. Send visitors to `yoursite.com/swipe`.
 
+The optional "Draft with AI" feature uses the AI client APIs that ship in WordPress 7.0, which is why that's the minimum version. It also needs an AI provider plugin (any provider registered with the WordPress AI client works, including Nano-GPT) configured with your own API key — see the AI provider FAQ below for what gets sent where.
+
 == Frequently Asked Questions ==
+
+= Do I need an AI provider account? =
+
+No. The whole game works without one — you write Swipe Statements by hand. An AI provider only comes into play if you use the optional "Draft with AI" button on the Swipe Setup screen to generate suggested statements for your review.
 
 = Which posts show up in swipe mode? =
 
