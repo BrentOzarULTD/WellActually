@@ -195,4 +195,109 @@ class Test_WA_AI_Queue extends WP_UnitTestCase {
 		$this->assertSame( 1, WA_AI_Queue::collect_abandoned( 900 ) );
 		$this->assertSame( 0, WA_AI_Queue::batch_counts( $batch )['remaining'] );
 	}
+
+	/**
+	 * The name of the connection-scoped lock claim() uses. Mirrors the class
+	 * so a test can force it or inspect whether it's held.
+	 *
+	 * @return string
+	 */
+	private function lock_name() {
+		return 'wa_ai_claim_' . substr( md5( WA_AI_Queue::table_name() ), 0, 16 );
+	}
+
+	/**
+	 * Force the next GET_LOCK to return a given value, so a test can stand in
+	 * for lock contention (0, a timeout) or a database error (NULL) without a
+	 * second live connection.
+	 *
+	 * @param string $return SQL literal to substitute, e.g. '0' or 'NULL'.
+	 * @return callable The filter, so the caller can remove it.
+	 */
+	private function force_get_lock( $return ) {
+		$filter = static function ( $query ) use ( $return ) {
+			if ( false !== stripos( $query, 'GET_LOCK' ) ) {
+				return 'SELECT ' . $return;
+			}
+			return $query;
+		};
+		add_filter( 'query', $filter );
+		return $filter;
+	}
+
+	/**
+	 * #27: a claim that can't take the lock (0 = timeout under contention)
+	 * must change nothing and report a retryable 'busy', not run the
+	 * count-and-claim that is only safe while the lock is held.
+	 */
+	public function test_claim_reports_busy_when_lock_times_out() {
+		$posts = self::factory()->post->create_many( 3 );
+		$batch = WA_AI_Queue::new_batch_id();
+		WA_AI_Queue::admit( $posts, $batch );
+
+		$filter = $this->force_get_lock( '0' );
+		$result = WA_AI_Queue::claim( $batch, 5 );
+		remove_filter( 'query', $filter );
+
+		$this->assertSame( 'busy', $result, 'A lock timeout must be retryable, not treated as capacity or empty.' );
+
+		global $wpdb;
+		$processing = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
+			'SELECT COUNT(*) FROM ' . WA_AI_Queue::table_name() . " WHERE status = 'processing'"
+		);
+		$this->assertSame( 0, $processing, 'No row may be claimed without the lock.' );
+	}
+
+	/**
+	 * #27: GET_LOCK returns NULL on a server/connection error. That is not
+	 * "the lock is free" — it must be treated exactly like a failure to
+	 * acquire, changing no state.
+	 */
+	public function test_claim_reports_busy_on_lock_error() {
+		$posts = self::factory()->post->create_many( 3 );
+		$batch = WA_AI_Queue::new_batch_id();
+		WA_AI_Queue::admit( $posts, $batch );
+
+		$filter = $this->force_get_lock( 'NULL' );
+		$result = WA_AI_Queue::claim( $batch, 5 );
+		remove_filter( 'query', $filter );
+
+		$this->assertSame( 'busy', $result );
+
+		global $wpdb;
+		$processing = (int) $wpdb->get_var( // phpcs:ignore WordPress.DB
+			'SELECT COUNT(*) FROM ' . WA_AI_Queue::table_name() . " WHERE status = 'processing'"
+		);
+		$this->assertSame( 0, $processing );
+	}
+
+	/**
+	 * #27: the lock is connection-scoped and must be released on every path,
+	 * or the next claim on the same request would deadlock itself. Check the
+	 * two live paths through the critical section: a successful claim, and a
+	 * drained batch. (The throwing path is covered by the `finally`.)
+	 */
+	public function test_claim_releases_lock_on_success_and_when_empty() {
+		global $wpdb;
+		$lock = $this->lock_name();
+
+		$post_id = self::factory()->post->create();
+		$batch   = WA_AI_Queue::new_batch_id();
+		WA_AI_Queue::admit( array( $post_id ), $batch );
+
+		$this->assertIsArray( WA_AI_Queue::claim( $batch, 5 ) );
+		$this->assertSame(
+			'1',
+			(string) $wpdb->get_var( $wpdb->prepare( 'SELECT IS_FREE_LOCK( %s )', $lock ) ),
+			'The lock must be free again after a successful claim.'
+		);
+
+		// Drain it, then claim an empty batch — the other way out of the try.
+		$this->assertSame( 'empty', WA_AI_Queue::claim( $batch, 5 ) );
+		$this->assertSame(
+			'1',
+			(string) $wpdb->get_var( $wpdb->prepare( 'SELECT IS_FREE_LOCK( %s )', $lock ) ),
+			'The lock must be free again after an empty claim.'
+		);
+	}
 }
