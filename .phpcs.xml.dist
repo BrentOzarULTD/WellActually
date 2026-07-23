@@ -38,13 +38,9 @@
 		<exclude-pattern>/tests/*</exclude-pattern>
 	</rule>
 
-	<!-- These files are gateways to this plugin's own tables. MySQL cannot
-	     parameterize an identifier, so the table name is always interpolated
-	     into the SQL; no user-supplied value ever is. The sniff stays on
-	     everywhere else, where it would catch a real injection. -->
+	<!-- Production code binds identifiers with %i, so the sniff runs on all
+	     of it. Tests assemble table names ad hoc and aren't shipped. -->
 	<rule ref="WordPress.DB.PreparedSQL">
-		<exclude-pattern>/includes/class-wa-ai-queue.php</exclude-pattern>
-		<exclude-pattern>/includes/class-wa-stats.php</exclude-pattern>
 		<exclude-pattern>/tests/*</exclude-pattern>
 	</rule>
 

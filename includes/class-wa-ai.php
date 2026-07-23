@@ -248,13 +248,14 @@ class WA_AI {
 
 		$placeholders = implode( ',', array_fill( 0, count( $keep ), '%d' ) );
 
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- {$placeholders} is only generated %d markers; every value is bound via the single array argument, which the counting sniff cannot tally.
 		$wpdb->query(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input; ids are placeheld.
-				"DELETE FROM {$table} WHERE batch_id = %s AND post_id NOT IN ( {$placeholders} )",
-				array_merge( array( $batch_id ), $keep )
+				"DELETE FROM %i WHERE batch_id = %s AND post_id NOT IN ( {$placeholders} )",
+				array_merge( array( $table, $batch_id ), $keep )
 			)
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
 	}
 
 	/**

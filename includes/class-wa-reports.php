@@ -196,6 +196,7 @@ class WA_Reports {
 		}
 		$offset = ( $args['paged'] - 1 ) * self::PER_PAGE;
 
+		// The stats table binds as an %i identifier; the meta keys as values.
 		$from = "
 			FROM {$wpdb->posts} p
 			INNER JOIN {$wpdb->postmeta} st
@@ -204,7 +205,7 @@ class WA_Reports {
 				ON vd.post_id = p.ID AND vd.meta_key = %s
 			LEFT JOIN {$wpdb->postmeta} stm
 				ON stm.post_id = p.ID AND stm.meta_key = %s
-			LEFT JOIN {$stats_table} s
+			LEFT JOIN %i s
 				ON s.post_id = p.ID
 			WHERE p.post_type = 'post' AND p.post_status = 'publish'
 		";
@@ -214,26 +215,29 @@ class WA_Reports {
 			WA_Meta::STATUS_CONFIGURED,
 			WA_Meta::VERDICT_KEY,
 			WA_Meta::STATEMENT_KEY,
+			$stats_table,
 		);
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- identifiers are internal; values are placeheld.
-		$total = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) {$from}", $params ) );
+		$total = (int) $wpdb->get_var(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- {$from} is the literal fragment above: core table names plus placeholders, all bound from $params; the sniff cannot see placeholders inside the fragment.
+			$wpdb->prepare( "SELECT COUNT(*) {$from}", $params )
+		);
 
-		$sql = "
-			SELECT p.ID, p.post_title,
-				vd.meta_value AS verdict,
-				stm.meta_value AS statement,
-				{$total_sql} AS swipes,
-				{$correct_sql} AS correct
-			{$from}
-			ORDER BY {$no_data_last}{$order_by} {$order}, p.ID ASC
-			LIMIT %d OFFSET %d
-		";
-
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- every fragment is assembled above from literals: {$total_sql}/{$correct_sql} are fixed aggregate expressions, {$from} is core tables plus placeholders, {$no_data_last}/{$order_by} come from the fixed $order_map whitelist, and {$order} is strictly ASC or DESC. All values are bound.
 		$rows = $wpdb->get_results(
-			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql holds internal identifiers only; every value is placeheld.
-			$wpdb->prepare( $sql, array_merge( $params, array( self::PER_PAGE, $offset ) ) )
+			$wpdb->prepare(
+				"SELECT p.ID, p.post_title,
+					vd.meta_value AS verdict,
+					stm.meta_value AS statement,
+					{$total_sql} AS swipes,
+					{$correct_sql} AS correct
+				{$from}
+				ORDER BY {$no_data_last}{$order_by} {$order}, p.ID ASC
+				LIMIT %d OFFSET %d",
+				array_merge( $params, array( self::PER_PAGE, $offset ) )
+			)
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
 
 		return array(
 			'rows'  => (array) $rows,
