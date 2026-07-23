@@ -336,6 +336,23 @@ class WA_Meta {
 			? (string) $known['ai_status']
 			: get_post_meta( $post_id, self::AI_STATUS_KEY, true );
 
+		return self::derive_status( $skipped, (string) $verdict, (string) $ai_status );
+	}
+
+	/**
+	 * The status priority rules, in one place so compute_status() and the
+	 * repair pass can never drift apart.
+	 *
+	 * Skipped wins outright (a set-aside post stays out of every working
+	 * list), then a resolved verdict, then a ready AI suggestion, else the
+	 * post still needs setting up.
+	 *
+	 * @param bool   $skipped   Whether the skip flag is set.
+	 * @param string $verdict   Stored verdict, if any.
+	 * @param string $ai_status Stored AI status, if any.
+	 * @return string One of the STATUS_* constants.
+	 */
+	private static function derive_status( $skipped, $verdict, $ai_status ) {
 		if ( $skipped ) {
 			return self::STATUS_SKIPPED;
 		}
@@ -581,55 +598,83 @@ class WA_Meta {
 	}
 
 	/**
-	 * Repair posts whose denormalized status disagrees with the meta it's
-	 * derived from.
+	 * Rebuild the denormalized status for every post whose stored value
+	 * disagrees with the meta it's derived from.
 	 *
-	 * Needed because a status written from a stale read is persisted, and the
-	 * false-negative case is self-concealing: a ready suggestion recorded as
-	 * needs_setup never appears in the Has AI suggestions query, so nothing
-	 * looking at that view can ever notice or fix it. Finds the mismatches
-	 * directly instead, in one indexed pass, and is safe to re-run.
+	 * A wrong stored value is self-perpetuating: the filters select on it, so
+	 * a post recorded as needs_setup when it's really excluded shows up under
+	 * "Needs to be set up" (complete with its Never box ticked) and nothing
+	 * that reads those views can notice, because the correct rows are exactly
+	 * the ones missing. It has to be found by comparing against the source
+	 * meta directly, which is what this does.
 	 *
+	 * One indexed pass over the plugin's own meta keys, in batches, comparing
+	 * each post's stored status against the same priority rules
+	 * compute_status() uses and writing back only the ones that differ.
+	 *
+	 * @param int $batch_size Posts to examine per query.
 	 * @return int Number of posts corrected.
 	 */
-	public static function repair_statuses() {
+	public static function repair_statuses( $batch_size = 500 ) {
 		global $wpdb;
 
-		// Posts whose AI status says a suggestion is ready but whose derived
-		// status doesn't (missing, or something other than has_ai), excluding
-		// ones legitimately outranked by a skip or a real verdict.
-		$sql = "
-			SELECT ai.post_id
-			FROM {$wpdb->postmeta} ai
-			LEFT JOIN {$wpdb->postmeta} st
-				ON st.post_id = ai.post_id AND st.meta_key = %s
-			LEFT JOIN {$wpdb->postmeta} sk
-				ON sk.post_id = ai.post_id AND sk.meta_key = %s
-			LEFT JOIN {$wpdb->postmeta} vd
-				ON vd.post_id = ai.post_id AND vd.meta_key = %s
-			WHERE ai.meta_key = %s
-			  AND ai.meta_value = 'ready'
-			  AND sk.meta_id IS NULL
-			  AND ( vd.meta_value IS NULL OR vd.meta_value = '' )
-			  AND ( st.meta_value IS NULL OR st.meta_value <> %s )
-		";
+		$keys = array( self::STATUS_KEY, self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY );
+		$in   = implode( ',', array_fill( 0, count( $keys ), '%s' ) );
 
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				$sql,
-				self::STATUS_KEY,
-				self::SKIP_KEY,
-				self::VERDICT_KEY,
-				self::AI_STATUS_KEY,
-				self::STATUS_HAS_AI
-			)
-		);
+		$fixed  = 0;
+		$offset = 0;
 
-		foreach ( $post_ids as $post_id ) {
-			self::recompute_status( (int) $post_id, array( 'ai_status' => 'ready' ) );
+		do {
+			// Pivot the four keys into one row per post, so this is a single
+			// indexed scan rather than four joins.
+			$sql = "
+				SELECT pm.post_id,
+					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS stored_status,
+					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS skip_flag,
+					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS verdict,
+					MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS ai_status
+				FROM {$wpdb->postmeta} pm
+				INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+				WHERE pm.meta_key IN ( {$in} )
+				  AND p.post_type = 'post'
+				  AND p.post_status = 'publish'
+				GROUP BY pm.post_id
+				ORDER BY pm.post_id ASC
+				LIMIT %d OFFSET %d
+			";
+
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					$sql,
+					array_merge(
+						array( self::STATUS_KEY, self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY ),
+						$keys,
+						array( $batch_size, $offset )
+					)
+				)
+			);
+
+			foreach ( $rows as $row ) {
+				$derived = self::derive_status(
+					'1' === $row->skip_flag,
+					(string) $row->verdict,
+					(string) $row->ai_status
+				);
+
+				if ( (string) $row->stored_status !== $derived ) {
+					update_post_meta( (int) $row->post_id, self::STATUS_KEY, $derived );
+					$fixed++;
+				}
+			}
+
+			$offset += $batch_size;
+		} while ( count( $rows ) === $batch_size );
+
+		if ( $fixed > 0 ) {
+			wp_cache_set_posts_last_changed();
 		}
 
-		return count( $post_ids );
+		return $fixed;
 	}
 
 	/**

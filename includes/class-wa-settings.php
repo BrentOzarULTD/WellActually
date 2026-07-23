@@ -41,6 +41,7 @@ class WA_Settings {
 	 */
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
+		add_action( 'admin_post_wa_rebuild_status', array( $this, 'handle_rebuild_status' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( WA_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
 	}
@@ -297,6 +298,69 @@ class WA_Settings {
 			'wellactually_setup',
 			'wa_diagnostics_section'
 		);
+
+	}
+
+	/**
+	 * Rebuild the status index on demand, then return to the Setup tab.
+	 *
+	 * Its own form (not part of the settings form) so it can't be triggered
+	 * by an ordinary save.
+	 */
+	public function handle_rebuild_status() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to do that.', 'wellactually' ) );
+		}
+
+		check_admin_referer( 'wa_rebuild_status' );
+
+		$fixed = WA_Meta::repair_statuses();
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => 'wellactually',
+					'tab'        => 'setup',
+					'wa_rebuilt' => (int) $fixed,
+				),
+				admin_url( 'options-general.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Render the status-index rebuild control.
+	 *
+	 * Deliberately rendered after the settings form rather than as a settings
+	 * field: it needs its own form posting to admin-post.php, and a form
+	 * nested inside another form is invalid markup that browsers silently
+	 * flatten into the outer one.
+	 */
+	public function render_rebuild_status_block() {
+		echo '<h2>' . esc_html__( 'Status index', 'wellactually' ) . '</h2>';
+
+		if ( isset( $_GET['wa_rebuilt'] ) ) {
+			$fixed = absint( $_GET['wa_rebuilt'] );
+			echo '<p class="wa-rebuilt-notice">';
+			echo esc_html(
+				$fixed > 0
+					/* translators: %d: number of posts corrected */
+					? sprintf( _n( 'Corrected %d post.', 'Corrected %d posts.', $fixed, 'wellactually' ), $fixed )
+					: __( 'Everything already matched — nothing to correct.', 'wellactually' )
+			);
+			echo '</p>';
+		}
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<input type="hidden" name="action" value="wa_rebuild_status" />
+			<?php wp_nonce_field( 'wa_rebuild_status' ); ?>
+			<?php submit_button( __( 'Rebuild status index', 'wellactually' ), 'secondary', 'submit', false ); ?>
+		</form>
+		<p class="description">
+			<?php esc_html_e( 'The "Well, Actually..." screen sorts posts into its Needs to be set up / Has AI suggestions / In swipe deck views using a summary field kept alongside each post. If that summary ever gets out of step — a post showing up as needing setup when it\'s already excluded, say, or a drafted suggestion you can\'t reach — this rebuilds it from scratch. Safe to run at any time.', 'wellactually' ); ?>
+		</p>
+		<?php
 	}
 
 	/**
@@ -550,10 +614,17 @@ class WA_Settings {
 					submit_button();
 					?>
 				</form>
+				<?php
+				// Outside the settings form: its own form, posting elsewhere.
+				if ( 'setup' === $tab ) {
+					$this->render_rebuild_status_block();
+				}
+				?>
 			<?php endif; ?>
 		</div>
 		<style>
 			.wa-tab-panel { margin-top: 16px; }
+			.wa-rebuilt-notice { background: #edfaef; border-left: 4px solid #00a32a; padding: 8px 12px; margin: 0 0 8px; max-width: 600px; }
 			.wa-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; max-width: 600px; }
 			.wa-categories-table th.wa-col-count,
 			.wa-categories-table td.wa-col-count { width: 90px; }
