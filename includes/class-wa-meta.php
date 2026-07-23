@@ -263,6 +263,15 @@ class WA_Meta {
 	 * meta), then excluded/configured (a resolved verdict), then a ready AI
 	 * suggestion, else needs_setup.
 	 *
+	 * Also bumps WordPress's posts "last changed" cache marker. On a site
+	 * with a persistent object cache, WP_Query caches its post-ID result
+	 * lists keyed to that marker — but the marker only bumps automatically
+	 * when a post itself changes (title, status, date…), not when post meta
+	 * does. Without this, every meta_query built on STATUS_KEY (this
+	 * screen's filters, AI candidate selection, the swipe deck) can keep
+	 * serving a stale ID list — including IDs that no longer match — after
+	 * any save here, until something unrelated happens to bump it.
+	 *
 	 * @param int $post_id Post ID.
 	 * @return string The stored status value.
 	 */
@@ -270,6 +279,7 @@ class WA_Meta {
 		$status = self::compute_status( $post_id );
 
 		update_post_meta( $post_id, self::STATUS_KEY, $status );
+		wp_cache_set_posts_last_changed();
 
 		return $status;
 	}
