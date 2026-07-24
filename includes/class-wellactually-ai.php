@@ -373,7 +373,8 @@ class WellActually_AI {
 
 	/**
 	 * Select up to $limit "needs setup" post IDs to draft, optionally within a
-	 * category. Skips posts that already have a queued or ready suggestion.
+	 * category. Ready suggestions are rejected by the live-status check; callers
+	 * pass queue-table post IDs through $exclude to leave held work alone.
 	 *
 	 * @param int   $limit   Maximum number of posts.
 	 * @param int   $cat     Category term id, or 0 for all.

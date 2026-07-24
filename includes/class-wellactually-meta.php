@@ -644,23 +644,36 @@ class WellActually_Meta {
 
 		// Keep the IN clause bounded on large archives.
 		foreach ( array_chunk( $post_ids, 500 ) as $chunk ) {
-			$placeholders = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+			$placeholders  = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+			$deck_verdicts = self::deck_verdicts();
+			$deck_markers  = implode( ',', array_fill( 0, count( $deck_verdicts ), '%s' ) );
 
 			// Pivot the authoritative keys into one row per post. Posts with no
-			// rows are absent from the result and correctly default to needs setup.
+			// rows are absent from the result and correctly default to needs
+			// setup. Boolean flags preserve the priority rules even if damaged or
+			// imported data contains duplicate rows for one meta key.
 			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- {$placeholders} is generated only from %d markers; every value is bound in the single array argument.
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT pm.post_id,
-						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS skip_flag,
-						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS verdict,
-						MAX( CASE WHEN pm.meta_key = %s THEN pm.meta_value END ) AS ai_status
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value = %s THEN 1 ELSE 0 END ) AS is_skipped,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value = %s THEN 1 ELSE 0 END ) AS is_excluded,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value IN ( {$deck_markers} ) THEN 1 ELSE 0 END ) AS is_configured,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value = %s THEN 1 ELSE 0 END ) AS has_ready_ai
 					FROM {$wpdb->postmeta} pm
 					WHERE pm.post_id IN ( {$placeholders} )
 					  AND pm.meta_key IN ( %s, %s, %s )
 					GROUP BY pm.post_id",
 					array_merge(
-						array( self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY ),
+						array(
+							self::SKIP_KEY,
+							'1',
+							self::VERDICT_KEY,
+							self::VERDICT_EXCLUDED,
+							self::VERDICT_KEY,
+						),
+						$deck_verdicts,
+						array( self::AI_STATUS_KEY, 'ready' ),
 						$chunk,
 						array( self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY )
 					)
@@ -669,10 +682,14 @@ class WellActually_Meta {
 			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
 
 			foreach ( $rows as $row ) {
+				$verdict = '1' === $row->is_excluded
+					? self::VERDICT_EXCLUDED
+					: ( '1' === $row->is_configured ? $deck_verdicts[0] : '' );
+
 				$live_statuses[ (int) $row->post_id ] = self::derive_status(
-					'1' === $row->skip_flag,
-					(string) $row->verdict,
-					(string) $row->ai_status
+					'1' === $row->is_skipped,
+					$verdict,
+					'1' === $row->has_ready_ai ? 'ready' : ''
 				);
 			}
 		}

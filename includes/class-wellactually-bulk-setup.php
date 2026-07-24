@@ -300,7 +300,10 @@ class WellActually_Bulk_Setup {
 	private function build_live_needs_setup_query( $args ) {
 		global $wpdb;
 
-		$where  = array(
+		$deck_verdicts = WellActually_Meta::deck_verdicts();
+		$deck_markers  = implode( ',', array_fill( 0, count( $deck_verdicts ), '%s' ) );
+
+		$where = array(
 			'p.post_type = %s',
 			'p.post_status = %s',
 			"NOT EXISTS (
@@ -313,7 +316,10 @@ class WellActually_Bulk_Setup {
 				SELECT 1 FROM {$wpdb->postmeta} wa_verdict
 				WHERE wa_verdict.post_id = p.ID
 				  AND wa_verdict.meta_key = %s
-				  AND wa_verdict.meta_value IN ( %s, %s, %s, %s )
+				  AND (
+					wa_verdict.meta_value = %s
+					OR wa_verdict.meta_value IN ( {$deck_markers} )
+				  )
 			)",
 			"NOT EXISTS (
 				SELECT 1 FROM {$wpdb->postmeta} wa_ai
@@ -322,17 +328,20 @@ class WellActually_Bulk_Setup {
 				  AND wa_ai.meta_value = %s
 			)",
 		);
-		$params = array(
-			'post',
-			'publish',
-			WellActually_Meta::SKIP_KEY,
-			WellActually_Meta::VERDICT_KEY,
-			WellActually_Meta::VERDICT_EXCLUDED,
-			'true',
-			'false',
-			'debatable',
-			WellActually_Meta::AI_STATUS_KEY,
-			'ready',
+
+		$params = array_merge(
+			array(
+				'post',
+				'publish',
+				WellActually_Meta::SKIP_KEY,
+				WellActually_Meta::VERDICT_KEY,
+				WellActually_Meta::VERDICT_EXCLUDED,
+			),
+			$deck_verdicts,
+			array(
+				WellActually_Meta::AI_STATUS_KEY,
+				'ready',
+			)
 		);
 
 		if ( $args['cat'] > 0 ) {

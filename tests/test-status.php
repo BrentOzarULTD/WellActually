@@ -142,11 +142,20 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 		update_post_meta( $ready, WellActually_Meta::AI_STATUS_KEY, 'ready' );
 		update_post_meta( $ready, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
 
-		$ids = array( $configured, $untouched, $excluded, $explicit_needs_setup, $skipped, $ready );
+		$duplicate_verdicts = self::factory()->post->create();
+		add_post_meta( $duplicate_verdicts, WellActually_Meta::VERDICT_KEY, 'true' );
+		add_post_meta( $duplicate_verdicts, WellActually_Meta::VERDICT_KEY, WellActually_Meta::VERDICT_EXCLUDED );
+		update_post_meta( $duplicate_verdicts, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$ids = array( $configured, $untouched, $excluded, $explicit_needs_setup, $skipped, $ready, $duplicate_verdicts );
 
 		$this->assertSame(
 			array( $untouched, $explicit_needs_setup ),
 			WellActually_Meta::filter_post_ids_by_live_status( $ids, WellActually_Meta::STATUS_NEEDS_SETUP )
+		);
+		$this->assertSame(
+			array( $excluded, $duplicate_verdicts ),
+			WellActually_Meta::filter_post_ids_by_live_status( $ids, WellActually_Meta::STATUS_EXCLUDED )
 		);
 	}
 
