@@ -1100,8 +1100,7 @@ class WellActually_Bulk_Setup {
 			'debatable' => __( 'Debatable', 'wellactually' ),
 		);
 		$page_post_ids   = wp_list_pluck( $query->posts, 'ID' );
-		$view_post_ids   = 'views_30' === $args['orderby'] ? array() : $page_post_ids;
-		$views           = $this->jetpack_views_30_days( $view_post_ids );
+		$views           = $this->jetpack_views_30_days( $page_post_ids );
 		$has_views       = $this->has_jetpack_views();
 		?>
 		<form method="post" class="wa-bulk-form">
