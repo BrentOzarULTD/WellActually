@@ -298,8 +298,11 @@ class WellActually_Reports {
 		// or 'DESC' above, and {$no_data_last} is either empty or a literal
 		// built from {$total_sql}.
 		//
-		// {$from} is core table names plus placeholders; its values, and
-		// LIMIT/OFFSET, are bound through $params.
+		// {$from} is core table names plus placeholders, and its values are
+		// bound through $params. LIMIT/OFFSET are separate: their two values
+		// are appended to $params by the array_merge() in the prepare() call
+		// below, and bound to the %d placeholders there. $offset derives from
+		// $args['paged'], which is request input, and is bound like the rest.
 		//
 		// So the interpolated parts are SQL *fragments*, not values, and have
 		// no parameter to escape — which is what the three sniffs below cannot
