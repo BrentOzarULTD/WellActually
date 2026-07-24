@@ -4,6 +4,10 @@
 
 Your blog already contains years of hard-won lessons, surprising facts, unpopular opinions, and “it depends” answers. **Well, Actually...** turns those posts into a fast, playful quiz that helps readers discover your best work.
 
+<p align="center">
+  <img src="docs/images/well_actually_phone.png" alt="Well, Actually on a phone, showing a statement with Agree, Disagree, and Not sure choices" width="420">
+</p>
+
 Readers see a bold statement and choose:
 
 - **Agree**
@@ -41,9 +45,15 @@ For example:
 
 The post itself becomes the explanation when the reader gets it wrong—or whenever the answer is Debatable and the nuance is the whole point.
 
+<p align="center">
+  <img src="docs/images/incorrect_answer.png" alt="Well, Actually revealing the correct answer and the WordPress post that explains it" width="420">
+</p>
+
 ### Set up hundreds of posts without losing your mind
 
 The bulk Swipe Setup screen is built for real archives, not just five-post demo sites.
+
+![The WordPress bulk Swipe Setup screen, with filters, AI drafting, post details, verdicts, and Skip or Never controls](docs/images/swipe-setup-screen.jpg)
 
 You can:
 

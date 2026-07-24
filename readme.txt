@@ -68,10 +68,9 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 
 == Screenshots ==
 
-1. Full-screen swipe card with keyboard/swipe hints.
-2. Reveal overlay after a wrong or unsure answer.
-3. End-of-deck score screen with replay option.
-4. The Swipe Statement meta box on the post edit screen.
+1. The full-screen phone game: readers can Agree, Disagree, or choose Not sure.
+2. A wrong answer reveals the verdict and the original post that explains it.
+3. The bulk Swipe Setup screen with filters, AI drafting, view counts, and page-wide Skip or Never controls.
 
 == Changelog ==
 
