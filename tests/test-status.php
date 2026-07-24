@@ -202,6 +202,47 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The direct Needs Setup query must preserve WP_Query's category semantics:
+	 * selecting a parent includes its descendants, while any skipped category
+	 * excludes a post even if it also belongs to the selected branch.
+	 */
+	public function test_needs_setup_screen_preserves_category_scope() {
+		$parent   = self::factory()->category->create();
+		$child    = self::factory()->category->create( array( 'parent' => $parent ) );
+		$other    = self::factory()->category->create();
+		$excluded = self::factory()->category->create();
+
+		$included_post = self::factory()->post->create( array( 'post_category' => array( $child ) ) );
+		self::factory()->post->create( array( 'post_category' => array( $other ) ) );
+		self::factory()->post->create( array( 'post_category' => array( $child, $excluded ) ) );
+
+		update_option(
+			'wellactually_settings',
+			array_merge( WellActually_Settings::get_settings(), array( 'excluded_categories' => array( $excluded ) ) )
+		);
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$query = $method->invoke(
+			WellActually_Bulk_Setup::instance(),
+			array(
+				'status'  => 'needs_setup',
+				'done'    => array(),
+				'cat'     => $parent,
+				'order'   => 'DESC',
+				'orderby' => 'date',
+				'paged'   => 1,
+			)
+		);
+
+		$this->assertSame( 1, $query->found_posts );
+		$this->assertSame( array( $included_post ), wp_list_pluck( $query->posts, 'ID' ) );
+	}
+
+	/**
 	 * Skipping a category has to cover everything beneath it, including
 	 * children added after the parent was ticked.
 	 */

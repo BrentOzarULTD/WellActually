@@ -381,11 +381,13 @@ class WellActually_AI {
 	 * @return int[]
 	 */
 	public static function select_candidates( $limit, $cat = 0, array $exclude = array() ) {
-		$args = array(
+		$limit     = max( 1, (int) $limit );
+		$scan_size = min( 500, max( 100, $limit * 2 ) );
+		$args      = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
 			'fields'              => 'ids',
-			'posts_per_page'      => -1,
+			'posts_per_page'      => $scan_size,
 			'orderby'             => 'date',
 			'order'               => 'DESC',
 			'no_found_rows'       => true,
@@ -411,13 +413,39 @@ class WellActually_AI {
 			$args['category__not_in'] = $excluded_cats;
 		}
 
-		$query = new WP_Query( $args );
-		$ids   = WellActually_Meta::filter_post_ids_by_live_status(
-			array_map( 'intval', $query->posts ),
-			WellActually_Meta::STATUS_NEEDS_SETUP
-		);
+		$eligible       = array();
+		$eligible_count = 0;
+		$page           = 1;
 
-		return array_slice( $ids, 0, max( 1, (int) $limit ) );
+		// Walk the status-independent candidate set in bounded windows. Most
+		// requests finish in the first query; archives with many resolved posts
+		// keep scanning without ever loading every post ID into one request.
+		while ( $eligible_count < $limit ) {
+			$args['paged'] = $page;
+			$query         = new WP_Query( $args );
+			$candidates    = array_map( 'intval', $query->posts );
+
+			if ( empty( $candidates ) ) {
+				break;
+			}
+
+			$eligible       = array_merge(
+				$eligible,
+				WellActually_Meta::filter_post_ids_by_live_status(
+					$candidates,
+					WellActually_Meta::STATUS_NEEDS_SETUP
+				)
+			);
+			$eligible_count = count( $eligible );
+
+			if ( count( $candidates ) < $scan_size ) {
+				break;
+			}
+
+			++$page;
+		}
+
+		return array_slice( $eligible, 0, $limit );
 	}
 
 
