@@ -219,6 +219,10 @@ class WellActually_Bulk_Setup {
 	 * @return WP_Query
 	 */
 	private function build_query( $args ) {
+		if ( 'needs_setup' === $args['status'] ) {
+			return $this->build_live_needs_setup_query( $args );
+		}
+
 		$query_args = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
@@ -274,6 +278,163 @@ class WellActually_Bulk_Setup {
 		// query instead of ~20.
 		if ( ! empty( $query->posts ) ) {
 			update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
+		}
+
+		$this->log_page_build( $args, $query );
+
+		return $query;
+	}
+
+	/**
+	 * Build the Needs Setup page directly from authoritative meta.
+	 *
+	 * This bypasses WP_Query's result cache and the denormalized status index,
+	 * and asks only for the exact count plus the current 20-row page. The three
+	 * NOT EXISTS checks mirror WellActually_Meta::derive_status(): a post needs
+	 * setup only when it is not skipped, has no resolved verdict, and has no
+	 * ready AI suggestion.
+	 *
+	 * @param array $args Result of current_args().
+	 * @return WP_Query
+	 */
+	private function build_live_needs_setup_query( $args ) {
+		global $wpdb;
+
+		$deck_verdicts = WellActually_Meta::deck_verdicts();
+		$deck_markers  = implode( ',', array_fill( 0, count( $deck_verdicts ), '%s' ) );
+
+		$where = array(
+			'p.post_type = %s',
+			'p.post_status = %s',
+			"NOT EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} wa_skip
+				WHERE wa_skip.post_id = p.ID
+				  AND wa_skip.meta_key = %s
+				  AND wa_skip.meta_value = '1'
+			)",
+			"NOT EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} wa_verdict
+				WHERE wa_verdict.post_id = p.ID
+				  AND wa_verdict.meta_key = %s
+				  AND (
+					wa_verdict.meta_value = %s
+					OR wa_verdict.meta_value IN ( {$deck_markers} )
+				  )
+			)",
+			"NOT EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} wa_ai
+				WHERE wa_ai.post_id = p.ID
+				  AND wa_ai.meta_key = %s
+				  AND wa_ai.meta_value = %s
+			)",
+		);
+
+		$params = array_merge(
+			array(
+				'post',
+				'publish',
+				WellActually_Meta::SKIP_KEY,
+				WellActually_Meta::VERDICT_KEY,
+				WellActually_Meta::VERDICT_EXCLUDED,
+			),
+			$deck_verdicts,
+			array(
+				WellActually_Meta::AI_STATUS_KEY,
+				'ready',
+			)
+		);
+
+		if ( $args['cat'] > 0 ) {
+			$category_children = get_term_children( (int) $args['cat'], 'category' );
+			if ( ! is_array( $category_children ) ) {
+				$category_children = array();
+			}
+
+			$category_ids = array_merge(
+				array( (int) $args['cat'] ),
+				$category_children
+			);
+			$category_ids = array_values( array_unique( array_map( 'absint', $category_ids ) ) );
+			$placeholders = implode( ',', array_fill( 0, count( $category_ids ), '%d' ) );
+			$where[]      = "EXISTS (
+				SELECT 1
+				FROM {$wpdb->term_relationships} wa_tr
+				INNER JOIN {$wpdb->term_taxonomy} wa_tt
+					ON wa_tt.term_taxonomy_id = wa_tr.term_taxonomy_id
+				WHERE wa_tr.object_id = p.ID
+				  AND wa_tt.taxonomy = %s
+				  AND wa_tt.term_id IN ( {$placeholders} )
+			)";
+			$params       = array_merge( $params, array( 'category' ), $category_ids );
+		}
+
+		$excluded_cats = WellActually_Settings::excluded_categories();
+		if ( ! empty( $excluded_cats ) ) {
+			$excluded_cats = array_values( array_unique( array_map( 'absint', $excluded_cats ) ) );
+			$placeholders  = implode( ',', array_fill( 0, count( $excluded_cats ), '%d' ) );
+			$where[]       = "NOT EXISTS (
+				SELECT 1
+				FROM {$wpdb->term_relationships} wa_ex_tr
+				INNER JOIN {$wpdb->term_taxonomy} wa_ex_tt
+					ON wa_ex_tt.term_taxonomy_id = wa_ex_tr.term_taxonomy_id
+				WHERE wa_ex_tr.object_id = p.ID
+				  AND wa_ex_tt.taxonomy = %s
+				  AND wa_ex_tt.term_id IN ( {$placeholders} )
+			)";
+			$params        = array_merge( $params, array( 'category' ), $excluded_cats );
+		}
+
+		if ( ! empty( $args['done'] ) ) {
+			$done         = array_values( array_unique( array_map( 'absint', $args['done'] ) ) );
+			$placeholders = implode( ',', array_fill( 0, count( $done ), '%d' ) );
+			$where[]      = "p.ID NOT IN ( {$placeholders} )";
+			$params       = array_merge( $params, $done );
+		}
+
+		$where_sql = implode( "\nAND ", $where );
+		$from_sql  = "FROM {$wpdb->posts} p";
+
+		// current_args() allow-lists both values; the map turns the public sort
+		// name into its core wp_posts column.
+		$order_columns = array(
+			'date'          => 'post_date',
+			'modified'      => 'post_modified',
+			'comment_count' => 'comment_count',
+		);
+		$order_column  = $order_columns[ $args['orderby'] ];
+		$order         = 'ASC' === $args['order'] ? 'ASC' : 'DESC';
+		$offset        = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- Table/column/order fragments are core names or allow-listed literals; every dynamic value and generated placeholder is bound through the parameter arrays.
+		$found = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) {$from_sql} WHERE {$where_sql}",
+				$params
+			)
+		);
+		$page  = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT p.ID {$from_sql}
+				WHERE {$where_sql}
+				ORDER BY p.{$order_column} {$order}, p.ID {$order}
+				LIMIT %d OFFSET %d",
+				array_merge( $params, array( self::PER_PAGE, $offset ) )
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
+
+		$posts = array_values( array_filter( array_map( 'get_post', array_map( 'intval', $page ) ) ) );
+
+		// An empty WP_Query gives the renderer the normal loop API without
+		// issuing another status-dependent query that a host could cache.
+		$query                = new WP_Query();
+		$query->posts         = $posts;
+		$query->post_count    = count( $posts );
+		$query->found_posts   = $found;
+		$query->max_num_pages = (int) ceil( $found / self::PER_PAGE );
+
+		if ( ! empty( $posts ) ) {
+			update_meta_cache( 'post', wp_list_pluck( $posts, 'ID' ) );
 		}
 
 		$this->log_page_build( $args, $query );

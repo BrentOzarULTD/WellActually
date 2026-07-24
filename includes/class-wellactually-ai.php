@@ -373,7 +373,8 @@ class WellActually_AI {
 
 	/**
 	 * Select up to $limit "needs setup" post IDs to draft, optionally within a
-	 * category. Skips posts that already have a queued or ready suggestion.
+	 * category. Ready suggestions are rejected by the live-status check; callers
+	 * pass queue-table post IDs through $exclude to leave held work alone.
 	 *
 	 * @param int   $limit   Maximum number of posts.
 	 * @param int   $cat     Category term id, or 0 for all.
@@ -381,20 +382,20 @@ class WellActually_AI {
 	 * @return int[]
 	 */
 	public static function select_candidates( $limit, $cat = 0, array $exclude = array() ) {
-		$args = array(
+		$limit     = max( 1, (int) $limit );
+		$scan_size = min( 500, max( 100, $limit * 2 ) );
+		$args      = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
 			'fields'              => 'ids',
-			'posts_per_page'      => max( 1, (int) $limit ),
+			'posts_per_page'      => $scan_size,
 			'orderby'             => 'date',
 			'order'               => 'DESC',
 			'no_found_rows'       => true,
 			'ignore_sticky_posts' => true,
-			'meta_query'          => WellActually_Meta::status_meta_query( 'needs_setup' ),
-			// Always read live: this filters on a meta-backed status, which
-			// WP's post-query cache doesn't invalidate on (see the same note
-			// in WellActually_Bulk_Setup::build_query()). A stale list here would spend
-			// real AI calls re-drafting posts that were just set up.
+			// Deliberately broad. Swipe-meta changes cannot make this candidate
+			// list stale; the authoritative status check below decides which
+			// IDs are actually eligible.
 			'cache_results'       => false,
 		);
 
@@ -413,8 +414,39 @@ class WellActually_AI {
 			$args['category__not_in'] = $excluded_cats;
 		}
 
-		$query = new WP_Query( $args );
-		return array_map( 'intval', $query->posts );
+		$eligible       = array();
+		$eligible_count = 0;
+		$page           = 1;
+
+		// Walk the status-independent candidate set in bounded windows. Most
+		// requests finish in the first query; archives with many resolved posts
+		// keep scanning without ever loading every post ID into one request.
+		while ( $eligible_count < $limit ) {
+			$args['paged'] = $page;
+			$query         = new WP_Query( $args );
+			$candidates    = array_map( 'intval', $query->posts );
+
+			if ( empty( $candidates ) ) {
+				break;
+			}
+
+			$eligible       = array_merge(
+				$eligible,
+				WellActually_Meta::filter_post_ids_by_live_status(
+					$candidates,
+					WellActually_Meta::STATUS_NEEDS_SETUP
+				)
+			);
+			$eligible_count = count( $eligible );
+
+			if ( count( $candidates ) < $scan_size ) {
+				break;
+			}
+
+			++$page;
+		}
+
+		return array_slice( $eligible, 0, $limit );
 	}
 
 

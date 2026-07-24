@@ -113,9 +113,13 @@ class Test_WellActually_Drafting extends WP_UnitTestCase {
 
 		$configured = self::factory()->post->create();
 		WellActually_Meta::apply_meta( $configured, 'Already written', 'true' );
+		// Simulate a stale/corrupt status index (or an old cached query result)
+		// still offering this ID as needs setup.
+		update_post_meta( $configured, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
 
 		$excluded = self::factory()->post->create();
 		WellActually_Meta::apply_meta( $excluded, '', WellActually_Meta::VERDICT_EXCLUDED );
+		update_post_meta( $excluded, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
 
 		$skipped = self::factory()->post->create();
 		update_post_meta( $skipped, WellActually_Meta::SKIP_KEY, '1' );
@@ -127,6 +131,33 @@ class Test_WellActually_Drafting extends WP_UnitTestCase {
 		$this->assertNotContains( $configured, $candidates );
 		$this->assertNotContains( $excluded, $candidates );
 		$this->assertNotContains( $skipped, $candidates );
+	}
+
+	/**
+	 * Candidate selection must continue into later bounded windows when the
+	 * newest window contains only stale-index phantoms.
+	 */
+	public function test_candidates_scan_past_a_full_window_of_phantoms() {
+		$base = strtotime( '2025-01-01 00:00:00' );
+
+		$eligible = array();
+		for ( $i = 0; $i < 10; $i++ ) {
+			$eligible[] = self::factory()->post->create(
+				array( 'post_date' => gmdate( 'Y-m-d H:i:s', $base + ( $i * MINUTE_IN_SECONDS ) ) )
+			);
+		}
+
+		// Newer than every eligible post and deeper than the 100-ID minimum
+		// scan window. The status index lies; the verdict is authoritative.
+		for ( $i = 0; $i < 110; $i++ ) {
+			$post_id = self::factory()->post->create(
+				array( 'post_date' => gmdate( 'Y-m-d H:i:s', $base + ( ( 20 + $i ) * MINUTE_IN_SECONDS ) ) )
+			);
+			update_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, 'true' );
+			update_post_meta( $post_id, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+		}
+
+		$this->assertSame( array_reverse( $eligible ), WellActually_AI::select_candidates( 10 ) );
 	}
 
 	/**

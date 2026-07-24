@@ -603,6 +603,111 @@ class WellActually_Meta {
 	}
 
 	/**
+	 * Keep only post IDs whose authoritative meta derives to a given status.
+	 *
+	 * This deliberately reads wp_postmeta through $wpdb instead of
+	 * get_post_meta() or a status-based WP_Query. Managed WordPress hosts can
+	 * persist both of those result sets in an object cache, which means a
+	 * filtered query can return a post after its verdict/skip/AI state changed.
+	 * A direct read makes this the final correctness boundary before a post is
+	 * shown as needing setup or sent to an AI provider.
+	 *
+	 * The denormalized STATUS_KEY is intentionally not consulted. It is an
+	 * index for fast candidate selection, not the authority; the same priority
+	 * rules as compute_status() are derived here from skip, verdict, and AI
+	 * status.
+	 *
+	 * @param int[]  $post_ids Post IDs, in the order they should be returned.
+	 * @param string $status   One of the STATUS_* constants.
+	 * @return int[] Matching post IDs, preserving input order.
+	 */
+	public static function filter_post_ids_by_live_status( array $post_ids, $status ) {
+		global $wpdb;
+
+		$valid_statuses = array(
+			self::STATUS_NEEDS_SETUP,
+			self::STATUS_HAS_AI,
+			self::STATUS_CONFIGURED,
+			self::STATUS_EXCLUDED,
+			self::STATUS_SKIPPED,
+		);
+		if ( ! in_array( $status, $valid_statuses, true ) ) {
+			return array();
+		}
+
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		if ( empty( $post_ids ) ) {
+			return array();
+		}
+
+		$live_statuses = array();
+
+		// Keep the IN clause bounded on large archives.
+		foreach ( array_chunk( $post_ids, 500 ) as $chunk ) {
+			$placeholders  = implode( ',', array_fill( 0, count( $chunk ), '%d' ) );
+			$deck_verdicts = self::deck_verdicts();
+			$deck_markers  = implode( ',', array_fill( 0, count( $deck_verdicts ), '%s' ) );
+
+			// Pivot the authoritative keys into one row per post. Posts with no
+			// rows are absent from the result and correctly default to needs
+			// setup. Boolean flags preserve the priority rules even if damaged or
+			// imported data contains duplicate rows for one meta key.
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- {$placeholders} is generated only from %d markers; every value is bound in the single array argument.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT pm.post_id,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value = %s THEN 1 ELSE 0 END ) AS is_skipped,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value = %s THEN 1 ELSE 0 END ) AS is_excluded,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value IN ( {$deck_markers} ) THEN 1 ELSE 0 END ) AS is_configured,
+						MAX( CASE WHEN pm.meta_key = %s AND pm.meta_value = %s THEN 1 ELSE 0 END ) AS has_ready_ai
+					FROM {$wpdb->postmeta} pm
+					WHERE pm.post_id IN ( {$placeholders} )
+					  AND pm.meta_key IN ( %s, %s, %s )
+					GROUP BY pm.post_id",
+					array_merge(
+						array(
+							self::SKIP_KEY,
+							'1',
+							self::VERDICT_KEY,
+							self::VERDICT_EXCLUDED,
+							self::VERDICT_KEY,
+						),
+						$deck_verdicts,
+						array( self::AI_STATUS_KEY, 'ready' ),
+						$chunk,
+						array( self::SKIP_KEY, self::VERDICT_KEY, self::AI_STATUS_KEY )
+					)
+				)
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
+
+			foreach ( $rows as $row ) {
+				$verdict = '1' === $row->is_excluded
+					? self::VERDICT_EXCLUDED
+					: ( '1' === $row->is_configured ? $deck_verdicts[0] : '' );
+
+				$live_statuses[ (int) $row->post_id ] = self::derive_status(
+					'1' === $row->is_skipped,
+					$verdict,
+					'1' === $row->has_ready_ai ? 'ready' : ''
+				);
+			}
+		}
+
+		return array_values(
+			array_filter(
+				$post_ids,
+				static function ( $post_id ) use ( $live_statuses, $status ) {
+					$live_status = isset( $live_statuses[ $post_id ] )
+						? $live_statuses[ $post_id ]
+						: self::STATUS_NEEDS_SETUP;
+					return $status === $live_status;
+				}
+			)
+		);
+	}
+
+	/**
 	 * Rebuild the denormalized status for every post whose stored value
 	 * disagrees with the meta it's derived from.
 	 *

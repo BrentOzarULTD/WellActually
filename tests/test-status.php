@@ -117,6 +117,170 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The final Needs Setup check must use source meta, not the denormalized
+	 * status that selected a candidate or a potentially stale meta cache.
+	 */
+	public function test_live_status_filter_rejects_phantom_needs_setup_posts() {
+		$untouched = self::factory()->post->create();
+
+		$explicit_needs_setup = self::factory()->post->create();
+		update_post_meta( $explicit_needs_setup, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$configured = self::factory()->post->create();
+		update_post_meta( $configured, WellActually_Meta::VERDICT_KEY, 'true' );
+		update_post_meta( $configured, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$excluded = self::factory()->post->create();
+		update_post_meta( $excluded, WellActually_Meta::VERDICT_KEY, WellActually_Meta::VERDICT_EXCLUDED );
+		update_post_meta( $excluded, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$skipped = self::factory()->post->create();
+		update_post_meta( $skipped, WellActually_Meta::SKIP_KEY, '1' );
+		update_post_meta( $skipped, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$ready = self::factory()->post->create();
+		update_post_meta( $ready, WellActually_Meta::AI_STATUS_KEY, 'ready' );
+		update_post_meta( $ready, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$duplicate_verdicts = self::factory()->post->create();
+		add_post_meta( $duplicate_verdicts, WellActually_Meta::VERDICT_KEY, 'true' );
+		add_post_meta( $duplicate_verdicts, WellActually_Meta::VERDICT_KEY, WellActually_Meta::VERDICT_EXCLUDED );
+		update_post_meta( $duplicate_verdicts, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+
+		$ids = array( $configured, $untouched, $excluded, $explicit_needs_setup, $skipped, $ready, $duplicate_verdicts );
+
+		$this->assertSame(
+			array( $untouched, $explicit_needs_setup ),
+			WellActually_Meta::filter_post_ids_by_live_status( $ids, WellActually_Meta::STATUS_NEEDS_SETUP )
+		);
+		$this->assertSame(
+			array( $excluded, $duplicate_verdicts ),
+			WellActually_Meta::filter_post_ids_by_live_status( $ids, WellActually_Meta::STATUS_EXCLUDED )
+		);
+	}
+
+	/**
+	 * The screen must fill and count pages after the authoritative check. A
+	 * block of cached phantom IDs at the top may not create short pages or
+	 * leak configured/excluded posts into the table.
+	 */
+	public function test_needs_setup_screen_filters_before_pagination() {
+		$base = strtotime( '2025-01-01 00:00:00' );
+		for ( $i = 0; $i < 25; $i++ ) {
+			self::factory()->post->create(
+				array( 'post_date' => gmdate( 'Y-m-d H:i:s', $base + ( $i * MINUTE_IN_SECONDS ) ) )
+			);
+		}
+
+		$phantoms = array();
+		foreach ( array( 'true', WellActually_Meta::VERDICT_EXCLUDED ) as $offset => $verdict ) {
+			$post_id = self::factory()->post->create(
+				array( 'post_date' => gmdate( 'Y-m-d H:i:s', $base + ( ( 30 + $offset ) * MINUTE_IN_SECONDS ) ) )
+			);
+			update_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, $verdict );
+			update_post_meta( $post_id, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
+			$phantoms[] = $post_id;
+		}
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$args = array(
+			'status'  => 'needs_setup',
+			'done'    => array(),
+			'cat'     => 0,
+			'order'   => 'DESC',
+			'orderby' => 'date',
+			'paged'   => 1,
+		);
+
+		$first_page = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+
+		$this->assertSame( 25, $first_page->found_posts );
+		$this->assertSame( 20, $first_page->post_count );
+		$this->assertEmpty( array_intersect( $phantoms, wp_list_pluck( $first_page->posts, 'ID' ) ) );
+
+		$args['paged'] = 2;
+		$second_page   = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+
+		$this->assertSame( 25, $second_page->found_posts );
+		$this->assertSame( 5, $second_page->post_count );
+		$this->assertEmpty( array_intersect( $phantoms, wp_list_pluck( $second_page->posts, 'ID' ) ) );
+	}
+
+	/**
+	 * The direct Needs Setup query must preserve WP_Query's category semantics:
+	 * selecting a parent includes its descendants, while any skipped category
+	 * excludes a post even if it also belongs to the selected branch.
+	 */
+	public function test_needs_setup_screen_preserves_category_scope() {
+		$parent   = self::factory()->category->create();
+		$child    = self::factory()->category->create( array( 'parent' => $parent ) );
+		$other    = self::factory()->category->create();
+		$excluded = self::factory()->category->create();
+
+		$included_post = self::factory()->post->create( array( 'post_category' => array( $child ) ) );
+		self::factory()->post->create( array( 'post_category' => array( $other ) ) );
+		self::factory()->post->create( array( 'post_category' => array( $child, $excluded ) ) );
+
+		update_option(
+			'wellactually_settings',
+			array_merge( WellActually_Settings::get_settings(), array( 'excluded_categories' => array( $excluded ) ) )
+		);
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$query = $method->invoke(
+			WellActually_Bulk_Setup::instance(),
+			array(
+				'status'  => 'needs_setup',
+				'done'    => array(),
+				'cat'     => $parent,
+				'order'   => 'DESC',
+				'orderby' => 'date',
+				'paged'   => 1,
+			)
+		);
+
+		$this->assertSame( 1, $query->found_posts );
+		$this->assertSame( array( $included_post ), wp_list_pluck( $query->posts, 'ID' ) );
+	}
+
+	/**
+	 * An invalid category must produce an empty screen instead of passing a
+	 * WP_Error from get_term_children() into array_merge().
+	 */
+	public function test_needs_setup_screen_handles_invalid_category() {
+		self::factory()->post->create();
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$query = $method->invoke(
+			WellActually_Bulk_Setup::instance(),
+			array(
+				'status'  => 'needs_setup',
+				'done'    => array(),
+				'cat'     => 999999,
+				'order'   => 'DESC',
+				'orderby' => 'date',
+				'paged'   => 1,
+			)
+		);
+
+		$this->assertSame( 0, $query->found_posts );
+		$this->assertSame( 0, $query->post_count );
+		$this->assertSame( array(), $query->posts );
+	}
+
+	/**
 	 * Skipping a category has to cover everything beneath it, including
 	 * children added after the parent was ticked.
 	 */
