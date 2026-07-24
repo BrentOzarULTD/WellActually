@@ -140,26 +140,100 @@ class WellActually_Migrate {
 	/**
 	 * Take the migration lock, or report that someone else holds it.
 	 *
-	 * The test-and-set is add_option(): option_name is uniquely indexed, so
-	 * exactly one concurrent caller can insert the row.
+	 * Both paths are compare-and-swap against the database, because the
+	 * Options API cannot provide one. add_option() looks like a test-and-set
+	 * and isn't: it pre-checks with get_option() — a cache read — and then
+	 * issues INSERT ... ON DUPLICATE KEY UPDATE, which overwrites an existing
+	 * row rather than failing. Two concurrent callers can both pass the
+	 * pre-check and both believe they took the lock.
 	 *
 	 * @return bool
 	 */
 	private static function acquire_lock() {
-		if ( add_option( self::LOCK_OPTION, time(), '', false ) ) {
+		global $wpdb;
+
+		// INSERT IGNORE against the unique index on option_name: exactly one
+		// concurrent caller inserts the row, everyone else affects 0 rows.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the Options API has no atomic insert; that is the whole point here. Caches are cleared below.
+		$inserted = $wpdb->query(
+			$wpdb->prepare(
+				"INSERT IGNORE INTO {$wpdb->options} ( option_name, option_value, autoload ) VALUES ( %s, %s, 'off' )",
+				self::LOCK_OPTION,
+				(string) time()
+			)
+		);
+
+		self::flush_lock_cache();
+
+		if ( 1 === (int) $inserted ) {
 			return true;
 		}
 
-		// Someone holds it. Honour it unless it's old enough to be a request
-		// that died part-way, in which case take it over.
-		$held_since = (int) get_option( self::LOCK_OPTION );
-		if ( $held_since && ( time() - $held_since ) < self::LOCK_TIMEOUT ) {
+		// Someone holds it. Read the holder straight from the table — a cached
+		// value could be another request's, from before it took the lock.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- as above.
+		$held_since = $wpdb->get_var(
+			$wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", self::LOCK_OPTION )
+		);
+
+		// Gone between the INSERT and the SELECT: the holder finished. Let the
+		// next request take it cleanly rather than racing for it now.
+		if ( null === $held_since ) {
 			return false;
 		}
 
-		update_option( self::LOCK_OPTION, time(), false );
+		// Honour a live lock. Only an abandoned one is up for grabs.
+		if ( ( time() - (int) $held_since ) < self::LOCK_TIMEOUT ) {
+			return false;
+		}
 
-		return true;
+		return self::take_over_stale_lock( (string) $held_since );
+	}
+
+	/**
+	 * Claim a lock observed to be abandoned, without racing another request
+	 * that observed the same thing.
+	 *
+	 * The swap is conditional on the value still being the one that was read,
+	 * so of several requests that all decide a lock is stale, exactly one
+	 * UPDATE matches a row and the rest match none. A plain update_option()
+	 * here would let all of them proceed, which is the race the lock exists
+	 * to prevent.
+	 *
+	 * Public only so the concurrent case can be tested; it is part of the lock
+	 * protocol, not an API.
+	 *
+	 * @param string $observed The option_value read when the lock was judged stale.
+	 * @return bool Whether this caller won the lock.
+	 */
+	public static function take_over_stale_lock( $observed ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a conditional UPDATE is the compare-and-swap; there is no Options API equivalent.
+		$swapped = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+				(string) time(),
+				self::LOCK_OPTION,
+				$observed
+			)
+		);
+
+		self::flush_lock_cache();
+
+		return 1 === (int) $swapped;
+	}
+
+	/**
+	 * Drop the cached copies of the lock option, since it is written by hand.
+	 *
+	 * `notoptions` matters as much as the value: it remembers that an option
+	 * did not exist, and a stale entry there makes a lock we just inserted
+	 * read back as absent.
+	 */
+	private static function flush_lock_cache() {
+		wp_cache_delete( self::LOCK_OPTION, 'options' );
+		wp_cache_delete( 'notoptions', 'options' );
 	}
 
 	/**

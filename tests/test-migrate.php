@@ -418,6 +418,27 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Two requests that both judge the lock abandoned must not both take it.
+	 *
+	 * This is the interleaving, not an approximation of it: both callers pass
+	 * the same observed value, which is what two requests that read the stale
+	 * lock before either wrote would do. A plain update_option() takeover
+	 * lets both through — the exact race the lock exists to prevent.
+	 */
+	public function test_only_one_request_takes_over_a_stale_lock() {
+		$abandoned = time() - ( WellActually_Migrate::LOCK_TIMEOUT + 60 );
+		add_option( WellActually_Migrate::LOCK_OPTION, $abandoned, '', false );
+
+		$observed = (string) $abandoned;
+
+		$first  = WellActually_Migrate::take_over_stale_lock( $observed );
+		$second = WellActually_Migrate::take_over_stale_lock( $observed );
+
+		$this->assertTrue( $first, 'The first request to swap must win the lock.' );
+		$this->assertFalse( $second, 'A second request observing the same stale lock must lose the swap.' );
+	}
+
+	/**
 	 * A request that couldn't migrate must not boot the plugin.
 	 *
 	 * Components run against half-migrated data don't merely read stale
