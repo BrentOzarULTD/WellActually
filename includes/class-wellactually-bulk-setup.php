@@ -15,10 +15,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WellActually_Bulk_Setup {
 
-	const MENU_SLUG    = 'wellactually-swipe-setup';
-	const NONCE_ACTION = 'wellactually_bulk_save';
-	const NONCE_NAME   = 'wellactually_bulk_nonce';
-	const PER_PAGE     = 20;
+	const MENU_SLUG               = 'wellactually-swipe-setup';
+	const NONCE_ACTION            = 'wellactually_bulk_save';
+	const NONCE_NAME              = 'wellactually_bulk_nonce';
+	const PER_PAGE                = 20;
+	const JETPACK_SCOPED_ID_LIMIT = 100;
 
 	/**
 	 * Singleton instance.
@@ -500,7 +501,7 @@ class WellActually_Bulk_Setup {
 	 */
 	private function paginate_post_ids_by_views( $post_ids, $args ) {
 		$post_ids   = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
-		$views      = $this->jetpack_views_30_days();
+		$views      = $this->jetpack_views_30_days( $post_ids );
 		$view_sort  = array();
 		$sort_order = 'ASC' === $args['order'] ? SORT_ASC : SORT_DESC;
 
@@ -535,8 +536,10 @@ class WellActually_Bulk_Setup {
 	/**
 	 * Get Jetpack's cached 30-day view totals, keyed by post ID.
 	 *
-	 * With a list of IDs, use the same one-request endpoint as Jetpack's Posts
-	 * column. With no IDs, request the full ranking needed for global sorting.
+	 * With a manageable list of IDs, use the same scoped endpoint as Jetpack's
+	 * Posts column. Large sets use one full-ranking request rather than putting
+	 * thousands of IDs in a URL, then trim the response back to the requested
+	 * set before returning it.
 	 *
 	 * @param int[] $post_ids Optional post IDs for a page-only request.
 	 * @return int[]
@@ -547,13 +550,17 @@ class WellActually_Bulk_Setup {
 		$stats_class = '\Automattic\Jetpack\Stats\WPCOM_Stats';
 
 		if ( ! empty( $post_ids ) && class_exists( $stats_class ) ) {
+			$request_args = array( 'num' => 30 );
+
+			// Jetpack sends these as query-string parameters. Scope normal page
+			// and narrow-filter requests, but avoid an oversized URL when a
+			// global sort matches hundreds or thousands of posts.
+			if ( count( $post_ids ) <= self::JETPACK_SCOPED_ID_LIMIT ) {
+				$request_args['post_ids'] = implode( ',', $post_ids );
+			}
+
 			$stats    = new $stats_class();
-			$response = $stats->get_total_post_views(
-				array(
-					'num'      => 30,
-					'post_ids' => implode( ',', $post_ids ),
-				)
-			);
+			$response = $stats->get_total_post_views( $request_args );
 
 			if ( ! is_wp_error( $response ) && ! empty( $response['posts'] ) && is_array( $response['posts'] ) ) {
 				foreach ( $response['posts'] as $post ) {
