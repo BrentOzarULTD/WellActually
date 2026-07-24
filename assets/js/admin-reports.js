@@ -5,13 +5,13 @@
  * into fields in place, saves over REST, and updates itself without a page
  * reload.
  *
- * Vanilla ES5, no build step. `window.waReports` (printed via
+ * Vanilla ES5, no build step. `window.wellactuallyReports` (printed via
  * wp_localize_script) provides { restUrl, nonce, verdicts, i18n }.
  */
 ( function () {
 	'use strict';
 
-	var cfg = window.waReports || {};
+	var cfg = window.wellactuallyReports || {};
 	var i18n = cfg.i18n || {};
 	if ( ! cfg.restUrl ) { return; }
 

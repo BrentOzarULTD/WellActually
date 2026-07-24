@@ -10,25 +10,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Handles reading/writing the _wa_progress user meta over REST.
+ * Handles reading/writing the _wellactually_progress user meta over REST.
  */
-class WA_User_Progress {
+class WellActually_User_Progress {
 
-	const META_KEY       = '_wa_progress';
+	const META_KEY       = '_wellactually_progress';
 	const MAX_SEEN       = 10000;
 	const NAMESPACE_NAME = 'wellactually/v1';
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_User_Progress|null
+	 * @var WellActually_User_Progress|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_User_Progress
+	 * @return WellActually_User_Progress
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -122,8 +122,8 @@ class WA_User_Progress {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function handle_put_progress( WP_REST_Request $request ) {
-		if ( ! WA_Rest::check_rate_limit( 'progress_put', 60, MINUTE_IN_SECONDS ) ) {
-			return new WP_Error( 'wa_rate_limited', __( 'Too many updates, slow down.', 'wellactually' ), array( 'status' => 429 ) );
+		if ( ! WellActually_Rest::check_rate_limit( 'progress_put', 60, MINUTE_IN_SECONDS ) ) {
+			return new WP_Error( 'wellactually_rate_limited', __( 'Too many updates, slow down.', 'wellactually' ), array( 'status' => 429 ) );
 		}
 
 		$params   = $request->get_json_params();

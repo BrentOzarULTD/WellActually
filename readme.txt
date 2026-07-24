@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -75,6 +75,12 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 
 == Changelog ==
 
+= 1.8.0 =
+* Internal rename, no change to how the plugin works. Everything the plugin owns behind the scenes — its settings, its database tables, the data stored against each post, and the names other plugins can hook into — moved from the two-letter "wa" prefix to the full "wellactually" one, because WordPress.org asks plugins to use a name that can't collide with anyone else's.
+* Upgrading carries your data across automatically the first time the site loads after the update: settings, swipe statements and verdicts, swipe scores, AI drafts still waiting for review, and every player's saved progress. Nothing to click, and it only runs once.
+* Also renamed: the script and style handles (`wa-swipe` is now `wellactually-swipe`, and the admin ones are `wellactually-admin-*`) and the plugin's JavaScript globals (`waSwipe` is now `wellactuallySwipe`, and the same for the rest). These were never documented as a public API, so nothing supported depends on them — but if you wrote custom JavaScript against the swipe page, or dequeued an asset by handle, those references need the new names.
+* If you (or a developer) hook into this plugin's actions and filters, they've been renamed too. The full list: `wa_activate` is now `wellactually_activate`, `wa_ai_available` is `wellactually_ai_available`, `wa_ai_concurrency` is `wellactually_ai_concurrency`, `wa_ai_pre_draft` is `wellactually_ai_pre_draft`, `wa_ai_system_instruction` is `wellactually_ai_system_instruction`, `wa_debug_setup` is `wellactually_debug_setup`, and `wa_min_swipes_for_stat` is `wellactually_min_swipes_for_stat`. The old names no longer fire.
+
 = 1.7.0 =
 * You can now edit the instructions sent to the AI, under Settings → "Well, Actually..." → Drafting instructions, so statements can be written in your own voice and for your own subject matter. Leave it blank to use the wording the plugin ships with, which is shown in the box as a starting point. The technical bit that tells the AI how to format its reply is added automatically and isn't part of what you edit, so rewriting the instructions can't stop drafts being saved.
 * Fix: asking to draft a given number of posts could quietly draft fewer — ask for 100 and get 53. Posts still held by an earlier drafting run (a tab closed mid-run, or a run stopped by a rate limit) were skipped, and those skips came straight off the total instead of being made up from the thousands of other eligible posts. It now keeps looking until the batch is full. Posts that failed to draft in the past were never the cause; they've always been eligible to try again.
@@ -95,7 +101,7 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 = 1.5.0 =
 * Swipe left or right on the reveal card to carry on, instead of reaching for the Continue button. The button still works, and vertical swipes still scroll a long reveal rather than dismissing it.
 * Remove the control hints under the swipe buttons — the buttons already say what they do.
-* In that space, cards now show how many players got them wrong ("80% got this one wrong") while the statement is still up, before you answer. It appears once a card has at least 5 swipes recorded, so a single answer can't produce a misleading "100%", and never on Debatable cards — they have no wrong answer, and a figure there would give the verdict away. Developers can change the threshold with the `wa_min_swipes_for_stat` filter.
+* In that space, cards now show how many players got them wrong ("80% got this one wrong") while the statement is still up, before you answer. It appears once a card has at least 5 swipes recorded, so a single answer can't produce a misleading "100%", and never on Debatable cards — they have no wrong answer, and a figure there would give the verdict away. Developers can change the threshold with the `wellactually_min_swipes_for_stat` filter (named `wa_min_swipes_for_stat` before 1.8.0).
 * That figure costs one extra database lookup per batch of 20 cards, against a table indexed by post, so it doesn't measurably affect how quickly the quiz loads.
 
 = 1.4.4 =

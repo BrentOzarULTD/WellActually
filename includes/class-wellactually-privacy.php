@@ -3,7 +3,7 @@
  * WordPress privacy tooling: suggested policy text, and the personal-data
  * exporter/eraser for logged-in swipe progress.
  *
- * The only personal data this plugin stores server-side is the `_wa_progress`
+ * The only personal data this plugin stores server-side is the `_wellactually_progress`
  * user meta for logged-in players (which posts they've seen and gotten wrong,
  * plus two counters). Everything else is either anonymous by construction
  * (aggregate per-post counts with no user attached), confined to the
@@ -20,19 +20,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Registers privacy-policy text and personal-data export/erase handlers.
  */
-class WA_Privacy {
+class WellActually_Privacy {
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Privacy|null
+	 * @var WellActually_Privacy|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Privacy
+	 * @return WellActually_Privacy
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -122,12 +122,12 @@ class WA_Privacy {
 			return $export;
 		}
 
-		$progress = get_user_meta( $user->ID, WA_User_Progress::META_KEY, true );
+		$progress = get_user_meta( $user->ID, WellActually_User_Progress::META_KEY, true );
 		if ( ! is_array( $progress ) || empty( $progress ) ) {
 			return $export;
 		}
 
-		$progress = WA_User_Progress::sanitize_progress( $progress );
+		$progress = WellActually_User_Progress::sanitize_progress( $progress );
 
 		$export['data'][] = array(
 			'group_id'    => 'wellactually-progress',
@@ -157,7 +157,7 @@ class WA_Privacy {
 	}
 
 	/**
-	 * Erase a user's stored swipe progress — just the `_wa_progress` meta,
+	 * Erase a user's stored swipe progress — just the `_wellactually_progress` meta,
 	 * nothing else. The anonymous aggregate counters are left alone: they
 	 * were never attributable to the user, and removing this player's share
 	 * from a public tally is neither possible nor required.
@@ -179,8 +179,8 @@ class WA_Privacy {
 			return $result;
 		}
 
-		if ( metadata_exists( 'user', $user->ID, WA_User_Progress::META_KEY ) ) {
-			delete_user_meta( $user->ID, WA_User_Progress::META_KEY );
+		if ( metadata_exists( 'user', $user->ID, WellActually_User_Progress::META_KEY ) ) {
+			delete_user_meta( $user->ID, WellActually_User_Progress::META_KEY );
 			$result['items_removed'] = true;
 		}
 

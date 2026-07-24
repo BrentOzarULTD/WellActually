@@ -13,17 +13,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Registers the Posts → Swipe Setup screen and handles its bulk save.
  */
-class WA_Bulk_Setup {
+class WellActually_Bulk_Setup {
 
-	const MENU_SLUG    = 'wa-swipe-setup';
-	const NONCE_ACTION = 'wa_bulk_save';
-	const NONCE_NAME   = 'wa_bulk_nonce';
+	const MENU_SLUG    = 'wellactually-swipe-setup';
+	const NONCE_ACTION = 'wellactually_bulk_save';
+	const NONCE_NAME   = 'wellactually_bulk_nonce';
 	const PER_PAGE     = 20;
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Bulk_Setup|null
+	 * @var WellActually_Bulk_Setup|null
 	 */
 	private static $instance = null;
 
@@ -37,7 +37,7 @@ class WA_Bulk_Setup {
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Bulk_Setup
+	 * @return WellActually_Bulk_Setup
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -85,35 +85,35 @@ class WA_Bulk_Setup {
 		}
 
 		wp_enqueue_style(
-			'wa-admin-bulk-setup',
-			WA_PLUGIN_URL . 'assets/css/admin-bulk-setup.css',
+			'wellactually-admin-bulk-setup',
+			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-bulk-setup.css',
 			array(),
-			WA_VERSION
+			WELLACTUALLY_VERSION
 		);
 
 		wp_enqueue_script(
-			'wa-admin-bulk-setup',
-			WA_PLUGIN_URL . 'assets/js/admin-bulk-setup.js',
+			'wellactually-admin-bulk-setup',
+			WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-bulk-setup.js',
 			array(),
-			WA_VERSION,
+			WELLACTUALLY_VERSION,
 			array( 'in_footer' => true )
 		);
 
 		$args = $this->current_args();
 
 		wp_localize_script(
-			'wa-admin-bulk-setup',
-			'waBulkSetup',
+			'wellactually-admin-bulk-setup',
+			'wellactuallyBulkSetup',
 			array(
 				'restUrl'     => esc_url_raw( rest_url( 'wellactually/v1' ) ),
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
 				'cat'         => (int) $args['cat'],
-				'concurrency' => WA_Settings::ai_concurrency(),
+				'concurrency' => WellActually_Settings::ai_concurrency(),
 				'reviewUrl'   => esc_url_raw(
 					add_query_arg(
 						array(
-							'page'      => self::MENU_SLUG,
-							'wa_status' => 'has_ai',
+							'page'                => self::MENU_SLUG,
+							'wellactually_status' => 'has_ai',
 						),
 						admin_url( 'edit.php' )
 					)
@@ -151,19 +151,19 @@ class WA_Bulk_Setup {
 	 * @return array
 	 */
 	private function current_args() {
-		$status = isset( $_REQUEST['wa_status'] ) ? sanitize_key( wp_unslash( $_REQUEST['wa_status'] ) ) : 'needs_setup';
+		$status = isset( $_REQUEST['wellactually_status'] ) ? sanitize_key( wp_unslash( $_REQUEST['wellactually_status'] ) ) : 'needs_setup';
 		$valid  = array( 'needs_setup', 'has_ai', 'in_deck', 'excluded', 'skipped', 'all' );
 		if ( ! in_array( $status, $valid, true ) ) {
 			$status = 'needs_setup';
 		}
 
-		$order = isset( $_REQUEST['wa_order'] ) && 'ASC' === strtoupper( sanitize_text_field( wp_unslash( $_REQUEST['wa_order'] ) ) ) ? 'ASC' : 'DESC';
+		$order = isset( $_REQUEST['wellactually_order'] ) && 'ASC' === strtoupper( sanitize_text_field( wp_unslash( $_REQUEST['wellactually_order'] ) ) ) ? 'ASC' : 'DESC';
 
 		// All three sort fields are indexed core wp_posts columns (or, for
-		// 'wa_status', the single denormalized meta key already used
+		// 'wellactually_status', the single denormalized meta key already used
 		// elsewhere) — none of them require the multi-key/JOIN queries this
 		// screen avoids everywhere else.
-		$orderby = isset( $_REQUEST['wa_orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['wa_orderby'] ) ) : 'date';
+		$orderby = isset( $_REQUEST['wellactually_orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['wellactually_orderby'] ) ) : 'date';
 		if ( ! in_array( $orderby, array( 'date', 'modified', 'comment_count' ), true ) ) {
 			$orderby = 'date';
 		}
@@ -172,15 +172,15 @@ class WA_Bulk_Setup {
 		// page size, and deliberately not carried on any other link, so it
 		// only ever applies to the single page load straight after a save.
 		$done = array();
-		if ( isset( $_REQUEST['wa_done'] ) ) {
-			$done = array_filter( array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_REQUEST['wa_done'] ) ) ) ) );
+		if ( isset( $_REQUEST['wellactually_done'] ) ) {
+			$done = array_filter( array_map( 'absint', explode( ',', sanitize_text_field( wp_unslash( $_REQUEST['wellactually_done'] ) ) ) ) );
 			$done = array_slice( $done, 0, self::PER_PAGE );
 		}
 
 		return array(
 			'status'  => $status,
 			'done'    => $done,
-			'cat'     => isset( $_REQUEST['wa_cat'] ) ? absint( $_REQUEST['wa_cat'] ) : 0,
+			'cat'     => isset( $_REQUEST['wellactually_cat'] ) ? absint( $_REQUEST['wellactually_cat'] ) : 0,
 			'order'   => $order,
 			'orderby' => $orderby,
 			'paged'   => isset( $_REQUEST['paged'] ) ? max( 1, absint( $_REQUEST['paged'] ) ) : 1,
@@ -193,12 +193,12 @@ class WA_Bulk_Setup {
 	 * A note on what used to be here, because it caused the same visible bug
 	 * twice and the fix is to do less, not more.
 	 *
-	 * This screen selects rows on the denormalized `_wa_status` meta. Earlier
+	 * This screen selects rows on the denormalized `_wellactually_status` meta. Earlier
 	 * versions then re-derived each row's status from its *other* meta keys
 	 * and discarded any row where the two disagreed, on the theory that the
 	 * stored value might have drifted. It hadn't: every write path updates
-	 * `_wa_status` in the same breath as the meta it's derived from (see
-	 * WA_Meta::recompute_status()), so the stored value is correct.
+	 * `_wellactually_status` in the same breath as the meta it's derived from (see
+	 * WellActually_Meta::recompute_status()), so the stored value is correct.
 	 *
 	 * What actually differs is *when each read sees it*. The row select and
 	 * the per-row meta reads are separate trips to the database, and on
@@ -239,13 +239,13 @@ class WA_Bulk_Setup {
 
 		// Categories marked "Skip This Category" in Settings → Categories are
 		// never eligible here, in any status view.
-		$excluded_cats = WA_Settings::excluded_categories();
+		$excluded_cats = WellActually_Settings::excluded_categories();
 		if ( ! empty( $excluded_cats ) ) {
 			$query_args['category__not_in'] = $excluded_cats;
 		}
 
 		if ( 'all' !== $args['status'] ) {
-			$meta_query = WA_Meta::status_meta_query( $args['status'] );
+			$meta_query = WellActually_Meta::status_meta_query( $args['status'] );
 			if ( ! empty( $meta_query ) ) {
 				$query_args['meta_query'] = $meta_query;
 			}
@@ -291,7 +291,7 @@ class WA_Bulk_Setup {
 	 * @param WP_Query $query The page's query.
 	 */
 	private function log_page_build( $args, $query ) {
-		$enabled = WA_Settings::debug_logging_enabled();
+		$enabled = WellActually_Settings::debug_logging_enabled();
 
 		/**
 		 * Filter whether the "Well, Actually..." screen logs how it built a page.
@@ -299,7 +299,7 @@ class WA_Bulk_Setup {
 		 * @param bool  $enabled Whether to log.
 		 * @param array $args    Current view args.
 		 */
-		if ( ! apply_filters( 'wa_debug_setup', $enabled, $args ) ) {
+		if ( ! apply_filters( 'wellactually_debug_setup', $enabled, $args ) ) {
 			return;
 		}
 
@@ -333,7 +333,7 @@ class WA_Bulk_Setup {
 		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each field is sanitized at the point of use below, and the verdict is allow-listed.
-		$rows = isset( $_POST['wa_bulk'] ) && is_array( $_POST['wa_bulk'] ) ? wp_unslash( $_POST['wa_bulk'] ) : array();
+		$rows = isset( $_POST['wellactually_bulk'] ) && is_array( $_POST['wellactually_bulk'] ) ? wp_unslash( $_POST['wellactually_bulk'] ) : array();
 
 		$counts = array(
 			'configured' => 0,
@@ -365,8 +365,8 @@ class WA_Bulk_Setup {
 			// "Skip for now" holds the post without touching its content or any
 			// pending AI suggestion — it just sets it aside. Exclude wins if both.
 			if ( $skip && ! $exclude ) {
-				update_post_meta( $post_id, WA_Meta::SKIP_KEY, '1' );
-				WA_Meta::recompute_status( $post_id, array( 'skipped' => true ) );
+				update_post_meta( $post_id, WellActually_Meta::SKIP_KEY, '1' );
+				WellActually_Meta::recompute_status( $post_id, array( 'skipped' => true ) );
 				++$counts['skipped'];
 				$handled[] = $post_id;
 				continue;
@@ -377,21 +377,21 @@ class WA_Bulk_Setup {
 			// for a row with nothing to change, and rewriting the derived
 			// status for every untouched row on the page is exactly how one
 			// stale read corrupts rows nobody edited.
-			if ( '1' === get_post_meta( $post_id, WA_Meta::SKIP_KEY, true ) ) {
-				delete_post_meta( $post_id, WA_Meta::SKIP_KEY );
-				WA_Meta::recompute_status( $post_id, array( 'skipped' => false ) );
+			if ( '1' === get_post_meta( $post_id, WellActually_Meta::SKIP_KEY, true ) ) {
+				delete_post_meta( $post_id, WellActually_Meta::SKIP_KEY );
+				WellActually_Meta::recompute_status( $post_id, array( 'skipped' => false ) );
 			}
 
 			$statement = isset( $fields['statement'] ) ? sanitize_textarea_field( $fields['statement'] ) : '';
 			$verdict   = isset( $fields['verdict'] ) ? sanitize_text_field( $fields['verdict'] ) : '';
 
 			if ( $exclude ) {
-				$verdict = WA_Meta::VERDICT_EXCLUDED;
-			} elseif ( ! in_array( $verdict, WA_Meta::deck_verdicts(), true ) ) {
+				$verdict = WellActually_Meta::VERDICT_EXCLUDED;
+			} elseif ( ! in_array( $verdict, WellActually_Meta::deck_verdicts(), true ) ) {
 				$verdict = '';
 			}
 
-			$result = WA_Meta::apply_meta( $post_id, $statement, $verdict );
+			$result = WellActually_Meta::apply_meta( $post_id, $statement, $verdict );
 
 			if ( isset( $counts[ $result ] ) ) {
 				++$counts[ $result ];
@@ -411,26 +411,26 @@ class WA_Bulk_Setup {
 		// Bulk edits change deck-eligibility directly (no save_post fires),
 		// so clear the cached eligible-post total the deck endpoint uses.
 		if ( array_sum( $counts ) > 0 ) {
-			WA_Rest::clear_total_cache();
+			WellActually_Rest::clear_total_cache();
 		}
 
 		$args = $this->current_args();
 
 		$redirect = add_query_arg(
 			array(
-				'page'          => self::MENU_SLUG,
-				'wa_status'     => $args['status'],
-				'wa_cat'        => $args['cat'],
-				'wa_order'      => $args['order'],
-				'wa_orderby'    => $args['orderby'],
-				'paged'         => $args['paged'],
-				'wa_configured' => $counts['configured'],
-				'wa_excluded'   => $counts['excluded'],
-				'wa_cleared'    => $counts['cleared'],
-				'wa_incomplete' => $counts['incomplete'],
-				'wa_skipped'    => $counts['skipped'],
-				'wa_saved'      => 1,
-				'wa_done'       => implode( ',', $handled ),
+				'page'                    => self::MENU_SLUG,
+				'wellactually_status'     => $args['status'],
+				'wellactually_cat'        => $args['cat'],
+				'wellactually_order'      => $args['order'],
+				'wellactually_orderby'    => $args['orderby'],
+				'paged'                   => $args['paged'],
+				'wellactually_configured' => $counts['configured'],
+				'wellactually_excluded'   => $counts['excluded'],
+				'wellactually_cleared'    => $counts['cleared'],
+				'wellactually_incomplete' => $counts['incomplete'],
+				'wellactually_skipped'    => $counts['skipped'],
+				'wellactually_saved'      => 1,
+				'wellactually_done'       => implode( ',', $handled ),
 			),
 			admin_url( 'edit.php' )
 		);
@@ -445,11 +445,11 @@ class WA_Bulk_Setup {
 	 * @param int $post_id Post ID.
 	 */
 	private function clear_ai_suggestion( $post_id ) {
-		delete_post_meta( $post_id, WA_Meta::AI_STATEMENT_KEY );
-		delete_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY );
-		delete_post_meta( $post_id, WA_Meta::AI_STATUS_KEY );
-		delete_post_meta( $post_id, WA_Meta::AI_ERROR_KEY );
-		WA_Meta::recompute_status( $post_id, array( 'ai_status' => '' ) );
+		delete_post_meta( $post_id, WellActually_Meta::AI_STATEMENT_KEY );
+		delete_post_meta( $post_id, WellActually_Meta::AI_VERDICT_KEY );
+		delete_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY );
+		delete_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY );
+		WellActually_Meta::recompute_status( $post_id, array( 'ai_status' => '' ) );
 	}
 
 	/**
@@ -481,15 +481,15 @@ class WA_Bulk_Setup {
 	 * Show the post-save summary notice.
 	 */
 	private function render_notice() {
-		if ( empty( $_GET['wa_saved'] ) ) {
+		if ( empty( $_GET['wellactually_saved'] ) ) {
 			return;
 		}
 
-		$configured = isset( $_GET['wa_configured'] ) ? absint( $_GET['wa_configured'] ) : 0;
-		$excluded   = isset( $_GET['wa_excluded'] ) ? absint( $_GET['wa_excluded'] ) : 0;
-		$cleared    = isset( $_GET['wa_cleared'] ) ? absint( $_GET['wa_cleared'] ) : 0;
-		$incomplete = isset( $_GET['wa_incomplete'] ) ? absint( $_GET['wa_incomplete'] ) : 0;
-		$skipped    = isset( $_GET['wa_skipped'] ) ? absint( $_GET['wa_skipped'] ) : 0;
+		$configured = isset( $_GET['wellactually_configured'] ) ? absint( $_GET['wellactually_configured'] ) : 0;
+		$excluded   = isset( $_GET['wellactually_excluded'] ) ? absint( $_GET['wellactually_excluded'] ) : 0;
+		$cleared    = isset( $_GET['wellactually_cleared'] ) ? absint( $_GET['wellactually_cleared'] ) : 0;
+		$incomplete = isset( $_GET['wellactually_incomplete'] ) ? absint( $_GET['wellactually_incomplete'] ) : 0;
+		$skipped    = isset( $_GET['wellactually_skipped'] ) ? absint( $_GET['wellactually_skipped'] ) : 0;
 
 		$parts = array();
 		if ( $configured ) {
@@ -535,7 +535,7 @@ class WA_Bulk_Setup {
 	 * @param array $args Current args.
 	 */
 	private function render_ai_panel( $args ) {
-		$providers = WA_Settings::ai_providers();
+		$providers = WellActually_Settings::ai_providers();
 
 		// Nothing to offer if the environment has no AI support at all.
 		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
@@ -545,7 +545,7 @@ class WA_Bulk_Setup {
 		echo '<div class="wa-ai-panel">';
 		echo '<h2>' . esc_html__( 'Draft with AI', 'wellactually' ) . '</h2>';
 
-		if ( ! WA_AI::is_available() ) {
+		if ( ! WellActually_AI::is_available() ) {
 			$settings_url = admin_url( 'options-general.php?page=wellactually' );
 			echo '<p>';
 			if ( empty( $providers ) ) {
@@ -558,13 +558,13 @@ class WA_Bulk_Setup {
 			return;
 		}
 
-		$provider_id   = wa_get_setting( 'ai_provider', '' );
+		$provider_id   = wellactually_get_setting( 'ai_provider', '' );
 		$provider_name = isset( $providers[ $provider_id ] ) ? $providers[ $provider_id ] : $provider_id;
-		$model         = wa_get_setting( 'ai_model', '' );
-		$counts        = WA_AI::queue_counts();
+		$model         = wellactually_get_setting( 'ai_model', '' );
+		$counts        = WellActually_AI::queue_counts();
 
 		if ( '' === $model ) {
-			$default_model = WA_AI::preferred_model_for_provider( $provider_id );
+			$default_model = WellActually_AI::preferred_model_for_provider( $provider_id );
 			$model_label   = '' !== $default_model
 				/* translators: %s: model id */
 				? sprintf( __( '%s, the provider default', 'wellactually' ), $default_model )
@@ -582,8 +582,8 @@ class WA_Bulk_Setup {
 		);
 		echo '</p>';
 
-		$effective = WA_AI::effective_model( $provider_id );
-		if ( '' !== $effective && false === WA_AI::model_supports_drafting( $provider_id, $effective ) ) {
+		$effective = WellActually_AI::effective_model( $provider_id );
+		if ( '' !== $effective && false === WellActually_AI::model_supports_drafting( $provider_id, $effective ) ) {
 			echo '<p class="wa-ai-model-warning">';
 			printf(
 				/* translators: %s: model id */
@@ -610,8 +610,8 @@ class WA_Bulk_Setup {
 		if ( $counts['ready'] > 0 ) {
 			$review_url = add_query_arg(
 				array(
-					'page'      => self::MENU_SLUG,
-					'wa_status' => 'has_ai',
+					'page'                => self::MENU_SLUG,
+					'wellactually_status' => 'has_ai',
 				),
 				admin_url( 'edit.php' )
 			);
@@ -647,20 +647,20 @@ class WA_Bulk_Setup {
 		<form method="get" class="wa-filters">
 			<input type="hidden" name="page" value="<?php echo esc_attr( self::MENU_SLUG ); ?>" />
 
-			<label for="wa_status" class="screen-reader-text"><?php esc_html_e( 'Status', 'wellactually' ); ?></label>
-			<select name="wa_status" id="wa_status">
+			<label for="wellactually_status" class="screen-reader-text"><?php esc_html_e( 'Status', 'wellactually' ); ?></label>
+			<select name="wellactually_status" id="wellactually_status">
 				<?php foreach ( $statuses as $value => $label ) : ?>
 					<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $args['status'], $value ); ?>><?php echo esc_html( $label ); ?></option>
 				<?php endforeach; ?>
 			</select>
 
-			<label for="wa_cat" class="screen-reader-text"><?php esc_html_e( 'Category', 'wellactually' ); ?></label>
+			<label for="wellactually_cat" class="screen-reader-text"><?php esc_html_e( 'Category', 'wellactually' ); ?></label>
 			<?php
 			wp_dropdown_categories(
 				array(
 					'show_option_all' => __( 'All categories', 'wellactually' ),
-					'name'            => 'wa_cat',
-					'id'              => 'wa_cat',
+					'name'            => 'wellactually_cat',
+					'id'              => 'wellactually_cat',
 					'selected'        => $args['cat'],
 					'hierarchical'    => true,
 					'hide_empty'      => false,
@@ -669,8 +669,8 @@ class WA_Bulk_Setup {
 			);
 			?>
 
-			<label for="wa_orderby" class="screen-reader-text"><?php esc_html_e( 'Sort by', 'wellactually' ); ?></label>
-			<select name="wa_orderby" id="wa_orderby">
+			<label for="wellactually_orderby" class="screen-reader-text"><?php esc_html_e( 'Sort by', 'wellactually' ); ?></label>
+			<select name="wellactually_orderby" id="wellactually_orderby">
 				<option value="date" <?php selected( $args['orderby'], 'date' ); ?>><?php esc_html_e( 'Date published', 'wellactually' ); ?></option>
 				<option value="modified" <?php selected( $args['orderby'], 'modified' ); ?>><?php esc_html_e( 'Date modified', 'wellactually' ); ?></option>
 				<option value="comment_count" <?php selected( $args['orderby'], 'comment_count' ); ?>><?php esc_html_e( 'Comment count', 'wellactually' ); ?></option>
@@ -693,8 +693,8 @@ class WA_Bulk_Setup {
 			);
 			$labels       = $order_labels[ $args['orderby'] ];
 			?>
-			<label for="wa_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
-			<select name="wa_order" id="wa_order">
+			<label for="wellactually_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
+			<select name="wellactually_order" id="wellactually_order">
 				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php echo esc_html( $labels['DESC'] ); ?></option>
 				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php echo esc_html( $labels['ASC'] ); ?></option>
 			</select>
@@ -735,10 +735,10 @@ class WA_Bulk_Setup {
 		?>
 		<form method="post" class="wa-bulk-form">
 			<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME ); ?>
-			<input type="hidden" name="wa_status" value="<?php echo esc_attr( $args['status'] ); ?>" />
-			<input type="hidden" name="wa_cat" value="<?php echo esc_attr( $args['cat'] ); ?>" />
-			<input type="hidden" name="wa_order" value="<?php echo esc_attr( $args['order'] ); ?>" />
-			<input type="hidden" name="wa_orderby" value="<?php echo esc_attr( $args['orderby'] ); ?>" />
+			<input type="hidden" name="wellactually_status" value="<?php echo esc_attr( $args['status'] ); ?>" />
+			<input type="hidden" name="wellactually_cat" value="<?php echo esc_attr( $args['cat'] ); ?>" />
+			<input type="hidden" name="wellactually_order" value="<?php echo esc_attr( $args['order'] ); ?>" />
+			<input type="hidden" name="wellactually_orderby" value="<?php echo esc_attr( $args['orderby'] ); ?>" />
 			<input type="hidden" name="paged" value="<?php echo esc_attr( $args['paged'] ); ?>" />
 
 			<table class="widefat striped wa-bulk-table">
@@ -758,22 +758,22 @@ class WA_Bulk_Setup {
 						$post_id = get_the_ID();
 						// Decoded for editing: an author should see (and save) a
 						// real apostrophe, not a stored "&#8217;".
-						$statement = WA_Meta::plain_text( get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true ) );
-						$verdict   = get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true );
-						$excluded  = ( WA_Meta::VERDICT_EXCLUDED === $verdict );
-						$skipped   = ( '1' === get_post_meta( $post_id, WA_Meta::SKIP_KEY, true ) );
-						$name      = 'wa_bulk[' . $post_id . ']';
+						$statement = WellActually_Meta::plain_text( get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true ) );
+						$verdict   = get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true );
+						$excluded  = ( WellActually_Meta::VERDICT_EXCLUDED === $verdict );
+						$skipped   = ( '1' === get_post_meta( $post_id, WellActually_Meta::SKIP_KEY, true ) );
+						$name      = 'wellactually_bulk[' . $post_id . ']';
 
 						// If there's no accepted content yet but a ready AI draft
 						// exists, pre-fill the inputs with the suggestion.
-						$ai_status = get_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, true );
-						$ai_error  = get_post_meta( $post_id, WA_Meta::AI_ERROR_KEY, true );
+						$ai_status = get_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, true );
+						$ai_error  = get_post_meta( $post_id, WellActually_Meta::AI_ERROR_KEY, true );
 						$is_ai     = false;
-						if ( '' === $statement && '' === $verdict && WA_AI::STATUS_READY === $ai_status ) {
-							$ai_stmt = get_post_meta( $post_id, WA_Meta::AI_STATEMENT_KEY, true );
-							$ai_vdct = get_post_meta( $post_id, WA_Meta::AI_VERDICT_KEY, true );
-							if ( '' !== $ai_stmt && in_array( $ai_vdct, WA_Meta::deck_verdicts(), true ) ) {
-								$statement = WA_Meta::plain_text( $ai_stmt );
+						if ( '' === $statement && '' === $verdict && WellActually_AI::STATUS_READY === $ai_status ) {
+							$ai_stmt = get_post_meta( $post_id, WellActually_Meta::AI_STATEMENT_KEY, true );
+							$ai_vdct = get_post_meta( $post_id, WellActually_Meta::AI_VERDICT_KEY, true );
+							if ( '' !== $ai_stmt && in_array( $ai_vdct, WellActually_Meta::deck_verdicts(), true ) ) {
+								$statement = WellActually_Meta::plain_text( $ai_stmt );
 								$verdict   = $ai_vdct;
 								$is_ai     = true;
 							}
@@ -793,7 +793,7 @@ class WA_Bulk_Setup {
 						<tr class="<?php echo esc_attr( $row_classes ); ?>" data-post="<?php echo esc_attr( $post_id ); ?>">
 							<td class="wa-col-post">
 								<strong>
-									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? WA_Meta::plain_text( get_the_title() ) : __( '(no title)', 'wellactually' ) ); ?></a>
+									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? WellActually_Meta::plain_text( get_the_title() ) : __( '(no title)', 'wellactually' ) ); ?></a>
 								</strong>
 								<div class="wa-post-meta">
 									<?php echo esc_html( get_the_date() ); ?>
@@ -803,7 +803,7 @@ class WA_Bulk_Setup {
 							<td class="wa-col-statement">
 								<?php if ( $is_ai ) : ?>
 									<span class="wa-ai-badge"><?php esc_html_e( 'AI suggestion', 'wellactually' ); ?></span>
-								<?php elseif ( WA_AI::STATUS_ERROR === $ai_status && '' !== $ai_error ) : ?>
+								<?php elseif ( WellActually_AI::STATUS_ERROR === $ai_status && '' !== $ai_error ) : ?>
 									<a
 										class="wa-ai-error"
 										href="<?php echo esc_url( admin_url( 'options-general.php?page=wellactually&tab=errors' ) ); ?>"
@@ -845,7 +845,7 @@ class WA_Bulk_Setup {
 
 			<div class="wa-bulk-footer">
 				<?php $this->render_pagination( $args, $query ); ?>
-				<?php submit_button( __( 'Save all on this page', 'wellactually' ), 'primary', 'wa_bulk_submit', false ); ?>
+				<?php submit_button( __( 'Save all on this page', 'wellactually' ), 'primary', 'wellactually_bulk_submit', false ); ?>
 			</div>
 		</form>
 		<?php
@@ -865,12 +865,12 @@ class WA_Bulk_Setup {
 
 		$base = add_query_arg(
 			array(
-				'page'       => self::MENU_SLUG,
-				'wa_status'  => $args['status'],
-				'wa_cat'     => $args['cat'],
-				'wa_order'   => $args['order'],
-				'wa_orderby' => $args['orderby'],
-				'paged'      => '%#%',
+				'page'                 => self::MENU_SLUG,
+				'wellactually_status'  => $args['status'],
+				'wellactually_cat'     => $args['cat'],
+				'wellactually_order'   => $args['order'],
+				'wellactually_orderby' => $args['orderby'],
+				'paged'                => '%#%',
 			),
 			admin_url( 'edit.php' )
 		);
@@ -901,7 +901,7 @@ class WA_Bulk_Setup {
 	 */
 	private function post_preview( $post ) {
 		if ( has_excerpt( $post ) ) {
-			return WA_Meta::plain_text( wp_strip_all_tags( get_the_excerpt( $post ) ) );
+			return WellActually_Meta::plain_text( wp_strip_all_tags( get_the_excerpt( $post ) ) );
 		}
 
 		$content = get_the_content( '', false, $post );
@@ -911,7 +911,7 @@ class WA_Bulk_Setup {
 		}
 		$content = wp_strip_all_tags( $content );
 		// Decode before trimming so a word-trim can't slice an entity in half.
-		$content = WA_Meta::plain_text( $content );
+		$content = WellActually_Meta::plain_text( $content );
 		$content = trim( preg_replace( '/\s+/', ' ', $content ) );
 
 		return wp_trim_words( $content, 55, '…' );

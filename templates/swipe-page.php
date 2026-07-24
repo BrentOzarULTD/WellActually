@@ -17,13 +17,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 <head>
 	<meta charset="<?php bloginfo( 'charset' ); ?>" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-	<?php WA_Template::instance()->print_robots_meta(); ?>
+	<?php WellActually_Template::instance()->print_robots_meta(); ?>
 	<?php
 	/* translators: %s: site name */
-	$wa_title = sprintf( __( 'Swipe – %s', 'wellactually' ), get_bloginfo( 'name' ) );
+	$wellactually_title = sprintf( __( 'Swipe – %s', 'wellactually' ), get_bloginfo( 'name' ) );
 	?>
-	<title><?php echo esc_html( $wa_title ); ?></title>
-	<?php WA_Template::instance()->print_head_assets(); ?>
+	<title><?php echo esc_html( $wellactually_title ); ?></title>
+	<?php WellActually_Template::instance()->print_head_assets(); ?>
 </head>
 <body class="wa-swipe-body">
 	<a class="wa-home-link" href="<?php echo esc_url( home_url( '/' ) ); ?>">
@@ -38,6 +38,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<p class="wa-noscript"><?php esc_html_e( 'Swipe mode needs JavaScript.', 'wellactually' ); ?></p>
 	</noscript>
 
-	<?php WA_Template::instance()->print_footer_assets(); ?>
+	<?php WellActually_Template::instance()->print_footer_assets(); ?>
 </body>
 </html>

@@ -12,24 +12,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Registers and handles the plugin's REST endpoints.
  */
-class WA_Rest {
+class WellActually_Rest {
 
 	const NAMESPACE_NAME  = 'wellactually/v1';
 	const BATCH_SIZE      = 20;
 	const MAX_ID_LIST_LEN = 5000;
-	const TOTAL_TRANSIENT = 'wa_eligible_total';
+	const TOTAL_TRANSIENT = 'wellactually_eligible_total';
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Rest|null
+	 * @var WellActually_Rest|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Rest
+	 * @return WellActually_Rest
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -109,7 +109,7 @@ class WA_Rest {
 	 */
 	public static function check_rate_limit( $bucket, $max_calls, $window ) {
 		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
-		$key = 'wa_rl_' . $bucket . '_' . md5( $ip );
+		$key = 'wellactually_rl_' . $bucket . '_' . md5( $ip );
 
 		$count = get_transient( $key );
 		if ( false === $count ) {
@@ -140,12 +140,12 @@ class WA_Rest {
 			'meta_query'    => array(
 				'relation' => 'AND',
 				array(
-					'key'     => WA_Meta::STATEMENT_KEY,
+					'key'     => WellActually_Meta::STATEMENT_KEY,
 					'value'   => '',
 					'compare' => '!=',
 				),
 				array(
-					'key'     => WA_Meta::VERDICT_KEY,
+					'key'     => WellActually_Meta::VERDICT_KEY,
 					'value'   => array( 'true', 'false', 'debatable' ),
 					'compare' => 'IN',
 				),
@@ -153,11 +153,11 @@ class WA_Rest {
 				array(
 					'relation' => 'OR',
 					array(
-						'key'     => WA_Meta::SKIP_KEY,
+						'key'     => WellActually_Meta::SKIP_KEY,
 						'compare' => 'NOT EXISTS',
 					),
 					array(
-						'key'     => WA_Meta::SKIP_KEY,
+						'key'     => WellActually_Meta::SKIP_KEY,
 						'value'   => '1',
 						'compare' => '!=',
 					),
@@ -251,23 +251,23 @@ class WA_Rest {
 		$query = new WP_Query( $args );
 		$ids   = $query->posts;
 
-		// One lookup for the whole batch (see WA_Stats::get_many()).
-		$stats = WA_Stats::get_many( $ids );
+		// One lookup for the whole batch (see WellActually_Stats::get_many()).
+		$stats = WellActually_Stats::get_many( $ids );
 
 		$cards = array();
 		foreach ( $ids as $post_id ) {
-			$statement = get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true );
+			$statement = get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true );
 			if ( '' === $statement ) {
 				continue;
 			}
 
 			$card = array(
 				'id'        => (int) $post_id,
-				'statement' => WA_Meta::plain_text( $statement ),
+				'statement' => WellActually_Meta::plain_text( $statement ),
 			);
 
 			$pct_wrong = self::pct_wrong(
-				get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true ),
+				get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true ),
 				isset( $stats[ $post_id ] ) ? $stats[ $post_id ] : null
 			);
 
@@ -299,7 +299,7 @@ class WA_Rest {
 	 */
 	public function handle_post_swipe( WP_REST_Request $request ) {
 		if ( ! self::check_rate_limit( 'swipe', 60, MINUTE_IN_SECONDS ) ) {
-			return new WP_Error( 'wa_rate_limited', __( 'Too many swipes, slow down.', 'wellactually' ), array( 'status' => 429 ) );
+			return new WP_Error( 'wellactually_rate_limited', __( 'Too many swipes, slow down.', 'wellactually' ), array( 'status' => 429 ) );
 		}
 
 		$post_id = (int) $request->get_param( 'post_id' );
@@ -308,42 +308,42 @@ class WA_Rest {
 
 		$valid_answers = array( 'agree', 'disagree', 'unsure' );
 		if ( ! in_array( $answer, $valid_answers, true ) ) {
-			return new WP_Error( 'wa_invalid_answer', __( 'Invalid answer.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_invalid_answer', __( 'Invalid answer.', 'wellactually' ), array( 'status' => 400 ) );
 		}
 
 		$post = get_post( $post_id );
 		if ( ! $post || 'publish' !== $post->post_status || 'post' !== $post->post_type ) {
-			return new WP_Error( 'wa_invalid_post', __( 'Post not found.', 'wellactually' ), array( 'status' => 404 ) );
+			return new WP_Error( 'wellactually_invalid_post', __( 'Post not found.', 'wellactually' ), array( 'status' => 404 ) );
 		}
 
-		$statement = get_post_meta( $post_id, WA_Meta::STATEMENT_KEY, true );
-		$verdict   = get_post_meta( $post_id, WA_Meta::VERDICT_KEY, true );
+		$statement = get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true );
+		$verdict   = get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true );
 
 		if ( '' === $statement || ! in_array( $verdict, array( 'true', 'false', 'debatable' ), true ) ) {
-			return new WP_Error( 'wa_invalid_post', __( 'Post is not in the swipe deck.', 'wellactually' ), array( 'status' => 404 ) );
+			return new WP_Error( 'wellactually_invalid_post', __( 'Post is not in the swipe deck.', 'wellactually' ), array( 'status' => 404 ) );
 		}
 
 		$correct   = $this->is_correct( $verdict, $answer );
 		$show_post = ! $correct || 'debatable' === $verdict;
 
 		if ( ! $replay ) {
-			WA_Stats::record( $post_id, $answer );
+			WellActually_Stats::record( $post_id, $answer );
 		}
 
-		$stats = WA_Stats::get( $post_id );
+		$stats = WellActually_Stats::get( $post_id );
 
 		// Decode entities before trimming, so a word-trim can never cut an
 		// entity in half — and before handing off to the frontend, which
 		// escapes these itself.
 		$excerpt = wp_strip_all_tags( strip_shortcodes( get_the_excerpt( $post ) ) );
-		$excerpt = WA_Meta::plain_text( $excerpt );
+		$excerpt = WellActually_Meta::plain_text( $excerpt );
 		$excerpt = wp_trim_words( $excerpt, 40, '…' );
 
 		$response = array(
 			'verdict'    => $verdict,
 			'correct'    => $correct,
 			'show_post'  => $show_post,
-			'title'      => WA_Meta::plain_text( get_the_title( $post ) ),
+			'title'      => WellActually_Meta::plain_text( get_the_title( $post ) ),
 			'excerpt'    => $excerpt,
 			'url'        => get_permalink( $post ),
 			'pct_agreed' => $stats['pct_agreed'],
@@ -358,7 +358,7 @@ class WA_Rest {
 	// Below this many swipes a percentage is noise rather than information
 	// ("100% got this wrong" off a single answer), so the card shows nothing.
 	// Low enough that a new quiz starts showing figures quickly; raise it with
-	// the wa_min_swipes_for_stat filter to wait for a steadier sample.
+	// the wellactually_min_swipes_for_stat filter to wait for a steadier sample.
 	const MIN_SWIPES_FOR_STAT = 5;
 
 	/**
@@ -370,7 +370,7 @@ class WA_Rest {
 	 * shows a figure (and showing 0% would quietly reveal the verdict).
 	 *
 	 * @param string     $verdict The post's verdict.
-	 * @param array|null $stat    Row from WA_Stats::get_many().
+	 * @param array|null $stat    Row from WellActually_Stats::get_many().
 	 * @return int|null Percentage 0-100, or null.
 	 */
 	private static function pct_wrong( $verdict, $stat ) {
@@ -380,7 +380,7 @@ class WA_Rest {
 		 *
 		 * @param int $minimum Minimum recorded swipes.
 		 */
-		$minimum = (int) apply_filters( 'wa_min_swipes_for_stat', self::MIN_SWIPES_FOR_STAT );
+		$minimum = (int) apply_filters( 'wellactually_min_swipes_for_stat', self::MIN_SWIPES_FOR_STAT );
 
 		if ( empty( $stat ) || $stat['total'] < max( 1, $minimum ) ) {
 			return null;

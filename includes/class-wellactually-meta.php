@@ -12,25 +12,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Handles the swipe statement/verdict meta box and admin list column.
  */
-class WA_Meta {
+class WellActually_Meta {
 
-	const STATEMENT_KEY    = '_wa_statement';
-	const VERDICT_KEY      = '_wa_verdict';
+	const STATEMENT_KEY    = '_wellactually_statement';
+	const VERDICT_KEY      = '_wellactually_verdict';
 	const VERDICT_EXCLUDED = 'excluded';
-	const NONCE_ACTION     = 'wa_save_meta';
-	const NONCE_NAME       = 'wa_meta_nonce';
+	const NONCE_ACTION     = 'wellactually_save_meta';
+	const NONCE_NAME       = 'wellactually_meta_nonce';
 
 	// AI draft suggestions (awaiting human review; not live until accepted).
-	const AI_STATEMENT_KEY  = '_wa_ai_statement';
-	const AI_VERDICT_KEY    = '_wa_ai_verdict';
-	const AI_STATUS_KEY     = '_wa_ai_status';    // Queued, ready, or error.
-	const AI_ERROR_KEY      = '_wa_ai_error';
-	const AI_ERROR_TIME_KEY = '_wa_ai_error_time'; // unix timestamp, for the Settings → Errors tab's 7-day retention.
-	const AI_CLAIMED_KEY    = '_wa_ai_claimed';    // unix timestamp a worker claimed the post, so an abandoned claim can be released.
+	const AI_STATEMENT_KEY  = '_wellactually_ai_statement';
+	const AI_VERDICT_KEY    = '_wellactually_ai_verdict';
+	const AI_STATUS_KEY     = '_wellactually_ai_status';    // Queued, ready, or error.
+	const AI_ERROR_KEY      = '_wellactually_ai_error';
+	const AI_ERROR_TIME_KEY = '_wellactually_ai_error_time'; // unix timestamp, for the Settings → Errors tab's 7-day retention.
+	const AI_CLAIMED_KEY    = '_wellactually_ai_claimed';    // unix timestamp a worker claimed the post, so an abandoned claim can be released.
 
 	// "Skip for now": keeps the post's content but holds it out of the deck
 	// and the review lists. Distinct from the permanent 'excluded' verdict.
-	const SKIP_KEY = '_wa_skip';
+	const SKIP_KEY = '_wellactually_skip';
 
 	// A single denormalized status, recomputed by recompute_status()
 	// whenever the underlying verdict/AI-status/skip meta changes. Exists
@@ -41,7 +41,7 @@ class WA_Meta {
 	// postmeta rows from other plugins) the multi-join version measured in
 	// the seconds per query; this measures in milliseconds. See
 	// recompute_status() and status_meta_query().
-	const STATUS_KEY = '_wa_status';
+	const STATUS_KEY = '_wellactually_status';
 
 	const STATUS_NEEDS_SETUP = 'needs_setup';
 	const STATUS_HAS_AI      = 'has_ai';
@@ -52,14 +52,14 @@ class WA_Meta {
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Meta|null
+	 * @var WellActually_Meta|null
 	 */
 	private static $instance = null;
 
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Meta
+	 * @return WellActually_Meta
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -120,7 +120,7 @@ class WA_Meta {
 	 */
 	public function add_meta_box() {
 		add_meta_box(
-			'wa_swipe_meta_box',
+			'wellactually_swipe_meta_box',
 			__( 'Well, Actually... Swipe', 'wellactually' ),
 			array( $this, 'render_meta_box' ),
 			'post',
@@ -142,18 +142,18 @@ class WA_Meta {
 		$verdict   = get_post_meta( $post->ID, self::VERDICT_KEY, true );
 		?>
 		<p>
-			<label for="wa_statement"><strong><?php esc_html_e( 'Swipe Statement', 'wellactually' ); ?></strong></label><br />
+			<label for="wellactually_statement"><strong><?php esc_html_e( 'Swipe Statement', 'wellactually' ); ?></strong></label><br />
 			<textarea
-				id="wa_statement"
-				name="wa_statement"
+				id="wellactually_statement"
+				name="wellactually_statement"
 				rows="2"
 				style="width:100%;"
 				placeholder="<?php esc_attr_e( 'A one-line statement readers will agree or disagree with, e.g. Temp tables are faster than CTEs.', 'wellactually' ); ?>"
 			><?php echo esc_textarea( $statement ); ?></textarea>
 		</p>
 		<p>
-			<label for="wa_verdict"><strong><?php esc_html_e( 'Verdict', 'wellactually' ); ?></strong></label><br />
-			<select id="wa_verdict" name="wa_verdict">
+			<label for="wellactually_verdict"><strong><?php esc_html_e( 'Verdict', 'wellactually' ); ?></strong></label><br />
+			<select id="wellactually_verdict" name="wellactually_verdict">
 				<?php foreach ( self::verdict_choices() as $value => $label ) : ?>
 					<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $verdict, $value ); ?>>
 						<?php echo esc_html( $label ); ?>
@@ -187,8 +187,8 @@ class WA_Meta {
 			return;
 		}
 
-		$statement = isset( $_POST['wa_statement'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wa_statement'] ) ) : '';
-		$verdict   = isset( $_POST['wa_verdict'] ) ? sanitize_text_field( wp_unslash( $_POST['wa_verdict'] ) ) : '';
+		$statement = isset( $_POST['wellactually_statement'] ) ? sanitize_textarea_field( wp_unslash( $_POST['wellactually_statement'] ) ) : '';
+		$verdict   = isset( $_POST['wellactually_verdict'] ) ? sanitize_text_field( wp_unslash( $_POST['wellactually_verdict'] ) ) : '';
 
 		$valid_verdicts = array_keys( self::verdict_choices() );
 		if ( ! in_array( $verdict, $valid_verdicts, true ) ) {
@@ -254,11 +254,11 @@ class WA_Meta {
 	}
 
 	/**
-	 * Recompute and store the single denormalized _wa_status value for a
+	 * Recompute and store the single denormalized _wellactually_status value for a
 	 * post, from its current verdict/AI-status/skip meta. Call this
 	 * whenever any of those three change — apply_meta() covers the
-	 * statement/verdict/exclude paths; WA_Bulk_Setup's skip toggle and
-	 * WA_AI's store_result()/store_error() call it directly since they
+	 * statement/verdict/exclude paths; WellActually_Bulk_Setup's skip toggle and
+	 * WellActually_AI's store_result()/store_error() call it directly since they
 	 * write their meta outside of apply_meta().
 	 *
 	 * Priority when more than one could apply: skipped wins (a skipped post
@@ -379,7 +379,7 @@ class WA_Meta {
 	 * @return array
 	 */
 	public function add_columns( $columns ) {
-		$columns['wa_swipe'] = __( 'Swipe', 'wellactually' );
+		$columns['wellactually_swipe'] = __( 'Swipe', 'wellactually' );
 		return $columns;
 	}
 
@@ -390,7 +390,7 @@ class WA_Meta {
 	 * @param int    $post_id Post ID.
 	 */
 	public function render_column( $column, $post_id ) {
-		if ( 'wa_swipe' !== $column ) {
+		if ( 'wellactually_swipe' !== $column ) {
 			return;
 		}
 
@@ -423,7 +423,7 @@ class WA_Meta {
 	 * @return array
 	 */
 	public function sortable_columns( $columns ) {
-		$columns['wa_swipe'] = 'wa_swipe';
+		$columns['wellactually_swipe'] = 'wellactually_swipe';
 		return $columns;
 	}
 
@@ -437,7 +437,7 @@ class WA_Meta {
 			return;
 		}
 
-		if ( 'wa_swipe' !== $query->get( 'orderby' ) ) {
+		if ( 'wellactually_swipe' !== $query->get( 'orderby' ) ) {
 			return;
 		}
 
@@ -455,7 +455,7 @@ class WA_Meta {
 			return;
 		}
 
-		$current = isset( $_GET['wa_swipe_filter'] ) ? sanitize_text_field( wp_unslash( $_GET['wa_swipe_filter'] ) ) : '';
+		$current = isset( $_GET['wellactually_swipe_filter'] ) ? sanitize_text_field( wp_unslash( $_GET['wellactually_swipe_filter'] ) ) : '';
 
 		$options = array(
 			''            => __( 'All swipe statuses', 'wellactually' ),
@@ -467,7 +467,7 @@ class WA_Meta {
 			'excluded'    => __( 'Excluded', 'wellactually' ),
 		);
 		?>
-		<select name="wa_swipe_filter">
+		<select name="wellactually_swipe_filter">
 			<?php foreach ( $options as $value => $label ) : ?>
 				<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $current, $value ); ?>>
 					<?php echo esc_html( $label ); ?>
@@ -487,11 +487,11 @@ class WA_Meta {
 			return;
 		}
 
-		if ( empty( $_GET['wa_swipe_filter'] ) ) {
+		if ( empty( $_GET['wellactually_swipe_filter'] ) ) {
 			return;
 		}
 
-		$filter = sanitize_text_field( wp_unslash( $_GET['wa_swipe_filter'] ) );
+		$filter = sanitize_text_field( wp_unslash( $_GET['wellactually_swipe_filter'] ) );
 
 		$meta_query = self::status_meta_query( $filter );
 		if ( ! empty( $meta_query ) ) {
@@ -512,7 +512,7 @@ class WA_Meta {
 	 * measured in the seconds per query on a ~3,000-post, ~50,000-row
 	 * postmeta table in testing; a single indexed meta_key lookup on
 	 * STATUS_KEY measured in milliseconds on the same data. true/false/
-	 * debatable stay direct _wa_verdict lookups since STATUS_KEY only
+	 * debatable stay direct _wellactually_verdict lookups since STATUS_KEY only
 	 * distinguishes "configured" in general, not which of the three verdicts.
 	 *
 	 * @param string $status One of needs_setup|has_ai|in_deck|true|false|debatable|excluded|skipped.
@@ -537,8 +537,8 @@ class WA_Meta {
 				);
 
 			case 'has_ai':
-				// Queried from the authoritative _wa_ai_status, not the
-				// denormalized _wa_status. The derived field can only ever
+				// Queried from the authoritative _wellactually_ai_status, not the
+				// denormalized _wellactually_status. The derived field can only ever
 				// hide a ready suggestion (if it was written from a stale
 				// read it says needs_setup, and then the post is never
 				// returned at all, so nothing downstream can notice or repair
@@ -685,12 +685,12 @@ class WA_Meta {
 	 * Run repair_statuses() once per plugin version.
 	 */
 	public static function maybe_repair_statuses() {
-		if ( get_option( 'wa_status_repaired' ) === WA_VERSION ) {
+		if ( get_option( 'wellactually_status_repaired' ) === WELLACTUALLY_VERSION ) {
 			return;
 		}
 
 		self::repair_statuses();
-		update_option( 'wa_status_repaired', WA_VERSION, false );
+		update_option( 'wellactually_status_repaired', WELLACTUALLY_VERSION, false );
 	}
 
 	/**
@@ -701,7 +701,7 @@ class WA_Meta {
 	 * idempotent — but the flag keeps it off the hot path.
 	 */
 	public static function maybe_backfill_status() {
-		if ( get_option( 'wa_status_backfilled' ) ) {
+		if ( get_option( 'wellactually_status_backfilled' ) ) {
 			return;
 		}
 
@@ -733,6 +733,6 @@ class WA_Meta {
 			self::recompute_status( (int) $post_id );
 		}
 
-		update_option( 'wa_status_backfilled', 1, false );
+		update_option( 'wellactually_status_backfilled', 1, false );
 	}
 }

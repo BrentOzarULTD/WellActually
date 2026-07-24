@@ -10,17 +10,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Handles the wa_settings option and its tabbed admin settings page
+ * Handles the wellactually_settings option and its tabbed admin settings page
  * (Setup / Categories / Errors).
  */
-class WA_Settings {
+class WellActually_Settings {
 
-	const OPTION_NAME = 'wa_settings';
+	const OPTION_NAME = 'wellactually_settings';
 
 	/**
 	 * Singleton instance.
 	 *
-	 * @var WA_Settings|null
+	 * @var WellActually_Settings|null
 	 */
 	private static $instance = null;
 
@@ -34,7 +34,7 @@ class WA_Settings {
 	/**
 	 * Get the singleton instance.
 	 *
-	 * @return WA_Settings
+	 * @return WellActually_Settings
 	 */
 	public static function instance() {
 		if ( null === self::$instance ) {
@@ -49,9 +49,9 @@ class WA_Settings {
 	private function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_settings_page' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
-		add_action( 'admin_post_wa_rebuild_status', array( $this, 'handle_rebuild_status' ) );
+		add_action( 'admin_post_wellactually_rebuild_status', array( $this, 'handle_rebuild_status' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
-		add_filter( 'plugin_action_links_' . plugin_basename( WA_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
+		add_filter( 'plugin_action_links_' . plugin_basename( WELLACTUALLY_PLUGIN_FILE ), array( $this, 'add_settings_link' ) );
 	}
 
 	/**
@@ -126,7 +126,7 @@ class WA_Settings {
 		// the result briefly so repeat page loads don't repeat that
 		// round-trip; a save on the Setup tab clears it immediately (see
 		// sanitize_settings()) so a key/provider change is reflected right away.
-		$cache_key = 'wa_ai_provider_configured_' . $provider_id;
+		$cache_key = 'wellactually_ai_provider_configured_' . $provider_id;
 		$cached    = get_transient( $cache_key );
 		if ( false !== $cached ) {
 			return '1' === $cached;
@@ -154,12 +154,12 @@ class WA_Settings {
 	 */
 	public static function clear_provider_configured_cache( $provider_id = '' ) {
 		if ( '' !== $provider_id ) {
-			delete_transient( 'wa_ai_provider_configured_' . $provider_id );
+			delete_transient( 'wellactually_ai_provider_configured_' . $provider_id );
 			return;
 		}
 
 		foreach ( array_keys( self::ai_providers() ) as $id ) {
-			delete_transient( 'wa_ai_provider_configured_' . $id );
+			delete_transient( 'wellactually_ai_provider_configured_' . $id );
 		}
 	}
 
@@ -184,7 +184,7 @@ class WA_Settings {
 	 * @return int[]
 	 */
 	public static function excluded_categories() {
-		$ids = wa_get_setting( 'excluded_categories', array() );
+		$ids = wellactually_get_setting( 'excluded_categories', array() );
 		$ids = is_array( $ids ) ? array_filter( array_map( 'absint', $ids ) ) : array();
 
 		if ( empty( $ids ) ) {
@@ -255,18 +255,18 @@ class WA_Settings {
 		}
 
 		wp_enqueue_style(
-			'wa-admin-settings',
-			WA_PLUGIN_URL . 'assets/css/admin-settings.css',
+			'wellactually-admin-settings',
+			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-settings.css',
 			array(),
-			WA_VERSION
+			WELLACTUALLY_VERSION
 		);
 
 		if ( 'categories' === $this->current_tab() ) {
 			wp_enqueue_script(
-				'wa-admin-categories',
-				WA_PLUGIN_URL . 'assets/js/admin-categories.js',
+				'wellactually-admin-categories',
+				WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-categories.js',
 				array(),
-				WA_VERSION,
+				WELLACTUALLY_VERSION,
 				array( 'in_footer' => true )
 			);
 		}
@@ -277,7 +277,7 @@ class WA_Settings {
 	 */
 	public function register_settings() {
 		register_setting(
-			'wa_settings_group',
+			'wellactually_settings_group',
 			self::OPTION_NAME,
 			array(
 				'type'              => 'array',
@@ -287,72 +287,72 @@ class WA_Settings {
 		);
 
 		add_settings_section(
-			'wa_settings_section',
+			'wellactually_settings_section',
 			'',
 			'__return_false',
 			'wellactually_setup'
 		);
 
 		add_settings_field(
-			'wa_slug',
+			'wellactually_slug',
 			__( 'Swipe page slug', 'wellactually' ),
 			array( $this, 'render_slug_field' ),
 			'wellactually_setup',
-			'wa_settings_section'
+			'wellactually_settings_section'
 		);
 
 		add_settings_section(
-			'wa_ai_section',
+			'wellactually_ai_section',
 			__( 'AI drafting', 'wellactually' ),
 			array( $this, 'render_ai_section_intro' ),
 			'wellactually_setup'
 		);
 
 		add_settings_field(
-			'wa_ai_provider',
+			'wellactually_ai_provider',
 			__( 'AI provider', 'wellactually' ),
 			array( $this, 'render_ai_provider_field' ),
 			'wellactually_setup',
-			'wa_ai_section'
+			'wellactually_ai_section'
 		);
 
 		add_settings_field(
-			'wa_ai_model',
+			'wellactually_ai_model',
 			__( 'AI model', 'wellactually' ),
 			array( $this, 'render_ai_model_field' ),
 			'wellactually_setup',
-			'wa_ai_section'
+			'wellactually_ai_section'
 		);
 
 		add_settings_field(
-			'wa_ai_system_prompt',
+			'wellactually_ai_system_prompt',
 			__( 'Drafting instructions', 'wellactually' ),
 			array( $this, 'render_ai_system_prompt_field' ),
 			'wellactually_setup',
-			'wa_ai_section'
+			'wellactually_ai_section'
 		);
 
 		add_settings_field(
-			'wa_ai_concurrency',
+			'wellactually_ai_concurrency',
 			__( 'Parallel requests', 'wellactually' ),
 			array( $this, 'render_ai_concurrency_field' ),
 			'wellactually_setup',
-			'wa_ai_section'
+			'wellactually_ai_section'
 		);
 
 		add_settings_section(
-			'wa_diagnostics_section',
+			'wellactually_diagnostics_section',
 			__( 'Diagnostics', 'wellactually' ),
 			'__return_false',
 			'wellactually_setup'
 		);
 
 		add_settings_field(
-			'wa_debug_logging',
+			'wellactually_debug_logging',
 			__( 'Logging', 'wellactually' ),
 			array( $this, 'render_debug_logging_field' ),
 			'wellactually_setup',
-			'wa_diagnostics_section'
+			'wellactually_diagnostics_section'
 		);
 	}
 
@@ -367,16 +367,16 @@ class WA_Settings {
 			wp_die( esc_html__( 'You are not allowed to do that.', 'wellactually' ) );
 		}
 
-		check_admin_referer( 'wa_rebuild_status' );
+		check_admin_referer( 'wellactually_rebuild_status' );
 
-		$fixed = WA_Meta::repair_statuses();
+		$fixed = WellActually_Meta::repair_statuses();
 
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'       => 'wellactually',
-					'tab'        => 'setup',
-					'wa_rebuilt' => (int) $fixed,
+					'page'                 => 'wellactually',
+					'tab'                  => 'setup',
+					'wellactually_rebuilt' => (int) $fixed,
 				),
 				admin_url( 'options-general.php' )
 			)
@@ -395,8 +395,8 @@ class WA_Settings {
 	public function render_rebuild_status_block() {
 		echo '<h2>' . esc_html__( 'Status index', 'wellactually' ) . '</h2>';
 
-		if ( isset( $_GET['wa_rebuilt'] ) ) {
-			$fixed = absint( $_GET['wa_rebuilt'] );
+		if ( isset( $_GET['wellactually_rebuilt'] ) ) {
+			$fixed = absint( $_GET['wellactually_rebuilt'] );
 			echo '<p class="wa-rebuilt-notice">';
 			echo esc_html(
 				$fixed > 0
@@ -408,8 +408,8 @@ class WA_Settings {
 		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-			<input type="hidden" name="action" value="wa_rebuild_status" />
-			<?php wp_nonce_field( 'wa_rebuild_status' ); ?>
+			<input type="hidden" name="action" value="wellactually_rebuild_status" />
+			<?php wp_nonce_field( 'wellactually_rebuild_status' ); ?>
 			<?php submit_button( __( 'Rebuild status index', 'wellactually' ), 'secondary', 'submit', false ); ?>
 		</form>
 		<p class="description">
@@ -423,7 +423,7 @@ class WA_Settings {
 	 */
 	public function render_ai_system_prompt_field() {
 		$settings = self::get_settings();
-		$default  = WA_AI::default_system_prompt();
+		$default  = WellActually_AI::default_system_prompt();
 		?>
 		<textarea
 			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_system_prompt]"
@@ -437,7 +437,7 @@ class WA_Settings {
 		<p class="description">
 			<?php esc_html_e( 'You don\'t need to mention the response format: the instruction below is always added for you, so a rewrite can\'t stop drafts being read back properly.', 'wellactually' ); ?>
 		</p>
-		<p class="description"><code class="wa-prompt-contract"><?php echo esc_html( WA_AI::response_contract() ); ?></code></p>
+		<p class="description"><code class="wa-prompt-contract"><?php echo esc_html( WellActually_AI::response_contract() ); ?></code></p>
 		<?php
 	}
 
@@ -447,14 +447,14 @@ class WA_Settings {
 	 * @return int Between 1 and 20.
 	 */
 	public static function ai_concurrency() {
-		$value = (int) wa_get_setting( 'ai_concurrency', 5 );
+		$value = (int) wellactually_get_setting( 'ai_concurrency', 5 );
 
 		/**
 		 * Filter how many AI drafting requests run in parallel.
 		 *
 		 * @param int $value Configured concurrency.
 		 */
-		$value = (int) apply_filters( 'wa_ai_concurrency', $value );
+		$value = (int) apply_filters( 'wellactually_ai_concurrency', $value );
 
 		return max( 1, min( 20, $value ) );
 	}
@@ -486,7 +486,7 @@ class WA_Settings {
 	 * @return bool
 	 */
 	public static function debug_logging_enabled() {
-		return (bool) wa_get_setting( 'debug_logging', false );
+		return (bool) wellactually_get_setting( 'debug_logging', false );
 	}
 
 	/**
@@ -619,9 +619,9 @@ class WA_Settings {
 		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the default model you\'ve picked in that provider\'s own settings, if it has one.', 'wellactually' ); ?></p>
 		<?php
 		$provider  = $settings['ai_provider'];
-		$effective = '' !== $provider ? WA_AI::effective_model( $provider ) : '';
+		$effective = '' !== $provider ? WellActually_AI::effective_model( $provider ) : '';
 
-		if ( '' !== $effective && false === WA_AI::model_supports_drafting( $provider, $effective ) ) {
+		if ( '' !== $effective && false === WellActually_AI::model_supports_drafting( $provider, $effective ) ) {
 			echo '<p class="wa-model-warning">';
 			printf(
 				/* translators: %s: model id */
@@ -686,12 +686,12 @@ class WA_Settings {
 				</div>
 			<?php elseif ( 'reports' === $tab ) : ?>
 				<div class="wa-tab-panel">
-					<?php WA_Reports::instance()->render_tab(); ?>
+					<?php WellActually_Reports::instance()->render_tab(); ?>
 				</div>
 			<?php else : ?>
 				<form action="options.php" method="post" class="wa-tab-panel">
 					<?php
-					settings_fields( 'wa_settings_group' );
+					settings_fields( 'wellactually_settings_group' );
 					echo '<input type="hidden" name="' . esc_attr( self::OPTION_NAME ) . '[_tab]" value="' . esc_attr( $tab ) . '" />';
 
 					if ( 'categories' === $tab ) {
@@ -804,8 +804,8 @@ class WA_Settings {
 	 * retryable needs-setup state.
 	 */
 	private function render_errors_tab() {
-		WA_AI::prune_old_errors( 7 );
-		$errors = WA_AI::get_recent_errors( 7 );
+		WellActually_AI::prune_old_errors( 7 );
+		$errors = WellActually_AI::get_recent_errors( 7 );
 
 		echo '<p class="description">' . esc_html__( 'AI drafting errors from the last 7 days. Older errors are cleared automatically and the post becomes available to draft again.', 'wellactually' ) . '</p>';
 
@@ -846,7 +846,7 @@ class WA_Settings {
  * @param mixed  $default Fallback value if the key isn't set.
  * @return mixed
  */
-function wa_get_setting( $key, $default = null ) { // phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed, Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound -- one small helper, kept beside the class it wraps.
-	$settings = WA_Settings::get_settings();
+function wellactually_get_setting( $key, $default = null ) { // phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed, Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound -- one small helper, kept beside the class it wraps.
+	$settings = WellActually_Settings::get_settings();
 	return isset( $settings[ $key ] ) ? $settings[ $key ] : $default;
 }

@@ -11,9 +11,9 @@
  */
 
 /**
- * Covers WA_Meta's status derivation, storage, and repair.
+ * Covers WellActually_Meta's status derivation, storage, and repair.
  */
-class Test_WA_Status extends WP_UnitTestCase {
+class Test_WellActually_Status extends WP_UnitTestCase {
 
 	/**
 	 * The priority rules, stated as a table so a reordering can't pass
@@ -25,17 +25,17 @@ class Test_WA_Status extends WP_UnitTestCase {
 	public function status_provider() {
 		return array(
 			// Label => skipped, verdict, ai_status, expected.
-			'nothing set'        => array( false, '', '', WA_Meta::STATUS_NEEDS_SETUP ),
-			'ready suggestion'   => array( false, '', 'ready', WA_Meta::STATUS_HAS_AI ),
-			'queued not ready'   => array( false, '', 'queued', WA_Meta::STATUS_NEEDS_SETUP ),
-			'errored'            => array( false, '', 'error', WA_Meta::STATUS_NEEDS_SETUP ),
-			'true verdict'       => array( false, 'true', '', WA_Meta::STATUS_CONFIGURED ),
-			'debatable'          => array( false, 'debatable', '', WA_Meta::STATUS_CONFIGURED ),
-			'excluded'           => array( false, 'excluded', '', WA_Meta::STATUS_EXCLUDED ),
-			'verdict beats ai'   => array( false, 'true', 'ready', WA_Meta::STATUS_CONFIGURED ),
-			'skip beats verdict' => array( true, 'true', '', WA_Meta::STATUS_SKIPPED ),
-			'skip beats ai'      => array( true, '', 'ready', WA_Meta::STATUS_SKIPPED ),
-			'skip beats exclude' => array( true, 'excluded', '', WA_Meta::STATUS_SKIPPED ),
+			'nothing set'        => array( false, '', '', WellActually_Meta::STATUS_NEEDS_SETUP ),
+			'ready suggestion'   => array( false, '', 'ready', WellActually_Meta::STATUS_HAS_AI ),
+			'queued not ready'   => array( false, '', 'queued', WellActually_Meta::STATUS_NEEDS_SETUP ),
+			'errored'            => array( false, '', 'error', WellActually_Meta::STATUS_NEEDS_SETUP ),
+			'true verdict'       => array( false, 'true', '', WellActually_Meta::STATUS_CONFIGURED ),
+			'debatable'          => array( false, 'debatable', '', WellActually_Meta::STATUS_CONFIGURED ),
+			'excluded'           => array( false, 'excluded', '', WellActually_Meta::STATUS_EXCLUDED ),
+			'verdict beats ai'   => array( false, 'true', 'ready', WellActually_Meta::STATUS_CONFIGURED ),
+			'skip beats verdict' => array( true, 'true', '', WellActually_Meta::STATUS_SKIPPED ),
+			'skip beats ai'      => array( true, '', 'ready', WellActually_Meta::STATUS_SKIPPED ),
+			'skip beats exclude' => array( true, 'excluded', '', WellActually_Meta::STATUS_SKIPPED ),
 		);
 	}
 
@@ -51,16 +51,16 @@ class Test_WA_Status extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create();
 
 		if ( $skipped ) {
-			update_post_meta( $post_id, WA_Meta::SKIP_KEY, '1' );
+			update_post_meta( $post_id, WellActually_Meta::SKIP_KEY, '1' );
 		}
 		if ( '' !== $verdict ) {
-			update_post_meta( $post_id, WA_Meta::VERDICT_KEY, $verdict );
+			update_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, $verdict );
 		}
 		if ( '' !== $ai_status ) {
-			update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, $ai_status );
+			update_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, $ai_status );
 		}
 
-		$this->assertSame( $expected, WA_Meta::compute_status( $post_id ) );
+		$this->assertSame( $expected, WellActually_Meta::compute_status( $post_id ) );
 	}
 
 	/**
@@ -75,16 +75,16 @@ class Test_WA_Status extends WP_UnitTestCase {
 		$post_id = self::factory()->post->create();
 
 		// What's actually stored says one thing...
-		update_post_meta( $post_id, WA_Meta::AI_STATUS_KEY, 'queued' );
+		update_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, 'queued' );
 
 		// ...but the caller just wrote 'ready' and tells us so.
 		$this->assertSame(
-			WA_Meta::STATUS_HAS_AI,
-			WA_Meta::compute_status( $post_id, array( 'ai_status' => 'ready' ) )
+			WellActually_Meta::STATUS_HAS_AI,
+			WellActually_Meta::compute_status( $post_id, array( 'ai_status' => 'ready' ) )
 		);
 
 		// Without the override it believes the stale stored value.
-		$this->assertSame( WA_Meta::STATUS_NEEDS_SETUP, WA_Meta::compute_status( $post_id ) );
+		$this->assertSame( WellActually_Meta::STATUS_NEEDS_SETUP, WellActually_Meta::compute_status( $post_id ) );
 	}
 
 	/**
@@ -94,26 +94,26 @@ class Test_WA_Status extends WP_UnitTestCase {
 	 */
 	public function test_repair_fixes_drift_in_both_directions() {
 		$stale_excluded = self::factory()->post->create();
-		update_post_meta( $stale_excluded, WA_Meta::VERDICT_KEY, 'excluded' );
-		update_post_meta( $stale_excluded, WA_Meta::STATUS_KEY, WA_Meta::STATUS_NEEDS_SETUP );
+		update_post_meta( $stale_excluded, WellActually_Meta::VERDICT_KEY, 'excluded' );
+		update_post_meta( $stale_excluded, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
 
 		$missing_status = self::factory()->post->create();
-		update_post_meta( $missing_status, WA_Meta::AI_STATUS_KEY, 'ready' );
-		delete_post_meta( $missing_status, WA_Meta::STATUS_KEY );
+		update_post_meta( $missing_status, WellActually_Meta::AI_STATUS_KEY, 'ready' );
+		delete_post_meta( $missing_status, WellActually_Meta::STATUS_KEY );
 
 		$already_right = self::factory()->post->create();
-		update_post_meta( $already_right, WA_Meta::VERDICT_KEY, 'true' );
-		update_post_meta( $already_right, WA_Meta::STATUS_KEY, WA_Meta::STATUS_CONFIGURED );
+		update_post_meta( $already_right, WellActually_Meta::VERDICT_KEY, 'true' );
+		update_post_meta( $already_right, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_CONFIGURED );
 
-		$fixed = WA_Meta::repair_statuses();
+		$fixed = WellActually_Meta::repair_statuses();
 
 		$this->assertGreaterThanOrEqual( 2, $fixed );
-		$this->assertSame( WA_Meta::STATUS_EXCLUDED, get_post_meta( $stale_excluded, WA_Meta::STATUS_KEY, true ) );
-		$this->assertSame( WA_Meta::STATUS_HAS_AI, get_post_meta( $missing_status, WA_Meta::STATUS_KEY, true ) );
-		$this->assertSame( WA_Meta::STATUS_CONFIGURED, get_post_meta( $already_right, WA_Meta::STATUS_KEY, true ) );
+		$this->assertSame( WellActually_Meta::STATUS_EXCLUDED, get_post_meta( $stale_excluded, WellActually_Meta::STATUS_KEY, true ) );
+		$this->assertSame( WellActually_Meta::STATUS_HAS_AI, get_post_meta( $missing_status, WellActually_Meta::STATUS_KEY, true ) );
+		$this->assertSame( WellActually_Meta::STATUS_CONFIGURED, get_post_meta( $already_right, WellActually_Meta::STATUS_KEY, true ) );
 
 		// Idempotent: a second pass has nothing left to do.
-		$this->assertSame( 0, WA_Meta::repair_statuses() );
+		$this->assertSame( 0, WellActually_Meta::repair_statuses() );
 	}
 
 	/**
@@ -126,14 +126,37 @@ class Test_WA_Status extends WP_UnitTestCase {
 		$grand  = self::factory()->category->create( array( 'parent' => $child ) );
 
 		update_option(
-			'wa_settings',
-			array_merge( WA_Settings::get_settings(), array( 'excluded_categories' => array( $parent ) ) )
+			'wellactually_settings',
+			array_merge( WellActually_Settings::get_settings(), array( 'excluded_categories' => array( $parent ) ) )
 		);
 
-		$excluded = WA_Settings::excluded_categories();
+		$excluded = WellActually_Settings::excluded_categories();
 
 		$this->assertContains( $parent, $excluded );
 		$this->assertContains( $child, $excluded, 'A child of an excluded category must be excluded too.' );
 		$this->assertContains( $grand, $excluded, 'Exclusion must reach the whole branch, not just direct children.' );
+	}
+
+	/**
+	 * The "Rebuild status index" button posts to admin-post.php with an
+	 * action name; the handler has to be registered under exactly that name.
+	 * The two are written in different files and a rename broke the pairing
+	 * once already — the button silently did nothing.
+	 */
+	public function test_rebuild_status_action_is_registered_under_the_posted_name() {
+		WellActually_Settings::instance();
+
+		ob_start();
+		WellActually_Settings::instance()->render_rebuild_status_block();
+		$form = ob_get_clean();
+
+		preg_match( '/name="action" value="([^"]+)"/', $form, $matches );
+		$posted_action = isset( $matches[1] ) ? $matches[1] : '';
+
+		$this->assertNotSame( '', $posted_action, 'The rebuild form must post an action.' );
+		$this->assertNotFalse(
+			has_action( 'admin_post_' . $posted_action, array( WellActually_Settings::instance(), 'handle_rebuild_status' ) ),
+			"Nothing handles admin_post_{$posted_action}, so the button would do nothing."
+		);
 	}
 }
