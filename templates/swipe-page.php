@@ -18,10 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<meta charset="<?php bloginfo( 'charset' ); ?>" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<?php WellActually_Template::instance()->print_robots_meta(); ?>
-	<?php
-	/* translators: %s: site name */
-	$wellactually_title = sprintf( __( 'Swipe – %s', 'wellactually' ), get_bloginfo( 'name' ) );
-	?>
+	<?php WellActually_Template::instance()->print_social_meta(); ?>
+	<?php $wellactually_title = WellActually_Template::social_title(); ?>
 	<title><?php echo esc_html( $wellactually_title ); ?></title>
 	<?php WellActually_Template::instance()->print_head_assets(); ?>
 </head>

@@ -6,6 +6,9 @@
 .wa-prompt-contract { display: block; max-width: 600px; padding: 6px 8px; white-space: normal; }
 .wa-rebuilt-notice { background: #edfaef; border-left: 4px solid #00a32a; padding: 8px 12px; margin: 0 0 8px; max-width: 600px; }
 .wa-model-warning { background: #fcf9e8; border-left: 4px solid #dba617; padding: 8px 12px; margin: 8px 0; max-width: 600px; }
+.wa-social-image-preview { display: block; width: 320px; max-width: 100%; height: auto; margin: 0 0 8px; border: 1px solid #c3c4c7; }
+.wa-social-image-preview[hidden] { display: none; }
+.wa-social-image-actions { display: flex; align-items: center; gap: 12px; margin: 0; }
 .wa-categories-table th.wa-col-count,
 .wa-categories-table td.wa-col-count { width: 90px; }
 .wa-categories-table th.wa-col-skip,

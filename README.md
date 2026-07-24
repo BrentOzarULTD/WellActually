@@ -85,6 +85,12 @@ The Reports screen shows:
 
 Once a card has enough responses to be meaningful, it can also tell players how many readers got it wrong—without revealing the answer.
 
+### Make shared links look intentional
+
+Set a custom preview title, description, and image under **Settings → Well, Actually... → Social sharing**. The plugin adds Open Graph and Twitter/X card metadata directly to the swipe page, giving social networks and messaging apps a clear preview instead of making them guess.
+
+Leave the text fields blank to use the plugin’s friendly defaults. Leave the image blank to use the WordPress site icon when one is available.
+
 ## Optional AI drafting
 
 Writing hundreds of short, provocative statements can be the slowest part. The optional **Draft with AI** workflow can suggest a statement and verdict from an existing post.

@@ -74,6 +74,9 @@ class WellActually_Settings {
 	public static function defaults() {
 		return array(
 			'slug'                => 'swipe',
+			'social_title'        => '',
+			'social_description'  => '',
+			'social_image_id'     => 0,
 			'ai_provider'         => '',
 			'ai_model'            => '',
 			'ai_system_prompt'    => '',
@@ -270,6 +273,25 @@ class WellActually_Settings {
 				array( 'in_footer' => true )
 			);
 		}
+
+		if ( 'setup' === $this->current_tab() ) {
+			wp_enqueue_media();
+			wp_enqueue_script(
+				'wellactually-admin-settings',
+				WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-settings.js',
+				array( 'media-editor' ),
+				wellactually_asset_version( 'assets/js/admin-settings.js' ),
+				array( 'in_footer' => true )
+			);
+			wp_localize_script(
+				'wellactually-admin-settings',
+				'wellactuallySettings',
+				array(
+					'imageTitle'  => __( 'Choose a social sharing image', 'wellactually' ),
+					'imageButton' => __( 'Use this image', 'wellactually' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -299,6 +321,37 @@ class WellActually_Settings {
 			array( $this, 'render_slug_field' ),
 			'wellactually_setup',
 			'wellactually_settings_section'
+		);
+
+		add_settings_section(
+			'wellactually_social_section',
+			__( 'Social sharing', 'wellactually' ),
+			array( $this, 'render_social_section_intro' ),
+			'wellactually_setup'
+		);
+
+		add_settings_field(
+			'wellactually_social_title',
+			__( 'Preview title', 'wellactually' ),
+			array( $this, 'render_social_title_field' ),
+			'wellactually_setup',
+			'wellactually_social_section'
+		);
+
+		add_settings_field(
+			'wellactually_social_description',
+			__( 'Preview description', 'wellactually' ),
+			array( $this, 'render_social_description_field' ),
+			'wellactually_setup',
+			'wellactually_social_section'
+		);
+
+		add_settings_field(
+			'wellactually_social_image',
+			__( 'Preview image', 'wellactually' ),
+			array( $this, 'render_social_image_field' ),
+			'wellactually_setup',
+			'wellactually_social_section'
 		);
 
 		add_settings_section(
@@ -538,6 +591,21 @@ class WellActually_Settings {
 		$slug           = isset( $input['slug'] ) ? sanitize_title( $input['slug'] ) : '';
 		$output['slug'] = ( '' !== $slug ) ? $slug : $existing['slug'];
 
+		// Blank title/description values deliberately mean "keep using the
+		// dynamic built-in default", so future wording improvements and site
+		// name changes are reflected without another settings save.
+		$social_title           = isset( $input['social_title'] ) ? sanitize_text_field( $input['social_title'] ) : '';
+		$output['social_title'] = mb_substr( trim( $social_title ), 0, 200 );
+
+		$social_description           = isset( $input['social_description'] ) ? sanitize_textarea_field( $input['social_description'] ) : '';
+		$output['social_description'] = mb_substr( trim( $social_description ), 0, 300 );
+
+		$image_id = isset( $input['social_image_id'] ) ? absint( $input['social_image_id'] ) : 0;
+
+		$output['social_image_id'] = $image_id && wp_attachment_is_image( $image_id )
+			? $image_id
+			: 0;
+
 		// AI provider must be one of the registered AI providers.
 		$provider              = isset( $input['ai_provider'] ) ? sanitize_text_field( $input['ai_provider'] ) : '';
 		$output['ai_provider'] = array_key_exists( $provider, self::ai_providers() ) ? $provider : '';
@@ -647,6 +715,105 @@ class WellActually_Settings {
 				'<code>' . esc_html( home_url( '/' ) ) . '<strong>' . esc_html( $settings['slug'] ) . '</strong></code>'
 			);
 			?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Explain what the social sharing settings control.
+	 */
+	public function render_social_section_intro() {
+		?>
+		<p>
+			<?php esc_html_e( 'Controls the link preview when someone shares the swipe page on social networks or in messaging apps. These tags are rendered directly in the page, so they work even though the swipe template does not load your theme or SEO plugin.', 'wellactually' ); ?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'Social platforms cache link previews. After changing these fields, you may need to clear your site’s page cache and ask the platform to refresh the URL before an older preview changes.', 'wellactually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the social sharing title field.
+	 */
+	public function render_social_title_field() {
+		$settings = self::get_settings();
+		?>
+		<input
+			type="text"
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[social_title]"
+			value="<?php echo esc_attr( $settings['social_title'] ); ?>"
+			class="regular-text"
+			maxlength="200"
+			placeholder="<?php echo esc_attr( WellActually_Template::default_social_title() ); ?>"
+		/>
+		<p class="description">
+			<?php esc_html_e( 'Leave blank to use the title shown above.', 'wellactually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the social sharing description field.
+	 */
+	public function render_social_description_field() {
+		$settings = self::get_settings();
+		?>
+		<textarea
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[social_description]"
+			rows="3"
+			class="large-text"
+			maxlength="300"
+			placeholder="<?php echo esc_attr( WellActually_Template::default_social_description() ); ?>"
+		><?php echo esc_textarea( $settings['social_description'] ); ?></textarea>
+		<p class="description">
+			<?php esc_html_e( 'Leave blank to use the description shown above.', 'wellactually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the Media Library-backed social sharing image field.
+	 */
+	public function render_social_image_field() {
+		$settings  = self::get_settings();
+		$image_id  = absint( $settings['social_image_id'] );
+		$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'medium' ) : '';
+		?>
+		<div class="wa-social-image-field">
+			<input
+				type="hidden"
+				id="wellactually-social-image-id"
+				name="<?php echo esc_attr( self::OPTION_NAME ); ?>[social_image_id]"
+				value="<?php echo esc_attr( $image_id ); ?>"
+			/>
+			<img
+				id="wellactually-social-image-preview"
+				class="wa-social-image-preview"
+				src="<?php echo esc_url( $image_url ); ?>"
+				alt="<?php esc_attr_e( 'Current social sharing preview image', 'wellactually' ); ?>"
+				<?php if ( ! $image_url ) : ?>
+					hidden
+				<?php endif; ?>
+			/>
+			<p class="wa-social-image-actions">
+				<button type="button" class="button" id="wellactually-social-image-select">
+					<?php esc_html_e( 'Choose image', 'wellactually' ); ?>
+				</button>
+				<button
+					type="button"
+					class="button-link-delete"
+					id="wellactually-social-image-remove"
+					<?php if ( ! $image_url ) : ?>
+						hidden
+					<?php endif; ?>
+				>
+					<?php esc_html_e( 'Remove image', 'wellactually' ); ?>
+				</button>
+			</p>
+		</div>
+		<p class="description">
+			<?php esc_html_e( 'A 1200 × 630 pixel landscape image works well across most platforms. If you leave this blank, the site icon is used when one is available.', 'wellactually' ); ?>
 		</p>
 		<?php
 	}

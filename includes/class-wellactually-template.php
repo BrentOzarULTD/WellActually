@@ -162,6 +162,132 @@ class WellActually_Template {
 	}
 
 	/**
+	 * Built-in social preview title.
+	 *
+	 * @return string
+	 */
+	public static function default_social_title() {
+		return sprintf(
+			/* translators: %s: site name */
+			__( 'Well, Actually... — %s', 'wellactually' ),
+			wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+		);
+	}
+
+	/**
+	 * Built-in social preview description.
+	 *
+	 * @return string
+	 */
+	public static function default_social_description() {
+		return sprintf(
+			/* translators: %s: site name */
+			__( 'How well do you know %s? Swipe through bold statements, make your call, and discover the posts that settle it.', 'wellactually' ),
+			wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
+		);
+	}
+
+	/**
+	 * Effective social preview title, including the built-in fallback.
+	 *
+	 * @return string
+	 */
+	public static function social_title() {
+		$title = trim( (string) wellactually_get_setting( 'social_title', '' ) );
+		return '' !== $title ? $title : self::default_social_title();
+	}
+
+	/**
+	 * Effective social preview description, including the built-in fallback.
+	 *
+	 * @return string
+	 */
+	public static function social_description() {
+		$description = trim( (string) wellactually_get_setting( 'social_description', '' ) );
+		return '' !== $description ? $description : self::default_social_description();
+	}
+
+	/**
+	 * Resolve the configured preview image, falling back to the site icon.
+	 *
+	 * @param string $fallback_alt Text to use when the attachment has no alt.
+	 * @return array|null URL, dimensions, MIME type, alt text, and card size.
+	 */
+	private function social_image_data( $fallback_alt ) {
+		$image_id = absint( wellactually_get_setting( 'social_image_id', 0 ) );
+
+		if ( $image_id && wp_attachment_is_image( $image_id ) ) {
+			$image = wp_get_attachment_image_src( $image_id, 'full' );
+			if ( is_array( $image ) && ! empty( $image[0] ) ) {
+				$alt = trim( (string) get_post_meta( $image_id, '_wp_attachment_image_alt', true ) );
+				return array(
+					'url'        => $image[0],
+					'width'      => absint( $image[1] ),
+					'height'     => absint( $image[2] ),
+					'mime'       => (string) get_post_mime_type( $image_id ),
+					'alt'        => '' !== $alt ? $alt : $fallback_alt,
+					'large_card' => true,
+				);
+			}
+		}
+
+		$site_icon = get_site_icon_url( 512 );
+		if ( ! $site_icon ) {
+			return null;
+		}
+
+		$filetype = wp_check_filetype( $site_icon );
+		return array(
+			'url'        => $site_icon,
+			'width'      => 512,
+			'height'     => 512,
+			'mime'       => isset( $filetype['type'] ) ? $filetype['type'] : '',
+			'alt'        => $fallback_alt,
+			'large_card' => false,
+		);
+	}
+
+	/**
+	 * Print Open Graph and Twitter/X card metadata for the swipe page.
+	 *
+	 * The takeover template deliberately skips wp_head(), so this metadata
+	 * must be rendered directly instead of relying on a theme or SEO plugin.
+	 */
+	public function print_social_meta() {
+		$title       = self::social_title();
+		$description = self::social_description();
+		$slug        = wellactually_get_setting( 'slug', 'swipe' );
+		$url         = home_url( user_trailingslashit( $slug ) );
+		$site_name   = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$image       = $this->social_image_data( $title );
+		?>
+		<meta name="description" content="<?php echo esc_attr( $description ); ?>" />
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content="<?php echo esc_attr( $title ); ?>" />
+		<meta property="og:description" content="<?php echo esc_attr( $description ); ?>" />
+		<meta property="og:url" content="<?php echo esc_url( $url ); ?>" />
+		<meta property="og:site_name" content="<?php echo esc_attr( $site_name ); ?>" />
+		<meta property="og:locale" content="<?php echo esc_attr( get_locale() ); ?>" />
+		<meta name="twitter:card" content="<?php echo esc_attr( $image && $image['large_card'] ? 'summary_large_image' : 'summary' ); ?>" />
+		<meta name="twitter:title" content="<?php echo esc_attr( $title ); ?>" />
+		<meta name="twitter:description" content="<?php echo esc_attr( $description ); ?>" />
+		<?php if ( $image ) : ?>
+			<meta property="og:image" content="<?php echo esc_url( $image['url'] ); ?>" />
+			<?php if ( $image['width'] && $image['height'] ) : ?>
+				<meta property="og:image:width" content="<?php echo esc_attr( $image['width'] ); ?>" />
+				<meta property="og:image:height" content="<?php echo esc_attr( $image['height'] ); ?>" />
+			<?php endif; ?>
+			<?php if ( '' !== $image['mime'] ) : ?>
+				<meta property="og:image:type" content="<?php echo esc_attr( $image['mime'] ); ?>" />
+			<?php endif; ?>
+			<meta property="og:image:alt" content="<?php echo esc_attr( $image['alt'] ); ?>" />
+			<meta name="twitter:image" content="<?php echo esc_url( $image['url'] ); ?>" />
+			<meta name="twitter:image:alt" content="<?php echo esc_attr( $image['alt'] ); ?>" />
+		<?php endif; ?>
+		<?php
+	}
+
+	/**
 	 * Register the swipe page's assets and their inline config.
 	 *
 	 * Called directly by the template (not hooked to wp_enqueue_scripts,
