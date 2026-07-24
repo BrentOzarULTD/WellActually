@@ -403,6 +403,12 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 				'post_title'  => 'A post that needs setup',
 			)
 		);
+		$zero_id = self::factory()->post->create(
+			array(
+				'post_author' => $author,
+				'post_title'  => 'A post with zero views',
+			)
+		);
 
 		$filter = static function () use ( $post_id ) {
 			return array( $post_id => 2500 );
@@ -412,8 +418,8 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 		$query  = new WP_Query(
 			array(
 				'post_type'      => 'post',
-				'post__in'       => array( $post_id ),
-				'posts_per_page' => 1,
+				'post__in'       => array( $post_id, $zero_id ),
+				'posts_per_page' => 2,
 			)
 		);
 		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'render_form' );
@@ -439,6 +445,8 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 			$this->assertStringContainsString( 'wa-check-all-exclude', $html );
 			$this->assertStringContainsString( 'Views: 30 days', $html );
 			$this->assertStringContainsString( '2.5K', $html );
+			$this->assertMatchesRegularExpression( '/A post with zero views.*?wa-col-views.*?Views in the last 30 days:.*?0/s', $html );
+			$this->assertStringNotContainsString( 'No stats', $html );
 			$this->assertStringContainsString( 'December 14, 2016 - Brent Ozar', $html );
 		} finally {
 			remove_filter( 'wellactually_jetpack_views_30_days', $filter );

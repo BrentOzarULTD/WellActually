@@ -279,6 +279,10 @@ class WellActually_Bulk_Setup {
 		}
 
 		if ( 'views_30' === $args['orderby'] ) {
+			// Jetpack totals are not stored in MySQL, so a correct global sort
+			// must inspect every matching ID before taking the requested page.
+			// Keep that scan to bare integer IDs and skip all object/meta caches;
+			// paginate_post_ids_by_views() only hydrates the final 20 posts.
 			$query_args['fields']                 = 'ids';
 			$query_args['posts_per_page']         = -1;
 			$query_args['paged']                  = 1;
@@ -495,23 +499,18 @@ class WellActually_Bulk_Setup {
 	 * @return WP_Query
 	 */
 	private function paginate_post_ids_by_views( $post_ids, $args ) {
-		$post_ids  = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
-		$views     = $this->jetpack_views_30_days();
-		$direction = 'ASC' === $args['order'] ? 1 : -1;
+		$post_ids   = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		$views      = $this->jetpack_views_30_days();
+		$view_sort  = array();
+		$sort_order = 'ASC' === $args['order'] ? SORT_ASC : SORT_DESC;
 
-		usort(
-			$post_ids,
-			static function ( $left, $right ) use ( $views, $direction ) {
-				$left_views  = isset( $views[ $left ] ) ? $views[ $left ] : 0;
-				$right_views = isset( $views[ $right ] ) ? $views[ $right ] : 0;
+		foreach ( $post_ids as $post_id ) {
+			$view_sort[] = isset( $views[ $post_id ] ) ? $views[ $post_id ] : 0;
+		}
 
-				if ( $left_views !== $right_views ) {
-					return $direction * ( $left_views <=> $right_views );
-				}
-
-				return $direction * ( $left <=> $right );
-			}
-		);
+		// Native multisort avoids a PHP callback for every comparison. The post
+		// ID is the deterministic tie-breaker, in the same requested direction.
+		array_multisort( $view_sort, $sort_order, SORT_NUMERIC, $post_ids, $sort_order, SORT_NUMERIC );
 
 		$found  = count( $post_ids );
 		$offset = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
@@ -598,6 +597,10 @@ class WellActually_Bulk_Setup {
 					$clean[ $post_id ] = absint( $count );
 				}
 			}
+		}
+
+		if ( ! empty( $post_ids ) ) {
+			$clean = array_intersect_key( $clean, array_fill_keys( $post_ids, true ) );
 		}
 
 		return $clean;
@@ -1192,13 +1195,10 @@ class WellActually_Bulk_Setup {
 								<div class="wa-post-preview"><?php echo esc_html( $this->post_preview( get_post() ) ); ?></div>
 							</td>
 							<td class="wa-col-views">
-								<?php if ( $has_views && array_key_exists( $post_id, $views ) ) : ?>
+								<?php if ( $has_views ) : ?>
 									<span class="dashicons dashicons-visibility" aria-hidden="true"></span>
 									<span class="screen-reader-text"><?php esc_html_e( 'Views in the last 30 days:', 'wellactually' ); ?></span>
-									<?php echo esc_html( $this->format_view_count( $views[ $post_id ] ) ); ?>
-								<?php elseif ( $has_views ) : ?>
-									<span class="dashicons dashicons-visibility" aria-hidden="true"></span>
-									<span class="screen-reader-text"><?php esc_html_e( 'No stats', 'wellactually' ); ?></span>
+									<?php echo esc_html( $this->format_view_count( isset( $views[ $post_id ] ) ? $views[ $post_id ] : 0 ) ); ?>
 								<?php else : ?>
 									<span aria-hidden="true">&mdash;</span>
 									<span class="screen-reader-text"><?php esc_html_e( 'Jetpack Stats is unavailable.', 'wellactually' ); ?></span>
