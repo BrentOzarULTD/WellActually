@@ -84,17 +84,22 @@ class WellActually_AI {
 				'callback'            => array( $this, 'handle_enqueue' ),
 				'permission_callback' => $permission,
 				'args'                => array(
-					'count' => array(
+					'count'  => array(
 						'type'              => 'integer',
 						'default'           => 10,
 						'sanitize_callback' => 'absint',
 					),
-					'cat'   => array(
+					'cat'    => array(
 						'type'              => 'integer',
 						'default'           => 0,
 						'sanitize_callback' => 'absint',
 					),
-					'batch' => array(
+					'author' => array(
+						'type'              => 'integer',
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
+					'batch'  => array(
 						'type'              => 'string',
 						'default'           => '',
 						'sanitize_callback' => 'sanitize_text_field',
@@ -128,8 +133,9 @@ class WellActually_AI {
 	 * @return WP_REST_Response
 	 */
 	public function handle_enqueue( WP_REST_Request $request ) {
-		$count = min( 200, max( 1, (int) $request->get_param( 'count' ) ) );
-		$cat   = (int) $request->get_param( 'cat' );
+		$count  = min( 200, max( 1, (int) $request->get_param( 'count' ) ) );
+		$cat    = (int) $request->get_param( 'cat' );
+		$author = (int) $request->get_param( 'author' );
 
 		// Put back anything a previous run left mid-flight, and clear out
 		// batches whose browser never returned — their rows would otherwise
@@ -189,7 +195,7 @@ class WellActually_AI {
 				break;
 			}
 
-			$candidates = self::select_candidates( $still_needed * 2, $cat, $tried );
+			$candidates = self::select_candidates( $still_needed * 2, $cat, $tried, $author );
 			if ( empty( $candidates ) ) {
 				// Genuinely nothing left that matches.
 				break;
@@ -373,15 +379,17 @@ class WellActually_AI {
 
 	/**
 	 * Select up to $limit "needs setup" post IDs to draft, optionally within a
-	 * category. Ready suggestions are rejected by the live-status check; callers
-	 * pass queue-table post IDs through $exclude to leave held work alone.
+	 * category and/or author. Ready suggestions are rejected by the live-status
+	 * check; callers pass queue-table post IDs through $exclude to leave held
+	 * work alone.
 	 *
-	 * @param int   $limit   Maximum number of posts.
-	 * @param int   $cat     Category term id, or 0 for all.
+	 * @param int   $limit  Maximum number of posts.
+	 * @param int   $cat    Category term id, or 0 for all.
 	 * @param int[] $exclude Post IDs to leave out.
+	 * @param int   $author Author user id, or 0 for all.
 	 * @return int[]
 	 */
-	public static function select_candidates( $limit, $cat = 0, array $exclude = array() ) {
+	public static function select_candidates( $limit, $cat = 0, array $exclude = array(), $author = 0 ) {
 		$limit     = max( 1, (int) $limit );
 		$scan_size = min( 500, max( 100, $limit * 2 ) );
 		$args      = array(
@@ -405,6 +413,10 @@ class WellActually_AI {
 
 		if ( $cat > 0 ) {
 			$args['cat'] = (int) $cat;
+		}
+
+		if ( $author > 0 ) {
+			$args['author'] = (int) $author;
 		}
 
 		// Via the helper, not the raw setting: it expands a skipped category

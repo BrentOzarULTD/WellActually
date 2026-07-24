@@ -201,6 +201,30 @@ class Test_WellActually_Drafting extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Draft with AI must honor the author selected on the setup screen.
+	 */
+	public function test_enqueue_filters_candidates_by_author() {
+		$selected_author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$other_author    = self::factory()->user->create( array( 'role' => 'author' ) );
+
+		self::factory()->post->create_many( 3, array( 'post_author' => $selected_author ) );
+		self::factory()->post->create_many( 3, array( 'post_author' => $other_author ) );
+
+		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
+		$request->set_param( 'count', 10 );
+		$request->set_param( 'cat', 0 );
+		$request->set_param( 'author', $selected_author );
+		$request->set_param( 'batch', '' );
+
+		$data = WellActually_AI::instance()->handle_enqueue( $request )->get_data();
+
+		$this->assertSame( 3, $data['queued'] );
+		foreach ( $data['ids'] as $post_id ) {
+			$this->assertSame( $selected_author, (int) get_post_field( 'post_author', $post_id ) );
+		}
+	}
+
+	/**
 	 * #28: a request must fill from eligible posts however deep in the archive
 	 * they are, even when far more than a few pages of the *newest* posts are
 	 * held by other live batches. The old fixed round budget could spend its

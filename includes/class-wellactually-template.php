@@ -175,12 +175,17 @@ class WellActually_Template {
 		}
 		$registered = true;
 
-		wp_register_style( 'wellactually-swipe', WELLACTUALLY_PLUGIN_URL . 'assets/css/swipe.css', array(), WELLACTUALLY_VERSION );
+		wp_register_style(
+			'wellactually-swipe',
+			WELLACTUALLY_PLUGIN_URL . 'assets/css/swipe.css',
+			array(),
+			wellactually_asset_version( 'assets/css/swipe.css' )
+		);
 		wp_register_script(
 			'wellactually-swipe',
 			WELLACTUALLY_PLUGIN_URL . 'assets/js/swipe.js',
 			array(),
-			WELLACTUALLY_VERSION,
+			wellactually_asset_version( 'assets/js/swipe.js' ),
 			array( 'in_footer' => true )
 		);
 
@@ -260,8 +265,6 @@ class WellActually_Template {
 			'revealVerdict'      => __( 'This one’s %1$s.', 'wellactually' ),
 			'verdictTrue'        => _x( 'TRUE', 'verdict shown in the reveal, deliberately shouty', 'wellactually' ),
 			'verdictFalse'       => _x( 'FALSE', 'verdict shown in the reveal, deliberately shouty', 'wellactually' ),
-			/* translators: %1$s: percentage of readers who agreed with the statement */
-			'pctAgreed'          => __( '%1$s% of readers agreed.', 'wellactually' ),
 			'readFullPost'       => __( 'Read the full post →', 'wellactually' ),
 			'continue'           => __( 'Continue', 'wellactually' ),
 		);

@@ -180,6 +180,7 @@ class Test_WellActually_Rest extends WP_UnitTestCase {
 				$data['correct'],
 				"Answering {$answer} on a {$verdict} card should be " . ( $expected ? 'correct' : 'incorrect' )
 			);
+			$this->assertArrayNotHasKey( 'pct_agreed', $data );
 		}
 	}
 
