@@ -113,9 +113,13 @@ class Test_WellActually_Drafting extends WP_UnitTestCase {
 
 		$configured = self::factory()->post->create();
 		WellActually_Meta::apply_meta( $configured, 'Already written', 'true' );
+		// Simulate a stale/corrupt status index (or an old cached query result)
+		// still offering this ID as needs setup.
+		update_post_meta( $configured, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
 
 		$excluded = self::factory()->post->create();
 		WellActually_Meta::apply_meta( $excluded, '', WellActually_Meta::VERDICT_EXCLUDED );
+		update_post_meta( $excluded, WellActually_Meta::STATUS_KEY, WellActually_Meta::STATUS_NEEDS_SETUP );
 
 		$skipped = self::factory()->post->create();
 		update_post_meta( $skipped, WellActually_Meta::SKIP_KEY, '1' );

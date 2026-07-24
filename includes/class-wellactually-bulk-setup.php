@@ -219,6 +219,10 @@ class WellActually_Bulk_Setup {
 	 * @return WP_Query
 	 */
 	private function build_query( $args ) {
+		if ( 'needs_setup' === $args['status'] ) {
+			return $this->build_live_needs_setup_query( $args );
+		}
+
 		$query_args = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
@@ -274,6 +278,82 @@ class WellActually_Bulk_Setup {
 		// query instead of ~20.
 		if ( ! empty( $query->posts ) ) {
 			update_meta_cache( 'post', wp_list_pluck( $query->posts, 'ID' ) );
+		}
+
+		$this->log_page_build( $args, $query );
+
+		return $query;
+	}
+
+	/**
+	 * Build the Needs Setup page from an unfiltered candidate list, then apply
+	 * an uncached authoritative status check before pagination.
+	 *
+	 * The candidate query intentionally has no meta condition: a cache of "all
+	 * published posts in this category" cannot become wrong merely because
+	 * swipe meta changed. The final status check reads the source meta directly
+	 * through WellActually_Meta, so cached WP_Query IDs can never put a
+	 * configured, excluded, skipped, or ready-for-review post on this page.
+	 *
+	 * @param array $args Result of current_args().
+	 * @return WP_Query
+	 */
+	private function build_live_needs_setup_query( $args ) {
+		$query_args = array(
+			'post_type'              => 'post',
+			'post_status'            => 'publish',
+			'fields'                 => 'ids',
+			'posts_per_page'         => -1,
+			'orderby'                => $args['orderby'],
+			'order'                  => $args['order'],
+			'ignore_sticky_posts'    => true,
+			'no_found_rows'          => true,
+			'cache_results'          => false,
+			'update_post_meta_cache' => false,
+			'update_post_term_cache' => false,
+		);
+
+		if ( $args['cat'] > 0 ) {
+			$query_args['cat'] = $args['cat'];
+		}
+
+		$excluded_cats = WellActually_Settings::excluded_categories();
+		if ( ! empty( $excluded_cats ) ) {
+			$query_args['category__not_in'] = $excluded_cats;
+		}
+
+		if ( ! empty( $args['done'] ) ) {
+			$query_args['post__not_in'] = $args['done'];
+		}
+
+		$candidates = new WP_Query( $query_args );
+		$matching   = WellActually_Meta::filter_post_ids_by_live_status(
+			array_map( 'intval', $candidates->posts ),
+			WellActually_Meta::STATUS_NEEDS_SETUP
+		);
+
+		$found  = count( $matching );
+		$offset = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
+		$page   = array_slice( $matching, $offset, self::PER_PAGE );
+		$posts  = array();
+
+		foreach ( $page as $post_id ) {
+			$post = get_post( $post_id );
+			if ( $post ) {
+				$posts[] = $post;
+			}
+		}
+
+		// An empty WP_Query gives the renderer the normal loop API without
+		// issuing another status-dependent query that a host could cache.
+		$query                = new WP_Query();
+		$query->posts         = $posts;
+		$query->post_count    = count( $posts );
+		$query->found_posts   = $found;
+		$query->max_num_pages = (int) ceil( $found / self::PER_PAGE );
+
+		if ( ! empty( $posts ) ) {
+			update_meta_cache( 'post', wp_list_pluck( $posts, 'ID' ) );
 		}
 
 		$this->log_page_build( $args, $query );
