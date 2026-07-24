@@ -65,6 +65,20 @@ jobs:
             -not -path './.wp-local/*' \
             -print0 | xargs -0 -n1 -P4 php -l
 
+  plugin-check:
+    name: WordPress Plugin Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the WordPress.org package
+        run: bin/build-release.sh
+
+      - name: Run the official WordPress submission checks
+        uses: wordpress/plugin-check-action@v1
+        with:
+          build-dir: ./build/wellactually
+
   test:
     name: Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }})
     runs-on: ubuntu-latest

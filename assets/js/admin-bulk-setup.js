@@ -5,8 +5,8 @@
  * skipped, and drive the AI drafting loop.
  *
  * Vanilla ES5, no build step. `window.wellactuallyBulkSetup` (printed via
- * wp_localize_script) provides { restUrl, nonce, cat, concurrency, reviewUrl,
- * i18n }.
+ * wp_localize_script) provides { restUrl, nonce, cat, author, concurrency,
+ * reviewUrl, i18n }.
  */
 ( function () {
 	'use strict';
@@ -45,7 +45,51 @@
 		if ( v ) { v.disabled = off; }
 	}
 
-	document.querySelectorAll( '.wa-bulk-table .wa-row' ).forEach( function ( row ) {
+	var rows = document.querySelectorAll( '.wa-bulk-table .wa-row' );
+	var checkAllSkip = document.querySelector( '.wa-check-all-skip' );
+	var checkAllExclude = document.querySelector( '.wa-check-all-exclude' );
+
+	/**
+	 * Keep a header checkbox aligned with the row checkboxes beneath it.
+	 *
+	 * @param {HTMLInputElement|null} master Header checkbox.
+	 * @param {string} selector Row-checkbox selector.
+	 */
+	function syncMaster( master, selector ) {
+		if ( ! master ) { return; }
+		var checked = 0;
+		rows.forEach( function ( row ) {
+			var input = row.querySelector( selector );
+			if ( input && input.checked ) { checked++; }
+		} );
+		master.checked = rows.length > 0 && checked === rows.length;
+		master.indeterminate = checked > 0 && checked < rows.length;
+	}
+
+	function syncMasters() {
+		syncMaster( checkAllSkip, '.wa-skip-input' );
+		syncMaster( checkAllExclude, '.wa-exclude-input' );
+	}
+
+	/**
+	 * Apply a Skip or Never header checkbox to every row on this page.
+	 *
+	 * @param {string} selector Target row-checkbox selector.
+	 * @param {string} oppositeSelector Mutually exclusive checkbox selector.
+	 * @param {boolean} checked Desired target state.
+	 */
+	function setAllRows( selector, oppositeSelector, checked ) {
+		rows.forEach( function ( row ) {
+			var input = row.querySelector( selector );
+			var opposite = row.querySelector( oppositeSelector );
+			if ( input ) { input.checked = checked; }
+			if ( checked && opposite ) { opposite.checked = false; }
+			syncRow( row );
+		} );
+		syncMasters();
+	}
+
+	rows.forEach( function ( row ) {
 		var exclude = row.querySelector( '.wa-exclude-input' );
 		var skip = row.querySelector( '.wa-skip-input' );
 		// Never and Skip are mutually exclusive in intent; unchecking the
@@ -54,16 +98,30 @@
 			exclude.addEventListener( 'change', function () {
 				if ( exclude.checked && skip ) { skip.checked = false; }
 				syncRow( row );
+				syncMasters();
 			} );
 		}
 		if ( skip ) {
 			skip.addEventListener( 'change', function () {
 				if ( skip.checked && exclude ) { exclude.checked = false; }
 				syncRow( row );
+				syncMasters();
 			} );
 		}
 		syncRow( row );
 	} );
+
+	if ( checkAllSkip ) {
+		checkAllSkip.addEventListener( 'change', function () {
+			setAllRows( '.wa-skip-input', '.wa-exclude-input', checkAllSkip.checked );
+		} );
+	}
+	if ( checkAllExclude ) {
+		checkAllExclude.addEventListener( 'change', function () {
+			setAllRows( '.wa-exclude-input', '.wa-skip-input', checkAllExclude.checked );
+		} );
+	}
+	syncMasters();
 
 	// AI drafting loop: enqueue N posts, then process one at a time,
 	// showing live progress. Browser-driven so it never blocks a single
@@ -119,11 +177,12 @@
 		var previous = '';
 		try { previous = window.sessionStorage.getItem( 'waAiBatch' ) || ''; } catch ( e ) {}
 
-		// wp_localize_script stringifies scalars, so the category id arrives
-		// as "0" rather than 0; the REST route wants a number.
+		// wp_localize_script stringifies scalars, so these ids arrive as "0"
+		// rather than 0; the REST route wants numbers.
 		var cat = parseInt( cfg.cat, 10 ) || 0;
+		var author = parseInt( cfg.author, 10 ) || 0;
 
-		api( 'ai/enqueue', { count: count, cat: cat, batch: previous } ).then( function ( res ) {
+		api( 'ai/enqueue', { count: count, cat: cat, author: author, batch: previous } ).then( function ( res ) {
 			var batch = res.batch;
 			var total = res.queued || 0;
 

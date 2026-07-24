@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-23T23:19:51+00:00\n"
+"POT-Creation-Date: 2026-07-24T11:29:44+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: wellactually\n"
@@ -18,7 +18,7 @@ msgstr ""
 #: wellactually.php
 #: includes/class-wellactually-bulk-setup.php:63
 #: includes/class-wellactually-bulk-setup.php:64
-#: includes/class-wellactually-bulk-setup.php:467
+#: includes/class-wellactually-bulk-setup.php:829
 #: includes/class-wellactually-privacy.php:71
 #: includes/class-wellactually-settings.php:218
 #: includes/class-wellactually-settings.php:219
@@ -41,115 +41,115 @@ msgstr ""
 msgid "Brent Ozar"
 msgstr ""
 
-#: includes/class-wellactually-ai.php:290
+#: includes/class-wellactually-ai.php:296
 msgid "A batch id is required."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:663
+#: includes/class-wellactually-ai.php:707
 msgid "This post was reassigned to another drafting run; result discarded."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:688
+#: includes/class-wellactually-ai.php:732
 msgid "Invalid post."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:710
+#: includes/class-wellactually-ai.php:754
 msgid "AI is not available in this environment."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:713
+#: includes/class-wellactually-ai.php:757
 msgid "No AI provider is selected in settings."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:766
+#: includes/class-wellactually-ai.php:810
 msgid "The AI returned an unexpected response type."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:771
+#: includes/class-wellactually-ai.php:815
 msgid "The AI returned an unexpected response."
 msgstr ""
 
-#: includes/class-wellactually-ai.php:824
+#: includes/class-wellactually-ai.php:868
 msgid "The AI returned an incomplete draft."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:122
+#: includes/class-wellactually-bulk-setup.php:125
 msgid "Queuing…"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:123
+#: includes/class-wellactually-bulk-setup.php:126
 msgid "No un-drafted posts match this filter."
 msgstr ""
 
 #. translators: %1$s: number of posts drafted so far
-#: includes/class-wellactually-bulk-setup.php:125
+#: includes/class-wellactually-bulk-setup.php:128
 #, php-format
 msgid "%1$s drafted"
 msgstr ""
 
 #. translators: %1$s: number of posts that failed, always 1 here
-#: includes/class-wellactually-bulk-setup.php:127
+#: includes/class-wellactually-bulk-setup.php:130
 #, php-format
 msgid "%1$s error"
 msgstr ""
 
 #. translators: %1$s: number of posts that failed
-#: includes/class-wellactually-bulk-setup.php:129
+#: includes/class-wellactually-bulk-setup.php:132
 #, php-format
 msgid "%1$s errors"
 msgstr ""
 
 #. translators: %1$s: number of posts whose outcome is unknown
-#: includes/class-wellactually-bulk-setup.php:131
+#: includes/class-wellactually-bulk-setup.php:134
 #, php-format
 msgid "%1$s unconfirmed"
 msgstr ""
 
 #. translators: separator between the parts of a progress summary, e.g. "3 drafted, 1 error"
-#: includes/class-wellactually-bulk-setup.php:133
+#: includes/class-wellactually-bulk-setup.php:136
 msgid ", "
 msgstr ""
 
 #. translators: 1: posts handled so far, 2: posts in this run, 3: summary such as "3 drafted, 1 error"
-#: includes/class-wellactually-bulk-setup.php:135
+#: includes/class-wellactually-bulk-setup.php:138
 #, php-format
 msgid "Drafting… %1$s of %2$s — %3$s"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:136
+#: includes/class-wellactually-bulk-setup.php:139
 msgid "Your AI provider said you’re sending too many requests at a time, so we stopped here. Try again later."
 msgstr ""
 
 #. translators: 1: summary such as "3 drafted, 1 error", 2: number of posts still queued
-#: includes/class-wellactually-bulk-setup.php:138
+#: includes/class-wellactually-bulk-setup.php:141
 #, php-format
 msgid "Stopped early — %1$s, %2$s still queued. Click Draft with AI again to resume."
 msgstr ""
 
 #. translators: %1$s: summary such as "3 drafted, 1 error"
-#: includes/class-wellactually-bulk-setup.php:140
+#: includes/class-wellactually-bulk-setup.php:143
 #, php-format
 msgid "Done — %1$s."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:141
+#: includes/class-wellactually-bulk-setup.php:144
 msgid "Review suggestions"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:142
+#: includes/class-wellactually-bulk-setup.php:145
 msgid "Could not start drafting. Please try again."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:332
+#: includes/class-wellactually-bulk-setup.php:693
 msgid "You are not allowed to edit posts."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:468
+#: includes/class-wellactually-bulk-setup.php:830
 msgid "Add a swipe statement and mark it True, False, or Debatable — or exclude a post from swipe mode entirely. Fill in as many as you like, then Save at the bottom."
 msgstr ""
 
 #. translators: %d: number of posts
-#: includes/class-wellactually-bulk-setup.php:497
+#: includes/class-wellactually-bulk-setup.php:859
 #, php-format
 msgid "%d post set up"
 msgid_plural "%d posts set up"
@@ -157,7 +157,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of posts
-#: includes/class-wellactually-bulk-setup.php:501
+#: includes/class-wellactually-bulk-setup.php:863
 #, php-format
 msgid "%d excluded"
 msgid_plural "%d excluded"
@@ -165,7 +165,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of posts
-#: includes/class-wellactually-bulk-setup.php:505
+#: includes/class-wellactually-bulk-setup.php:867
 #, php-format
 msgid "%d skipped"
 msgid_plural "%d skipped"
@@ -173,273 +173,301 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of posts
-#: includes/class-wellactually-bulk-setup.php:509
+#: includes/class-wellactually-bulk-setup.php:871
 #, php-format
 msgid "%d cleared"
 msgid_plural "%d cleared"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wellactually-bulk-setup.php:512
+#: includes/class-wellactually-bulk-setup.php:874
 msgid "No changes were made."
 msgstr ""
 
 #. translators: %d: number of posts
-#: includes/class-wellactually-bulk-setup.php:520
+#: includes/class-wellactually-bulk-setup.php:882
 #, php-format
 msgid "%d post needs both a statement and a verdict — left unchanged."
 msgid_plural "%d posts need both a statement and a verdict — left unchanged."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wellactually-bulk-setup.php:546
-#: includes/class-wellactually-bulk-setup.php:603
+#: includes/class-wellactually-bulk-setup.php:908
+#: includes/class-wellactually-bulk-setup.php:969
 msgid "Draft with AI"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:552
+#: includes/class-wellactually-bulk-setup.php:914
 msgid "No AI provider is configured yet."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:554
+#: includes/class-wellactually-bulk-setup.php:916
 msgid "Choose a configured AI provider and model to enable drafting."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:556
+#: includes/class-wellactually-bulk-setup.php:918
 msgid "Open Well, Actually... settings"
 msgstr ""
 
 #. translators: %s: model id
-#: includes/class-wellactually-bulk-setup.php:570
+#: includes/class-wellactually-bulk-setup.php:932
 #, php-format
 msgid "%s, the provider default"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:571
+#: includes/class-wellactually-bulk-setup.php:933
 msgid "provider default"
 msgstr ""
 
 #. translators: 1: provider name, 2: model id
-#: includes/class-wellactually-bulk-setup.php:579
+#: includes/class-wellactually-bulk-setup.php:941
 #, php-format
 msgid "Sends needs-setup posts to %1$s (%2$s) to draft a statement and verdict. Suggestions appear here for your review — nothing goes live until you Save it."
 msgstr ""
 
 #. translators: %s: model id
-#: includes/class-wellactually-bulk-setup.php:590
+#: includes/class-wellactually-bulk-setup.php:952
 #, php-format
 msgid "%s does not advertise schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:593
+#: includes/class-wellactually-bulk-setup.php:955
 msgid "Change the model"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:598
+#: includes/class-wellactually-bulk-setup.php:960
 msgid "How many to draft:"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:601
+#: includes/class-wellactually-bulk-setup.php:963
+msgid "(limited to the selected category and author)"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:965
 msgid "(limited to the selected category)"
 msgstr ""
 
+#: includes/class-wellactually-bulk-setup.php:967
+msgid "(limited to the selected author)"
+msgstr ""
+
 #. translators: %d: number of ready suggestions
-#: includes/class-wellactually-bulk-setup.php:621
+#: includes/class-wellactually-bulk-setup.php:987
 #, php-format
 msgid "%d suggestion ready to review."
 msgid_plural "%d suggestions ready to review."
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wellactually-bulk-setup.php:624
+#: includes/class-wellactually-bulk-setup.php:990
 msgid "Review them"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:639
+#: includes/class-wellactually-bulk-setup.php:1005
 #: includes/class-wellactually-meta.php:462
 msgid "Needs to be set up"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:640
+#: includes/class-wellactually-bulk-setup.php:1006
 msgid "Has AI suggestions"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:641
+#: includes/class-wellactually-bulk-setup.php:1007
 #: includes/class-wellactually-meta.php:463
 msgid "In swipe deck"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:642
+#: includes/class-wellactually-bulk-setup.php:1008
 msgid "Skipped for Now"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:643
+#: includes/class-wellactually-bulk-setup.php:1009
 #: includes/class-wellactually-meta.php:408
 #: includes/class-wellactually-meta.php:467
 msgid "Excluded"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:644
+#: includes/class-wellactually-bulk-setup.php:1010
 msgid "All posts"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:650
+#: includes/class-wellactually-bulk-setup.php:1016
 msgid "Status"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:657
+#: includes/class-wellactually-bulk-setup.php:1023
 msgid "Category"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:661
+#: includes/class-wellactually-bulk-setup.php:1027
 msgid "All categories"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:672
+#: includes/class-wellactually-bulk-setup.php:1038
+msgid "Author"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1042
+msgid "All authors"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1054
 msgid "Sort by"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:674
+#: includes/class-wellactually-bulk-setup.php:1056
 msgid "Date published"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:675
+#: includes/class-wellactually-bulk-setup.php:1057
 msgid "Date modified"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:676
+#: includes/class-wellactually-bulk-setup.php:1058
 msgid "Comment count"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:682
-msgid "Newest first"
+#: includes/class-wellactually-bulk-setup.php:1059
+#: includes/class-wellactually-bulk-setup.php:1119
+msgid "Views: 30 days"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:683
-msgid "Oldest first"
-msgstr ""
-
-#: includes/class-wellactually-bulk-setup.php:686
-msgid "Recently updated first"
-msgstr ""
-
-#: includes/class-wellactually-bulk-setup.php:687
-msgid "Least recently updated first"
-msgstr ""
-
-#: includes/class-wellactually-bulk-setup.php:690
-msgid "Most comments first"
-msgstr ""
-
-#: includes/class-wellactually-bulk-setup.php:691
-msgid "Fewest comments first"
-msgstr ""
-
-#: includes/class-wellactually-bulk-setup.php:696
+#: includes/class-wellactually-bulk-setup.php:1062
 msgid "Order"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:702
+#: includes/class-wellactually-bulk-setup.php:1064
+msgid "Descending"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1065
+msgid "Ascending"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1068
 msgid "Filter"
 msgstr ""
 
 #. translators: %d: number of matching posts
-#: includes/class-wellactually-bulk-setup.php:708
+#: includes/class-wellactually-bulk-setup.php:1074
 #, php-format
 msgid "%d post"
 msgid_plural "%d posts"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-wellactually-bulk-setup.php:725
+#: includes/class-wellactually-bulk-setup.php:1091
 msgid "No posts match this filter."
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:730
+#: includes/class-wellactually-bulk-setup.php:1096
 msgid "— pick one —"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:731
+#: includes/class-wellactually-bulk-setup.php:1097
 #: includes/class-wellactually-meta.php:405
 #: includes/class-wellactually-meta.php:464
 #: includes/class-wellactually-reports.php:53
 msgid "True"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:732
+#: includes/class-wellactually-bulk-setup.php:1098
 #: includes/class-wellactually-meta.php:406
 #: includes/class-wellactually-meta.php:465
 #: includes/class-wellactually-reports.php:54
 msgid "False"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:733
+#: includes/class-wellactually-bulk-setup.php:1099
 #: includes/class-wellactually-meta.php:407
 #: includes/class-wellactually-meta.php:466
 #: includes/class-wellactually-reports.php:55
 msgid "Debatable"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:747
-#: includes/class-wellactually-reports.php:367
+#: includes/class-wellactually-bulk-setup.php:1118
+#: includes/class-wellactually-reports.php:390
 #: includes/class-wellactually-settings.php:818
 msgid "Post"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:748
+#: includes/class-wellactually-bulk-setup.php:1120
 #: includes/class-wellactually-meta.php:145
 msgid "Swipe Statement"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:749
+#: includes/class-wellactually-bulk-setup.php:1121
 #: includes/class-wellactually-meta.php:155
 msgid "Verdict"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:750
+#: includes/class-wellactually-bulk-setup.php:1123
 msgid "Skip for Now"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:751
+#: includes/class-wellactually-bulk-setup.php:1126
+#: includes/class-wellactually-bulk-setup.php:1133
+msgid "All"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1130
 msgid "Never"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:796
+#: includes/class-wellactually-bulk-setup.php:1180
 #: includes/class-wellactually-settings.php:824
 msgid "(no title)"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:805
+#. translators: 1: post date, 2: post author
+#: includes/class-wellactually-bulk-setup.php:1186
+#, php-format
+msgid "%1$s - %2$s"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1197
+msgid "Views in the last 30 days:"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1201
+msgid "No stats"
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1204
+msgid "Jetpack Stats is unavailable."
+msgstr ""
+
+#: includes/class-wellactually-bulk-setup.php:1209
 msgid "AI suggestion"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:813
+#: includes/class-wellactually-bulk-setup.php:1217
 msgid "AI error"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:819
+#: includes/class-wellactually-bulk-setup.php:1223
 msgid "e.g. Temp tables are faster than CTEs"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:832
+#: includes/class-wellactually-bulk-setup.php:1236
 msgid "Skip for now (keep content)"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:838
+#: includes/class-wellactually-bulk-setup.php:1242
 msgid "Never set up for swipe"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:848
+#: includes/class-wellactually-bulk-setup.php:1252
 msgid "Save all on this page"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:884
-#: includes/class-wellactually-reports.php:450
+#: includes/class-wellactually-bulk-setup.php:1289
+#: includes/class-wellactually-reports.php:473
 msgid "&laquo; Previous"
 msgstr ""
 
-#: includes/class-wellactually-bulk-setup.php:885
-#: includes/class-wellactually-reports.php:451
+#: includes/class-wellactually-bulk-setup.php:1290
+#: includes/class-wellactually-reports.php:474
 msgid "Next &raquo;"
 msgstr ""
 
@@ -526,12 +554,12 @@ msgid "Post IDs answered incorrectly"
 msgstr ""
 
 #: includes/class-wellactually-reports.php:95
-#: includes/class-wellactually-reports.php:368
+#: includes/class-wellactually-reports.php:391
 msgid "Swipe headline"
 msgstr ""
 
 #: includes/class-wellactually-reports.php:96
-#: includes/class-wellactually-reports.php:369
+#: includes/class-wellactually-reports.php:392
 msgid "Right answer"
 msgstr ""
 
@@ -568,36 +596,36 @@ msgstr ""
 msgid "The swipe headline can't be empty."
 msgstr ""
 
-#: includes/class-wellactually-reports.php:355
+#: includes/class-wellactually-reports.php:378
 msgid "Every post currently in the swipe deck, and how players are doing on it. Percentages only mean much once a statement has been swiped a few times."
 msgstr ""
 
-#: includes/class-wellactually-reports.php:358
+#: includes/class-wellactually-reports.php:381
 msgid "No posts are set up for swipe mode yet."
 msgstr ""
 
-#: includes/class-wellactually-reports.php:371
+#: includes/class-wellactually-reports.php:394
 msgid "Swipes"
 msgstr ""
 
-#: includes/class-wellactually-reports.php:372
+#: includes/class-wellactually-reports.php:395
 msgid "% right"
 msgstr ""
 
-#: includes/class-wellactually-reports.php:373
+#: includes/class-wellactually-reports.php:396
 msgid "% wrong"
 msgstr ""
 
-#: includes/class-wellactually-reports.php:397
+#: includes/class-wellactually-reports.php:420
 msgid "Quick Edit"
 msgstr ""
 
-#: includes/class-wellactually-reports.php:398
+#: includes/class-wellactually-reports.php:421
 msgid "Edit post"
 msgstr ""
 
 #. translators: %s: number of posts
-#: includes/class-wellactually-reports.php:460
+#: includes/class-wellactually-reports.php:483
 #, php-format
 msgid "%s post"
 msgid_plural "%s posts"
@@ -985,17 +1013,11 @@ msgctxt "verdict shown in the reveal, deliberately shouty"
 msgid "FALSE"
 msgstr ""
 
-#. translators: %1$s: percentage of readers who agreed with the statement
-#: includes/class-wellactually-template.php:264
-#, php-format
-msgid "%1$s% of readers agreed."
-msgstr ""
-
-#: includes/class-wellactually-template.php:265
+#: includes/class-wellactually-template.php:263
 msgid "Read the full post →"
 msgstr ""
 
-#: includes/class-wellactually-template.php:266
+#: includes/class-wellactually-template.php:264
 msgid "Continue"
 msgstr ""
 

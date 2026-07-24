@@ -73,14 +73,14 @@ class WellActually_Reports {
 			'wellactually-admin-reports',
 			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-reports.css',
 			array(),
-			WELLACTUALLY_VERSION
+			wellactually_asset_version( 'assets/css/admin-reports.css' )
 		);
 
 		wp_enqueue_script(
 			'wellactually-admin-reports',
 			WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-reports.js',
 			array(),
-			WELLACTUALLY_VERSION,
+			wellactually_asset_version( 'assets/js/admin-reports.js' ),
 			array( 'in_footer' => true )
 		);
 

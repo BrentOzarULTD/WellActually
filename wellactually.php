@@ -25,6 +25,25 @@ define( 'WELLACTUALLY_PLUGIN_FILE', __FILE__ );
 define( 'WELLACTUALLY_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WELLACTUALLY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
+/**
+ * Build an asset version that changes whenever the file changes.
+ *
+ * Pressable gives static plugin assets a very long browser cache lifetime.
+ * The plugin version alone is therefore not enough during an active release
+ * cycle, when an asset can change without the release number changing.
+ *
+ * @param string $relative_path Path relative to the plugin directory.
+ * @return string
+ */
+function wellactually_asset_version( $relative_path ) {
+	$path     = WELLACTUALLY_PLUGIN_DIR . ltrim( $relative_path, '/\\' );
+	$modified = is_file( $path ) ? filemtime( $path ) : false;
+
+	return false !== $modified
+		? WELLACTUALLY_VERSION . '.' . $modified
+		: WELLACTUALLY_VERSION;
+}
+
 require_once WELLACTUALLY_PLUGIN_DIR . 'includes/class-wellactually-migrate.php';
 require_once WELLACTUALLY_PLUGIN_DIR . 'includes/class-wellactually-settings.php';
 require_once WELLACTUALLY_PLUGIN_DIR . 'includes/class-wellactually-meta.php';

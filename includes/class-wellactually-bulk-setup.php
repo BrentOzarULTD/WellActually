@@ -88,14 +88,14 @@ class WellActually_Bulk_Setup {
 			'wellactually-admin-bulk-setup',
 			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-bulk-setup.css',
 			array(),
-			WELLACTUALLY_VERSION
+			wellactually_asset_version( 'assets/css/admin-bulk-setup.css' )
 		);
 
 		wp_enqueue_script(
 			'wellactually-admin-bulk-setup',
 			WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-bulk-setup.js',
 			array(),
-			WELLACTUALLY_VERSION,
+			wellactually_asset_version( 'assets/js/admin-bulk-setup.js' ),
 			array( 'in_footer' => true )
 		);
 
@@ -108,12 +108,15 @@ class WellActually_Bulk_Setup {
 				'restUrl'     => esc_url_raw( rest_url( 'wellactually/v1' ) ),
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
 				'cat'         => (int) $args['cat'],
+				'author'      => (int) $args['author'],
 				'concurrency' => WellActually_Settings::ai_concurrency(),
 				'reviewUrl'   => esc_url_raw(
 					add_query_arg(
 						array(
 							'page'                => self::MENU_SLUG,
 							'wellactually_status' => 'has_ai',
+							'wellactually_cat'    => (int) $args['cat'],
+							'wellactually_author' => (int) $args['author'],
 						),
 						admin_url( 'edit.php' )
 					)
@@ -159,12 +162,11 @@ class WellActually_Bulk_Setup {
 
 		$order = isset( $_REQUEST['wellactually_order'] ) && 'ASC' === strtoupper( sanitize_text_field( wp_unslash( $_REQUEST['wellactually_order'] ) ) ) ? 'ASC' : 'DESC';
 
-		// All three sort fields are indexed core wp_posts columns (or, for
-		// 'wellactually_status', the single denormalized meta key already used
-		// elsewhere) — none of them require the multi-key/JOIN queries this
-		// screen avoids everywhere else.
+		// The core sort fields are indexed wp_posts columns. Views are sorted
+		// separately against Jetpack's cached 30-day totals after the matching
+		// post IDs have been selected.
 		$orderby = isset( $_REQUEST['wellactually_orderby'] ) ? sanitize_key( wp_unslash( $_REQUEST['wellactually_orderby'] ) ) : 'date';
-		if ( ! in_array( $orderby, array( 'date', 'modified', 'comment_count' ), true ) ) {
+		if ( ! in_array( $orderby, array( 'date', 'modified', 'comment_count', 'views_30' ), true ) ) {
 			$orderby = 'date';
 		}
 
@@ -181,6 +183,7 @@ class WellActually_Bulk_Setup {
 			'status'  => $status,
 			'done'    => $done,
 			'cat'     => isset( $_REQUEST['wellactually_cat'] ) ? absint( $_REQUEST['wellactually_cat'] ) : 0,
+			'author'  => isset( $_REQUEST['wellactually_author'] ) ? absint( $_REQUEST['wellactually_author'] ) : 0,
 			'order'   => $order,
 			'orderby' => $orderby,
 			'paged'   => isset( $_REQUEST['paged'] ) ? max( 1, absint( $_REQUEST['paged'] ) ) : 1,
@@ -241,6 +244,10 @@ class WellActually_Bulk_Setup {
 			$query_args['cat'] = $args['cat'];
 		}
 
+		if ( $args['author'] > 0 ) {
+			$query_args['author'] = $args['author'];
+		}
+
 		// Categories marked "Skip This Category" in Settings → Categories are
 		// never eligible here, in any status view.
 		$excluded_cats = WellActually_Settings::excluded_categories();
@@ -269,6 +276,20 @@ class WellActually_Bulk_Setup {
 			if ( ! empty( $args['done'] ) ) {
 				$query_args['post__not_in'] = $args['done'];
 			}
+		}
+
+		if ( 'views_30' === $args['orderby'] ) {
+			$query_args['fields']                 = 'ids';
+			$query_args['posts_per_page']         = -1;
+			$query_args['paged']                  = 1;
+			$query_args['no_found_rows']          = true;
+			$query_args['orderby']                = 'ID';
+			$query_args['order']                  = 'DESC';
+			$query_args['update_post_meta_cache'] = false;
+			$query_args['update_post_term_cache'] = false;
+
+			$id_query = new WP_Query( $query_args );
+			return $this->paginate_post_ids_by_views( $id_query->posts, $args );
 		}
 
 		$query = new WP_Query( $query_args );
@@ -368,6 +389,11 @@ class WellActually_Bulk_Setup {
 			$params       = array_merge( $params, array( 'category' ), $category_ids );
 		}
 
+		if ( $args['author'] > 0 ) {
+			$where[]  = 'p.post_author = %d';
+			$params[] = (int) $args['author'];
+		}
+
 		$excluded_cats = WellActually_Settings::excluded_categories();
 		if ( ! empty( $excluded_cats ) ) {
 			$excluded_cats = array_values( array_unique( array_map( 'absint', $excluded_cats ) ) );
@@ -394,6 +420,21 @@ class WellActually_Bulk_Setup {
 		$where_sql = implode( "\nAND ", $where );
 		$from_sql  = "FROM {$wpdb->posts} p";
 
+		if ( 'views_30' === $args['orderby'] ) {
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table fragments are core names; every dynamic value and generated placeholder is bound through the parameter array.
+			$post_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					"SELECT p.ID {$from_sql}
+					WHERE {$where_sql}
+					ORDER BY p.ID DESC",
+					$params
+				)
+			);
+			// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter
+
+			return $this->paginate_post_ids_by_views( $post_ids, $args );
+		}
+
 		// current_args() allow-lists both values; the map turns the public sort
 		// name into its core wp_posts column.
 		$order_columns = array(
@@ -405,7 +446,7 @@ class WellActually_Bulk_Setup {
 		$order         = 'ASC' === $args['order'] ? 'ASC' : 'DESC';
 		$offset        = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- Table/column/order fragments are core names or allow-listed literals; every dynamic value and generated placeholder is bound through the parameter arrays.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter -- Table/column/order fragments are core names or allow-listed literals; every dynamic value and generated placeholder is bound through the parameter arrays.
 		$found = (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) {$from_sql} WHERE {$where_sql}",
@@ -421,7 +462,7 @@ class WellActually_Bulk_Setup {
 				array_merge( $params, array( self::PER_PAGE, $offset ) )
 			)
 		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter
 
 		$posts = array_values( array_filter( array_map( 'get_post', array_map( 'intval', $page ) ) ) );
 
@@ -440,6 +481,164 @@ class WellActually_Bulk_Setup {
 		$this->log_page_build( $args, $query );
 
 		return $query;
+	}
+
+	/**
+	 * Sort matching post IDs by Jetpack's 30-day views, then build one page.
+	 *
+	 * Jetpack caches stats_get_csv() for five minutes, so this remains one
+	 * cached stats request even when thousands of posts match. Posts omitted
+	 * from the response are treated as having zero views.
+	 *
+	 * @param int[] $post_ids Matching post IDs.
+	 * @param array $args     Current screen args.
+	 * @return WP_Query
+	 */
+	private function paginate_post_ids_by_views( $post_ids, $args ) {
+		$post_ids  = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		$views     = $this->jetpack_views_30_days();
+		$direction = 'ASC' === $args['order'] ? 1 : -1;
+
+		usort(
+			$post_ids,
+			static function ( $left, $right ) use ( $views, $direction ) {
+				$left_views  = isset( $views[ $left ] ) ? $views[ $left ] : 0;
+				$right_views = isset( $views[ $right ] ) ? $views[ $right ] : 0;
+
+				if ( $left_views !== $right_views ) {
+					return $direction * ( $left_views <=> $right_views );
+				}
+
+				return $direction * ( $left <=> $right );
+			}
+		);
+
+		$found  = count( $post_ids );
+		$offset = ( max( 1, (int) $args['paged'] ) - 1 ) * self::PER_PAGE;
+		$page   = array_slice( $post_ids, $offset, self::PER_PAGE );
+		$posts  = array_values( array_filter( array_map( 'get_post', $page ) ) );
+
+		$query                = new WP_Query();
+		$query->posts         = $posts;
+		$query->post_count    = count( $posts );
+		$query->found_posts   = $found;
+		$query->max_num_pages = (int) ceil( $found / self::PER_PAGE );
+
+		if ( ! empty( $posts ) ) {
+			update_meta_cache( 'post', wp_list_pluck( $posts, 'ID' ) );
+		}
+
+		$this->log_page_build( $args, $query );
+
+		return $query;
+	}
+
+	/**
+	 * Get Jetpack's cached 30-day view totals, keyed by post ID.
+	 *
+	 * With a list of IDs, use the same one-request endpoint as Jetpack's Posts
+	 * column. With no IDs, request the full ranking needed for global sorting.
+	 *
+	 * @param int[] $post_ids Optional post IDs for a page-only request.
+	 * @return int[]
+	 */
+	private function jetpack_views_30_days( $post_ids = array() ) {
+		$views       = array();
+		$post_ids    = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		$stats_class = '\Automattic\Jetpack\Stats\WPCOM_Stats';
+
+		if ( ! empty( $post_ids ) && class_exists( $stats_class ) ) {
+			$stats    = new $stats_class();
+			$response = $stats->get_total_post_views(
+				array(
+					'num'      => 30,
+					'post_ids' => implode( ',', $post_ids ),
+				)
+			);
+
+			if ( ! is_wp_error( $response ) && ! empty( $response['posts'] ) && is_array( $response['posts'] ) ) {
+				foreach ( $response['posts'] as $post ) {
+					$post_id = isset( $post['ID'] ) ? absint( $post['ID'] ) : 0;
+					if ( $post_id > 0 ) {
+						$views[ $post_id ] = isset( $post['views'] ) ? absint( $post['views'] ) : 0;
+					}
+				}
+			}
+		} elseif ( function_exists( 'stats_get_csv' ) ) {
+			$rows = stats_get_csv(
+				'postviews',
+				array(
+					'days'  => 30,
+					'limit' => -1,
+				)
+			);
+
+			if ( is_array( $rows ) ) {
+				foreach ( $rows as $row ) {
+					$post_id = isset( $row['post_id'] ) ? absint( $row['post_id'] ) : 0;
+					if ( $post_id > 0 ) {
+						$views[ $post_id ] = isset( $row['views'] ) ? absint( str_replace( ',', '', (string) $row['views'] ) ) : 0;
+					}
+				}
+			}
+		}
+
+		/**
+		 * Filter the 30-day view totals used by the Swipe Setup screen.
+		 *
+		 * @param int[] $views View totals keyed by post ID.
+		 */
+		$views = apply_filters( 'wellactually_jetpack_views_30_days', $views );
+		$clean = array();
+
+		if ( is_array( $views ) ) {
+			foreach ( $views as $post_id => $count ) {
+				$post_id = absint( $post_id );
+				if ( $post_id > 0 ) {
+					$clean[ $post_id ] = absint( $count );
+				}
+			}
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * Whether a stats provider can supply values for the Views column.
+	 *
+	 * @return bool
+	 */
+	private function has_jetpack_views() {
+		return class_exists( '\Automattic\Jetpack\Stats\WPCOM_Stats' )
+			|| function_exists( 'stats_get_csv' )
+			|| false !== has_filter( 'wellactually_jetpack_views_30_days' );
+	}
+
+	/**
+	 * Format a view count using the same compact K/M style as Jetpack.
+	 *
+	 * @param int $views View count.
+	 * @return string
+	 */
+	private function format_view_count( $views ) {
+		$views = absint( $views );
+
+		if ( $views >= 10000000 ) {
+			return round( $views / 1000000 ) . 'M';
+		}
+		if ( $views >= 1000000 ) {
+			$views = round( $views / 1000000, 1 );
+			return preg_replace( '/\.0$/', '', (string) $views ) . 'M';
+		}
+		if ( $views >= 10000 ) {
+			return round( $views / 1000 ) . 'K';
+		}
+		if ( $views >= 1000 ) {
+			$views = round( $views / 1000, 1 );
+			return preg_replace( '/\.0$/', '', (string) $views ) . 'K';
+		}
+
+		return (string) $views;
 	}
 
 	/**
@@ -464,10 +663,12 @@ class WellActually_Bulk_Setup {
 			return;
 		}
 
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Explicitly opt-in production diagnostics configured by an administrator.
 		error_log(
 			sprintf(
-				'[wellactually] page build: status=%s paged=%d shown=%d found=%d',
+				'[wellactually] page build: status=%s author=%d paged=%d shown=%d found=%d',
 				$args['status'],
+				(int) $args['author'],
 				(int) $args['paged'],
 				(int) $query->post_count,
 				(int) $query->found_posts
@@ -582,6 +783,7 @@ class WellActually_Bulk_Setup {
 				'page'                    => self::MENU_SLUG,
 				'wellactually_status'     => $args['status'],
 				'wellactually_cat'        => $args['cat'],
+				'wellactually_author'     => $args['author'],
 				'wellactually_order'      => $args['order'],
 				'wellactually_orderby'    => $args['orderby'],
 				'paged'                   => $args['paged'],
@@ -758,8 +960,12 @@ class WellActually_Bulk_Setup {
 		<div class="wa-ai-controls">
 			<label for="wa-ai-count"><?php esc_html_e( 'How many to draft:', 'wellactually' ); ?></label>
 			<input type="number" id="wa-ai-count" value="10" min="1" max="200" step="1" />
-			<?php if ( $args['cat'] > 0 ) : ?>
-				<span class="wa-ai-cat-note"><?php esc_html_e( '(limited to the selected category)', 'wellactually' ); ?></span>
+			<?php if ( $args['cat'] > 0 && $args['author'] > 0 ) : ?>
+				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected category and author)', 'wellactually' ); ?></span>
+			<?php elseif ( $args['cat'] > 0 ) : ?>
+				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected category)', 'wellactually' ); ?></span>
+			<?php elseif ( $args['author'] > 0 ) : ?>
+				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected author)', 'wellactually' ); ?></span>
 			<?php endif; ?>
 			<button type="button" class="button button-secondary" id="wa-ai-draft-btn"><?php esc_html_e( 'Draft with AI', 'wellactually' ); ?></button>
 			<span class="wa-ai-progress" id="wa-ai-progress" aria-live="polite"></span>
@@ -830,34 +1036,34 @@ class WellActually_Bulk_Setup {
 			);
 			?>
 
+			<label for="wellactually_author" class="screen-reader-text"><?php esc_html_e( 'Author', 'wellactually' ); ?></label>
+			<?php
+			wp_dropdown_users(
+				array(
+					'show_option_all'  => __( 'All authors', 'wellactually' ),
+					'name'             => 'wellactually_author',
+					'id'               => 'wellactually_author',
+					'selected'         => $args['author'],
+					'capability'       => array( 'edit_posts' ),
+					'include_selected' => true,
+					'orderby'          => 'display_name',
+					'order'            => 'ASC',
+				)
+			);
+			?>
+
 			<label for="wellactually_orderby" class="screen-reader-text"><?php esc_html_e( 'Sort by', 'wellactually' ); ?></label>
 			<select name="wellactually_orderby" id="wellactually_orderby">
 				<option value="date" <?php selected( $args['orderby'], 'date' ); ?>><?php esc_html_e( 'Date published', 'wellactually' ); ?></option>
 				<option value="modified" <?php selected( $args['orderby'], 'modified' ); ?>><?php esc_html_e( 'Date modified', 'wellactually' ); ?></option>
 				<option value="comment_count" <?php selected( $args['orderby'], 'comment_count' ); ?>><?php esc_html_e( 'Comment count', 'wellactually' ); ?></option>
+				<option value="views_30" <?php selected( $args['orderby'], 'views_30' ); ?>><?php esc_html_e( 'Views: 30 days', 'wellactually' ); ?></option>
 			</select>
 
-			<?php
-			$order_labels = array(
-				'date'          => array(
-					'DESC' => __( 'Newest first', 'wellactually' ),
-					'ASC'  => __( 'Oldest first', 'wellactually' ),
-				),
-				'modified'      => array(
-					'DESC' => __( 'Recently updated first', 'wellactually' ),
-					'ASC'  => __( 'Least recently updated first', 'wellactually' ),
-				),
-				'comment_count' => array(
-					'DESC' => __( 'Most comments first', 'wellactually' ),
-					'ASC'  => __( 'Fewest comments first', 'wellactually' ),
-				),
-			);
-			$labels       = $order_labels[ $args['orderby'] ];
-			?>
 			<label for="wellactually_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
 			<select name="wellactually_order" id="wellactually_order">
-				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php echo esc_html( $labels['DESC'] ); ?></option>
-				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php echo esc_html( $labels['ASC'] ); ?></option>
+				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php esc_html_e( 'Descending', 'wellactually' ); ?></option>
+				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php esc_html_e( 'Ascending', 'wellactually' ); ?></option>
 			</select>
 
 			<?php submit_button( __( 'Filter', 'wellactually' ), 'secondary', '', false ); ?>
@@ -893,11 +1099,16 @@ class WellActually_Bulk_Setup {
 			'false'     => __( 'False', 'wellactually' ),
 			'debatable' => __( 'Debatable', 'wellactually' ),
 		);
+		$page_post_ids   = wp_list_pluck( $query->posts, 'ID' );
+		$view_post_ids   = 'views_30' === $args['orderby'] ? array() : $page_post_ids;
+		$views           = $this->jetpack_views_30_days( $view_post_ids );
+		$has_views       = $this->has_jetpack_views();
 		?>
 		<form method="post" class="wa-bulk-form">
 			<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME ); ?>
 			<input type="hidden" name="wellactually_status" value="<?php echo esc_attr( $args['status'] ); ?>" />
 			<input type="hidden" name="wellactually_cat" value="<?php echo esc_attr( $args['cat'] ); ?>" />
+			<input type="hidden" name="wellactually_author" value="<?php echo esc_attr( $args['author'] ); ?>" />
 			<input type="hidden" name="wellactually_order" value="<?php echo esc_attr( $args['order'] ); ?>" />
 			<input type="hidden" name="wellactually_orderby" value="<?php echo esc_attr( $args['orderby'] ); ?>" />
 			<input type="hidden" name="paged" value="<?php echo esc_attr( $args['paged'] ); ?>" />
@@ -906,10 +1117,23 @@ class WellActually_Bulk_Setup {
 				<thead>
 					<tr>
 						<th class="wa-col-post"><?php esc_html_e( 'Post', 'wellactually' ); ?></th>
+						<th class="wa-col-views"><?php esc_html_e( 'Views: 30 days', 'wellactually' ); ?></th>
 						<th class="wa-col-statement"><?php esc_html_e( 'Swipe Statement', 'wellactually' ); ?></th>
 						<th class="wa-col-verdict"><?php esc_html_e( 'Verdict', 'wellactually' ); ?></th>
-						<th class="wa-col-skip"><?php esc_html_e( 'Skip for Now', 'wellactually' ); ?></th>
-						<th class="wa-col-exclude"><?php esc_html_e( 'Never', 'wellactually' ); ?></th>
+						<th class="wa-col-skip">
+							<?php esc_html_e( 'Skip for Now', 'wellactually' ); ?>
+							<label class="wa-check-all-label">
+								<input type="checkbox" class="wa-check-all-skip" />
+								<span><?php esc_html_e( 'All', 'wellactually' ); ?></span>
+							</label>
+						</th>
+						<th class="wa-col-exclude">
+							<?php esc_html_e( 'Never', 'wellactually' ); ?>
+							<label class="wa-check-all-label">
+								<input type="checkbox" class="wa-check-all-exclude" />
+								<span><?php esc_html_e( 'All', 'wellactually' ); ?></span>
+							</label>
+						</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -957,9 +1181,29 @@ class WellActually_Bulk_Setup {
 									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? WellActually_Meta::plain_text( get_the_title() ) : __( '(no title)', 'wellactually' ) ); ?></a>
 								</strong>
 								<div class="wa-post-meta">
-									<?php echo esc_html( get_the_date() ); ?>
+									<?php
+									printf(
+										/* translators: 1: post date, 2: post author */
+										esc_html__( '%1$s - %2$s', 'wellactually' ),
+										esc_html( get_the_date() ),
+										esc_html( get_the_author() )
+									);
+									?>
 								</div>
 								<div class="wa-post-preview"><?php echo esc_html( $this->post_preview( get_post() ) ); ?></div>
+							</td>
+							<td class="wa-col-views">
+								<?php if ( $has_views && array_key_exists( $post_id, $views ) ) : ?>
+									<span class="dashicons dashicons-visibility" aria-hidden="true"></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Views in the last 30 days:', 'wellactually' ); ?></span>
+									<?php echo esc_html( $this->format_view_count( $views[ $post_id ] ) ); ?>
+								<?php elseif ( $has_views ) : ?>
+									<span class="dashicons dashicons-visibility" aria-hidden="true"></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'No stats', 'wellactually' ); ?></span>
+								<?php else : ?>
+									<span aria-hidden="true">&mdash;</span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Jetpack Stats is unavailable.', 'wellactually' ); ?></span>
+								<?php endif; ?>
 							</td>
 							<td class="wa-col-statement">
 								<?php if ( $is_ai ) : ?>
@@ -1029,6 +1273,7 @@ class WellActually_Bulk_Setup {
 				'page'                 => self::MENU_SLUG,
 				'wellactually_status'  => $args['status'],
 				'wellactually_cat'     => $args['cat'],
+				'wellactually_author'  => $args['author'],
 				'wellactually_order'   => $args['order'],
 				'wellactually_orderby' => $args['orderby'],
 				'paged'                => '%#%',

@@ -258,7 +258,7 @@ class WellActually_Settings {
 			'wellactually-admin-settings',
 			WELLACTUALLY_PLUGIN_URL . 'assets/css/admin-settings.css',
 			array(),
-			WELLACTUALLY_VERSION
+			wellactually_asset_version( 'assets/css/admin-settings.css' )
 		);
 
 		if ( 'categories' === $this->current_tab() ) {
@@ -266,7 +266,7 @@ class WellActually_Settings {
 				'wellactually-admin-categories',
 				WELLACTUALLY_PLUGIN_URL . 'assets/js/admin-categories.js',
 				array(),
-				WELLACTUALLY_VERSION,
+				wellactually_asset_version( 'assets/js/admin-categories.js' ),
 				array( 'in_footer' => true )
 			);
 		}

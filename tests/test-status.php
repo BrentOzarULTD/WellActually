@@ -191,6 +191,7 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 			'status'  => 'needs_setup',
 			'done'    => array(),
 			'cat'     => 0,
+			'author'  => 0,
 			'order'   => 'DESC',
 			'orderby' => 'date',
 			'paged'   => 1,
@@ -241,6 +242,7 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 				'status'  => 'needs_setup',
 				'done'    => array(),
 				'cat'     => $parent,
+				'author'  => 0,
 				'order'   => 'DESC',
 				'orderby' => 'date',
 				'paged'   => 1,
@@ -269,6 +271,7 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 				'status'  => 'needs_setup',
 				'done'    => array(),
 				'cat'     => 999999,
+				'author'  => 0,
 				'order'   => 'DESC',
 				'orderby' => 'date',
 				'paged'   => 1,
@@ -278,6 +281,169 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 		$this->assertSame( 0, $query->found_posts );
 		$this->assertSame( 0, $query->post_count );
 		$this->assertSame( array(), $query->posts );
+	}
+
+	/**
+	 * The author filter must apply to both the authoritative Needs Setup SQL
+	 * path and the normal status-indexed views.
+	 */
+	public function test_setup_screen_filters_every_status_by_author() {
+		$author_a = self::factory()->user->create( array( 'role' => 'author' ) );
+		$author_b = self::factory()->user->create( array( 'role' => 'author' ) );
+
+		$needs_a = self::factory()->post->create( array( 'post_author' => $author_a ) );
+		self::factory()->post->create( array( 'post_author' => $author_b ) );
+
+		$configured_a = self::factory()->post->create( array( 'post_author' => $author_a ) );
+		$configured_b = self::factory()->post->create( array( 'post_author' => $author_b ) );
+		WellActually_Meta::apply_meta( $configured_a, 'Configured by A', 'true' );
+		WellActually_Meta::apply_meta( $configured_b, 'Configured by B', 'false' );
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$args = array(
+			'status'  => 'needs_setup',
+			'done'    => array(),
+			'cat'     => 0,
+			'author'  => $author_a,
+			'order'   => 'DESC',
+			'orderby' => 'date',
+			'paged'   => 1,
+		);
+
+		$needs_query = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+		$this->assertSame( array( $needs_a ), wp_list_pluck( $needs_query->posts, 'ID' ) );
+		$this->assertSame( 1, $needs_query->found_posts );
+
+		$args['status'] = 'in_deck';
+		$args['author'] = $author_b;
+		$deck_query     = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+
+		$this->assertSame( array( $configured_b ), wp_list_pluck( $deck_query->posts, 'ID' ) );
+		$this->assertSame( 1, $deck_query->found_posts );
+	}
+
+	/**
+	 * Popularity sorting must order the entire matching set before pagination
+	 * in both the authoritative Needs Setup path and normal status views.
+	 */
+	public function test_setup_screen_sorts_all_matching_posts_by_jetpack_views() {
+		$needs_low  = self::factory()->post->create();
+		$needs_high = self::factory()->post->create();
+		$needs_mid  = self::factory()->post->create();
+
+		$deck_low  = self::factory()->post->create();
+		$deck_high = self::factory()->post->create();
+		$deck_mid  = self::factory()->post->create();
+		WellActually_Meta::apply_meta( $deck_low, 'Low-view configured post', 'true' );
+		WellActually_Meta::apply_meta( $deck_high, 'High-view configured post', 'false' );
+		WellActually_Meta::apply_meta( $deck_mid, 'Mid-view configured post', 'debatable' );
+
+		$views  = array(
+			$needs_low  => 10,
+			$needs_high => 3000,
+			$needs_mid  => 200,
+			$deck_low   => 1,
+			$deck_high  => 9000,
+			$deck_mid   => 500,
+		);
+		$filter = static function () use ( $views ) {
+			return $views;
+		};
+		add_filter( 'wellactually_jetpack_views_30_days', $filter );
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$args = array(
+			'status'  => 'needs_setup',
+			'done'    => array(),
+			'cat'     => 0,
+			'author'  => 0,
+			'order'   => 'DESC',
+			'orderby' => 'views_30',
+			'paged'   => 1,
+		);
+
+		try {
+			$needs_query = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+			$this->assertSame( array( $needs_high, $needs_mid, $needs_low ), wp_list_pluck( $needs_query->posts, 'ID' ) );
+
+			$args['status'] = 'in_deck';
+			$deck_query     = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+			$this->assertSame( array( $deck_high, $deck_mid, $deck_low ), wp_list_pluck( $deck_query->posts, 'ID' ) );
+
+			$args['order'] = 'ASC';
+			$deck_query    = $method->invoke( WellActually_Bulk_Setup::instance(), $args );
+			$this->assertSame( array( $deck_low, $deck_mid, $deck_high ), wp_list_pluck( $deck_query->posts, 'ID' ) );
+		} finally {
+			remove_filter( 'wellactually_jetpack_views_30_days', $filter );
+		}
+	}
+
+	/**
+	 * The grid exposes both page-wide controls and the requested post details.
+	 */
+	public function test_setup_grid_renders_bulk_controls_author_and_views() {
+		$author  = self::factory()->user->create(
+			array(
+				'role'         => 'author',
+				'display_name' => 'Brent Ozar',
+			)
+		);
+		$post_id = self::factory()->post->create(
+			array(
+				'post_author' => $author,
+				'post_date'   => '2016-12-14 12:00:00',
+				'post_title'  => 'A post that needs setup',
+			)
+		);
+
+		$filter = static function () use ( $post_id ) {
+			return array( $post_id => 2500 );
+		};
+		add_filter( 'wellactually_jetpack_views_30_days', $filter );
+
+		$query  = new WP_Query(
+			array(
+				'post_type'      => 'post',
+				'post__in'       => array( $post_id ),
+				'posts_per_page' => 1,
+			)
+		);
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'render_form' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+		$args = array(
+			'status'  => 'needs_setup',
+			'done'    => array(),
+			'cat'     => 0,
+			'author'  => 0,
+			'order'   => 'DESC',
+			'orderby' => 'date',
+			'paged'   => 1,
+		);
+
+		try {
+			ob_start();
+			$method->invoke( WellActually_Bulk_Setup::instance(), $args, $query );
+			$html = ob_get_clean();
+
+			$this->assertStringContainsString( 'wa-check-all-skip', $html );
+			$this->assertStringContainsString( 'wa-check-all-exclude', $html );
+			$this->assertStringContainsString( 'Views: 30 days', $html );
+			$this->assertStringContainsString( '2.5K', $html );
+			$this->assertStringContainsString( 'December 14, 2016 - Brent Ozar', $html );
+		} finally {
+			remove_filter( 'wellactually_jetpack_views_30_days', $filter );
+			wp_reset_postdata();
+		}
 	}
 
 	/**

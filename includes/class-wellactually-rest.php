@@ -330,8 +330,6 @@ class WellActually_Rest {
 			WellActually_Stats::record( $post_id, $answer );
 		}
 
-		$stats = WellActually_Stats::get( $post_id );
-
 		// Decode entities before trimming, so a word-trim can never cut an
 		// entity in half — and before handing off to the frontend, which
 		// escapes these itself.
@@ -340,13 +338,12 @@ class WellActually_Rest {
 		$excerpt = wp_trim_words( $excerpt, 40, '…' );
 
 		$response = array(
-			'verdict'    => $verdict,
-			'correct'    => $correct,
-			'show_post'  => $show_post,
-			'title'      => WellActually_Meta::plain_text( get_the_title( $post ) ),
-			'excerpt'    => $excerpt,
-			'url'        => get_permalink( $post ),
-			'pct_agreed' => $stats['pct_agreed'],
+			'verdict'   => $verdict,
+			'correct'   => $correct,
+			'show_post' => $show_post,
+			'title'     => WellActually_Meta::plain_text( get_the_title( $post ) ),
+			'excerpt'   => $excerpt,
+			'url'       => get_permalink( $post ),
 		);
 
 		$rest_response = new WP_REST_Response( $response, 200 );

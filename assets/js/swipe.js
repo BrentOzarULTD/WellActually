@@ -1301,13 +1301,6 @@
 		overlay.setAttribute( 'aria-modal', 'true' );
 		overlay.setAttribute( 'aria-labelledby', 'wa-reveal-heading' );
 
-		var pctLine = '';
-		if ( null !== response.pct_agreed && undefined !== response.pct_agreed ) {
-			pctLine = '<p class="wa-reveal-pct">' +
-				escapeHtml( format( s( 'pctAgreed', '%1$s% of readers agreed.' ), [ response.pct_agreed ] ) ) +
-				'</p>';
-		}
-
 		overlay.innerHTML =
 			'<div class="wa-reveal-card">' +
 			'<p class="wa-reveal-banner" id="wa-reveal-heading">' + escapeHtml( banner.heading ) + '</p>' +
@@ -1318,7 +1311,6 @@
 			'<a class="wa-reveal-read-btn" href="' + encodeURI( response.url || '#' ) + '" target="_blank" rel="noopener">' +
 			escapeHtml( s( 'readFullPost', 'Read the full post →' ) ) + '</a>' +
 			'</div>' +
-			pctLine +
 			'<button type="button" class="wa-btn wa-reveal-continue">' + escapeHtml( s( 'continue', 'Continue' ) ) + '</button>' +
 			'</div>';
 
