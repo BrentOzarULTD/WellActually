@@ -284,7 +284,7 @@ class WellActually_Reports {
 			$wpdb->prepare( "SELECT COUNT(*) {$from}", $params )
 		);
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- every fragment is assembled above from literals: {$total_sql}/{$correct_sql} are fixed aggregate expressions, {$from} is core tables plus placeholders, {$no_data_last}/{$order_by} come from the fixed $order_map whitelist, and {$order} is strictly ASC or DESC. All values are bound.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is assembled above from literals: {$total_sql}/{$correct_sql} are fixed aggregate expressions, {$from} is core tables plus placeholders, {$no_data_last}/{$order_by} come from the fixed $order_map whitelist, and {$order} is strictly ASC or DESC. All values are bound. Nothing here is derived from a request, so there is no parameter to escape — these are SQL fragments, not values.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.ID, p.post_title,
@@ -298,7 +298,7 @@ class WellActually_Reports {
 				array_merge( $params, array( self::PER_PAGE, $offset ) )
 			)
 		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter
 
 		return array(
 			'rows'  => (array) $rows,
