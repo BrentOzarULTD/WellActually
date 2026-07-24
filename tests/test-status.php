@@ -16,6 +16,57 @@
 class Test_WellActually_Status extends WP_UnitTestCase {
 
 	/**
+	 * Views sorting is only valid while a stats provider is available.
+	 */
+	public function test_views_sort_requires_a_stats_provider() {
+		if ( class_exists( '\Automattic\Jetpack\Stats\WPCOM_Stats' ) || function_exists( 'stats_get_csv' ) ) {
+			$this->markTestSkipped( 'This regression test needs an environment without Jetpack Stats.' );
+		}
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'current_args' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$_REQUEST['wellactually_orderby'] = 'views_30';
+
+		try {
+			$args = $method->invoke( WellActually_Bulk_Setup::instance() );
+			$this->assertSame( 'date', $args['orderby'] );
+
+			$query              = new WP_Query();
+			$query->found_posts = 0;
+			$render             = new ReflectionMethod( 'WellActually_Bulk_Setup', 'render_filters' );
+			if ( PHP_VERSION_ID < 80100 ) {
+				$render->setAccessible( true );
+			}
+
+			ob_start();
+			$render->invoke( WellActually_Bulk_Setup::instance(), $args, $query );
+			$html = ob_get_clean();
+			$this->assertStringNotContainsString( 'value="views_30"', $html );
+
+			$filter = static function () {
+				return array();
+			};
+			add_filter( 'wellactually_jetpack_views_30_days', $filter );
+
+			$args = $method->invoke( WellActually_Bulk_Setup::instance() );
+			$this->assertSame( 'views_30', $args['orderby'] );
+
+			ob_start();
+			$render->invoke( WellActually_Bulk_Setup::instance(), $args, $query );
+			$html = ob_get_clean();
+			$this->assertStringContainsString( 'value="views_30"', $html );
+		} finally {
+			unset( $_REQUEST['wellactually_orderby'] );
+			if ( isset( $filter ) ) {
+				remove_filter( 'wellactually_jetpack_views_30_days', $filter );
+			}
+		}
+	}
+
+	/**
 	 * The priority rules, stated as a table so a reordering can't pass
 	 * unnoticed: skipped beats everything, then a resolved verdict, then a
 	 * ready AI suggestion, else needs setup.

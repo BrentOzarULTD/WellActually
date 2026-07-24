@@ -170,6 +170,9 @@ class WellActually_Bulk_Setup {
 		if ( ! in_array( $orderby, array( 'date', 'modified', 'comment_count', 'views_30' ), true ) ) {
 			$orderby = 'date';
 		}
+		if ( 'views_30' === $orderby && ! $this->has_jetpack_views() ) {
+			$orderby = 'date';
+		}
 
 		// Posts the save that redirected here just dealt with. Bounded by the
 		// page size, and deliberately not carried on any other link, so it
@@ -1067,7 +1070,9 @@ class WellActually_Bulk_Setup {
 				<option value="date" <?php selected( $args['orderby'], 'date' ); ?>><?php esc_html_e( 'Date published', 'wellactually' ); ?></option>
 				<option value="modified" <?php selected( $args['orderby'], 'modified' ); ?>><?php esc_html_e( 'Date modified', 'wellactually' ); ?></option>
 				<option value="comment_count" <?php selected( $args['orderby'], 'comment_count' ); ?>><?php esc_html_e( 'Comment count', 'wellactually' ); ?></option>
-				<option value="views_30" <?php selected( $args['orderby'], 'views_30' ); ?>><?php esc_html_e( 'Views: 30 days', 'wellactually' ); ?></option>
+				<?php if ( $this->has_jetpack_views() ) : ?>
+					<option value="views_30" <?php selected( $args['orderby'], 'views_30' ); ?>><?php esc_html_e( 'Views: 30 days', 'wellactually' ); ?></option>
+				<?php endif; ?>
 			</select>
 
 			<label for="wellactually_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
