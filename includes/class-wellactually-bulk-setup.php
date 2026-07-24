@@ -345,9 +345,14 @@ class WellActually_Bulk_Setup {
 		);
 
 		if ( $args['cat'] > 0 ) {
+			$category_children = get_term_children( (int) $args['cat'], 'category' );
+			if ( ! is_array( $category_children ) ) {
+				$category_children = array();
+			}
+
 			$category_ids = array_merge(
 				array( (int) $args['cat'] ),
-				get_term_children( (int) $args['cat'], 'category' )
+				$category_children
 			);
 			$category_ids = array_values( array_unique( array_map( 'absint', $category_ids ) ) );
 			$placeholders = implode( ',', array_fill( 0, count( $category_ids ), '%d' ) );

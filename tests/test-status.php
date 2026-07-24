@@ -252,6 +252,35 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 	}
 
 	/**
+	 * An invalid category must produce an empty screen instead of passing a
+	 * WP_Error from get_term_children() into array_merge().
+	 */
+	public function test_needs_setup_screen_handles_invalid_category() {
+		self::factory()->post->create();
+
+		$method = new ReflectionMethod( 'WellActually_Bulk_Setup', 'build_query' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method->setAccessible( true );
+		}
+
+		$query = $method->invoke(
+			WellActually_Bulk_Setup::instance(),
+			array(
+				'status'  => 'needs_setup',
+				'done'    => array(),
+				'cat'     => 999999,
+				'order'   => 'DESC',
+				'orderby' => 'date',
+				'paged'   => 1,
+			)
+		);
+
+		$this->assertSame( 0, $query->found_posts );
+		$this->assertSame( 0, $query->post_count );
+		$this->assertSame( array(), $query->posts );
+	}
+
+	/**
 	 * Skipping a category has to cover everything beneath it, including
 	 * children added after the parent was ticked.
 	 */
