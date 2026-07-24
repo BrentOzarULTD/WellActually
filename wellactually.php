@@ -45,7 +45,11 @@ require_once WELLACTUALLY_PLUGIN_DIR . 'includes/class-wellactually-privacy.php'
  *              mid-migration and this request deliberately did nothing.
  */
 function wellactually_init() {
-	load_plugin_textdomain( 'wellactually', false, dirname( plugin_basename( WELLACTUALLY_PLUGIN_FILE ) ) . '/languages' );
+	// No load_plugin_textdomain() call: since WordPress 4.6 translations are
+	// loaded just in time, from wp-content/languages/plugins/, which is where
+	// WordPress.org delivers them. The plugin ships only a .pot — there are no
+	// bundled .mo files that would need a path of their own — so the call was
+	// pure overhead, and Plugin Check flags it as discouraged.
 
 	// Before any component registers a hook or reads an option: on a site
 	// upgrading from 1.7.0 or earlier, every name below still refers to data

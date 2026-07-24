@@ -284,7 +284,30 @@ class WellActually_Reports {
 			$wpdb->prepare( "SELECT COUNT(*) {$from}", $params )
 		);
 
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders -- every fragment is assembled above from literals: {$total_sql}/{$correct_sql} are fixed aggregate expressions, {$from} is core tables plus placeholders, {$no_data_last}/{$order_by} come from the fixed $order_map whitelist, and {$order} is strictly ASC or DESC. All values are bound.
+		// Request input does reach this query — but only as a bound value, or
+		// as a key selecting between fixed literals. It is never interpolated
+		// raw:
+		//
+		// {$total_sql} and {$correct_sql} are fixed aggregate expressions built
+		// from string literals in this method.
+		//
+		// {$order_by} is $order_map[ $args['orderby'] ]. That key comes from
+		// $_GET, but current_args() narrows it to one of four known names
+		// first, so what lands in the SQL is the map's literal, never the
+		// input itself. {$order} is likewise re-derived as the literal 'ASC'
+		// or 'DESC' above, and {$no_data_last} is either empty or a literal
+		// built from {$total_sql}.
+		//
+		// {$from} is core table names plus placeholders, and its values are
+		// bound through $params. LIMIT/OFFSET are separate: their two values
+		// are appended to $params by the array_merge() in the prepare() call
+		// below, and bound to the %d placeholders there. $offset derives from
+		// $args['paged'], which is request input, and is bound like the rest.
+		//
+		// So the interpolated parts are SQL *fragments*, not values, and have
+		// no parameter to escape — which is what the three sniffs below cannot
+		// see. The values that are request-derived go through prepare().
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter -- fixed literal fragments; see above.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT p.ID, p.post_title,
@@ -298,7 +321,7 @@ class WellActually_Reports {
 				array_merge( $params, array( self::PER_PAGE, $offset ) )
 			)
 		);
-		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders,PluginCheck.Security.DirectDB.UnescapedDBParameter
 
 		return array(
 			'rows'  => (array) $rows,
