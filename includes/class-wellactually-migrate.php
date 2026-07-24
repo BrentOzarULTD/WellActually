@@ -82,6 +82,15 @@ class WellActually_Migrate {
 	const LOCK_TIMEOUT = 300;
 
 	/**
+	 * The exact option_value this request wrote when it took the lock, as
+	 * "<unix time>:<token>". Held so the lock can be released only if we
+	 * still own it.
+	 *
+	 * @var string
+	 */
+	private static $lock_value = '';
+
+	/**
 	 * Run the migration unless this site is already migrated.
 	 *
 	 * Called on every request (from wellactually_init()), so the common path
@@ -152,6 +161,8 @@ class WellActually_Migrate {
 	private static function acquire_lock() {
 		global $wpdb;
 
+		$mine = self::new_lock_value();
+
 		// INSERT IGNORE against the unique index on option_name: exactly one
 		// concurrent caller inserts the row, everyone else affects 0 rows.
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the Options API has no atomic insert; that is the whole point here. Caches are cleared below.
@@ -159,13 +170,14 @@ class WellActually_Migrate {
 			$wpdb->prepare(
 				"INSERT IGNORE INTO {$wpdb->options} ( option_name, option_value, autoload ) VALUES ( %s, %s, 'off' )",
 				self::LOCK_OPTION,
-				(string) time()
+				$mine
 			)
 		);
 
 		self::flush_lock_cache();
 
 		if ( 1 === (int) $inserted ) {
+			self::$lock_value = $mine;
 			return true;
 		}
 
@@ -183,11 +195,38 @@ class WellActually_Migrate {
 		}
 
 		// Honour a live lock. Only an abandoned one is up for grabs.
-		if ( ( time() - (int) $held_since ) < self::LOCK_TIMEOUT ) {
+		if ( ( time() - self::lock_time( (string) $held_since ) ) < self::LOCK_TIMEOUT ) {
 			return false;
 		}
 
 		return self::take_over_stale_lock( (string) $held_since );
+	}
+
+	/**
+	 * A fresh lock value: when it was taken, and who took it.
+	 *
+	 * The token is what makes releasing safe. Without it, a request whose
+	 * lock was taken over as abandoned would, on finally finishing, delete
+	 * whichever lock it found — including the live one belonging to the
+	 * request that replaced it, freeing it for a third to start migrating
+	 * alongside. The timestamp alone can't distinguish those.
+	 *
+	 * @return string
+	 */
+	private static function new_lock_value() {
+		return time() . ':' . uniqid( '', true );
+	}
+
+	/**
+	 * The unix time out of a lock value.
+	 *
+	 * @param string $value Stored option_value.
+	 * @return int
+	 */
+	private static function lock_time( $value ) {
+		$parts = explode( ':', $value, 2 );
+
+		return (int) $parts[0];
 	}
 
 	/**
@@ -209,11 +248,13 @@ class WellActually_Migrate {
 	public static function take_over_stale_lock( $observed ) {
 		global $wpdb;
 
+		$mine = self::new_lock_value();
+
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a conditional UPDATE is the compare-and-swap; there is no Options API equivalent.
 		$swapped = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
-				(string) time(),
+				$mine,
 				self::LOCK_OPTION,
 				$observed
 			)
@@ -221,7 +262,13 @@ class WellActually_Migrate {
 
 		self::flush_lock_cache();
 
-		return 1 === (int) $swapped;
+		if ( 1 !== (int) $swapped ) {
+			return false;
+		}
+
+		self::$lock_value = $mine;
+
+		return true;
 	}
 
 	/**
@@ -237,10 +284,33 @@ class WellActually_Migrate {
 	}
 
 	/**
-	 * Release the migration lock.
+	 * Release the migration lock, but only if this request still holds it.
+	 *
+	 * A slow request whose lock was taken over as abandoned still reaches
+	 * here. An unconditional delete would remove the *replacement* lock,
+	 * belonging to a request that is actively migrating, and a third request
+	 * would then acquire the freed lock and migrate alongside it — the split
+	 * data the lock exists to prevent, caused by the takeover meant to keep
+	 * a dead request from wedging the site.
 	 */
 	private static function release_lock() {
-		delete_option( self::LOCK_OPTION );
+		global $wpdb;
+
+		if ( '' === self::$lock_value ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- conditional delete; delete_option() cannot express "only if the value is still mine".
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s",
+				self::LOCK_OPTION,
+				self::$lock_value
+			)
+		);
+
+		self::$lock_value = '';
+		self::flush_lock_cache();
 	}
 
 	/**

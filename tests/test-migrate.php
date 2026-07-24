@@ -426,16 +426,75 @@ class Test_WellActually_Migrate extends WP_UnitTestCase {
 	 * lets both through — the exact race the lock exists to prevent.
 	 */
 	public function test_only_one_request_takes_over_a_stale_lock() {
-		$abandoned = time() - ( WellActually_Migrate::LOCK_TIMEOUT + 60 );
+		$abandoned = ( time() - ( WellActually_Migrate::LOCK_TIMEOUT + 60 ) ) . ':abandoned';
 		add_option( WellActually_Migrate::LOCK_OPTION, $abandoned, '', false );
 
-		$observed = (string) $abandoned;
-
-		$first  = WellActually_Migrate::take_over_stale_lock( $observed );
-		$second = WellActually_Migrate::take_over_stale_lock( $observed );
+		$first  = WellActually_Migrate::take_over_stale_lock( $abandoned );
+		$second = WellActually_Migrate::take_over_stale_lock( $abandoned );
 
 		$this->assertTrue( $first, 'The first request to swap must win the lock.' );
 		$this->assertFalse( $second, 'A second request observing the same stale lock must lose the swap.' );
+	}
+
+	/**
+	 * A request whose lock was taken over must not release the replacement.
+	 *
+	 * The slow request still reaches its own release. If that delete isn't
+	 * conditional on the value it wrote, it frees the lock belonging to the
+	 * request that replaced it — and a third request then migrates alongside
+	 * that one. The takeover added to stop a dead request wedging the site is
+	 * what creates the opening, so the two have to be tested together.
+	 */
+	public function test_superseded_request_does_not_release_the_new_holder() {
+		global $wpdb;
+
+		update_option( 'wa_settings', array( 'slug' => 'quiz' ) );
+
+		// delete_option() only fires its action when the row exists, so the
+		// injection below needs something to delete.
+		update_option( 'rewrite_rules', array( '^quiz/?$' => 'index.php?wa_swipe=1' ) );
+
+		// Stand in for the takeover happening while this request is still
+		// inside its migration. delete_option( 'rewrite_rules' ) is the last
+		// thing maybe_migrate() does before its finally block, so overwriting
+		// the lock row here puts the swap exactly between this request taking
+		// the lock and reaching its own release.
+		$superseded_by = '';
+		$supersede     = static function ( $option ) use ( &$superseded_by, $wpdb ) {
+			if ( 'rewrite_rules' !== $option || '' !== $superseded_by ) {
+				return;
+			}
+			$superseded_by = time() . ':replacement-request';
+			$wpdb->query( // phpcs:ignore WordPress.DB
+				$wpdb->prepare(
+					"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s",
+					$superseded_by,
+					WellActually_Migrate::LOCK_OPTION
+				)
+			);
+		};
+
+		add_action( 'delete_option', $supersede );
+		try {
+			WellActually_Migrate::maybe_migrate();
+		} finally {
+			remove_action( 'delete_option', $supersede );
+		}
+
+		$this->assertNotSame( '', $superseded_by, 'The takeover must actually have been injected mid-migration.' );
+
+		$still_held = $wpdb->get_var(
+			$wpdb->prepare( "SELECT option_value FROM {$wpdb->options} WHERE option_name = %s", WellActually_Migrate::LOCK_OPTION ) // phpcs:ignore WordPress.DB
+		);
+
+		$this->assertSame(
+			$superseded_by,
+			$still_held,
+			'The replacement holder\'s lock must survive — releasing it would let a third request migrate alongside.'
+		);
+
+		// Clean up the lock the "replacement" is holding.
+		delete_option( WellActually_Migrate::LOCK_OPTION );
 	}
 
 	/**
