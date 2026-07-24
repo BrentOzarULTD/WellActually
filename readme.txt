@@ -16,6 +16,8 @@ Swipe mode for your blog: readers agree, disagree, or admit they're not sure abo
 
 Progress is tracked locally for anonymous visitors and synced to their account when logged in, so their score follows them.
 
+The swipe page also includes configurable social sharing metadata. Pick its preview title, description, and image under Settings → "Well, Actually..." so links shared on social networks and messaging apps look intentional.
+
 == Installation ==
 
 1. Upload the plugin to `/wp-content/plugins/wellactually` or install via the Plugins screen.
@@ -65,6 +67,10 @@ Only when you're logged in. Anonymous progress is stored in your browser's local
 = Can I see which statements fool the most readers? =
 
 Yes — the Posts list has a "Swipe stats" column showing the agree percentage and total swipe count for each post in the deck.
+
+= Can I control how the swipe page looks when someone shares it? =
+
+Yes. Under Settings → "Well, Actually..." → Social sharing, set the preview title, description, and image. Blank text fields use built-in defaults, and a blank image uses the WordPress site icon when one is available.
 
 == Screenshots ==
 
