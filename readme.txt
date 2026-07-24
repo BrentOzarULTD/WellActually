@@ -71,6 +71,7 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 1. The full-screen phone game: readers can Agree, Disagree, or choose Not sure.
 2. A wrong answer reveals the verdict and the original post that explains it.
 3. The bulk Swipe Setup screen with filters, AI drafting, view counts, and page-wide Skip or Never controls.
+4. The Reports scoreboard shows total swipes and right and wrong percentages for every card in the deck.
 
 == Changelog ==
 

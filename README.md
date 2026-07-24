@@ -81,6 +81,8 @@ The Reports screen shows:
 - Sortable performance columns
 - Quick editing for statements and answers
 
+![The WordPress Reports screen showing posts, swipe headlines, answers, total swipes, and right and wrong percentages](docs/images/well-actually-scores-blurred.png)
+
 Once a card has enough responses to be meaningful, it can also tell players how many readers got it wrong—without revealing the answer.
 
 ## Optional AI drafting
