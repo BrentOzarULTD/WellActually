@@ -169,7 +169,7 @@ class Test_WellActually_Template extends WP_UnitTestCase {
 				'_tab'               => 'setup',
 				'slug'               => 'actually',
 				'social_title'       => '<b>' . str_repeat( 'T', 250 ) . '</b>',
-				'social_description' => '<script>' . str_repeat( 'D', 350 ) . '</script>',
+				'social_description' => '<b>' . str_repeat( 'D', 350 ) . '</b>',
 				'social_image_id'    => self::factory()->post->create(),
 				'ai_provider'        => '',
 				'ai_model'           => '',
