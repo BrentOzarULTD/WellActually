@@ -443,6 +443,8 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 
 			$this->assertStringContainsString( 'wa-check-all-skip', $html );
 			$this->assertStringContainsString( 'wa-check-all-exclude', $html );
+			$this->assertStringContainsString( 'aria-label="Select Skip for Now for all posts on this page"', $html );
+			$this->assertStringContainsString( 'aria-label="Select Never for all posts on this page"', $html );
 			$this->assertStringContainsString( 'Views: 30 days', $html );
 			$this->assertStringContainsString( '2.5K', $html );
 			$this->assertMatchesRegularExpression( '/A post with zero views.*?wa-col-views.*?Views in the last 30 days:.*?0/s', $html );

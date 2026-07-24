@@ -1132,14 +1132,14 @@ class WellActually_Bulk_Setup {
 						<th class="wa-col-skip">
 							<?php esc_html_e( 'Skip for Now', 'wellactually' ); ?>
 							<label class="wa-check-all-label">
-								<input type="checkbox" class="wa-check-all-skip" />
+								<input type="checkbox" class="wa-check-all-skip" aria-label="<?php esc_attr_e( 'Select Skip for Now for all posts on this page', 'wellactually' ); ?>" />
 								<span><?php esc_html_e( 'All', 'wellactually' ); ?></span>
 							</label>
 						</th>
 						<th class="wa-col-exclude">
 							<?php esc_html_e( 'Never', 'wellactually' ); ?>
 							<label class="wa-check-all-label">
-								<input type="checkbox" class="wa-check-all-exclude" />
+								<input type="checkbox" class="wa-check-all-exclude" aria-label="<?php esc_attr_e( 'Select Never for all posts on this page', 'wellactually' ); ?>" />
 								<span><?php esc_html_e( 'All', 'wellactually' ); ?></span>
 							</label>
 						</th>
