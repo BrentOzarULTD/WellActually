@@ -77,7 +77,7 @@ jobs:
       - name: Run the official WordPress submission checks
         uses: wordpress/plugin-check-action@v1
         with:
-          build-dir: ./build/wellactually
+          build-dir: ./build/well-actually
 
   test:
     name: Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wp }})

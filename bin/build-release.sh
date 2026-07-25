@@ -3,15 +3,15 @@
 # Build a distributable WellActually plugin zip.
 #
 # Copies only the files a WordPress site needs, into a top-level
-# `wellactually/` folder (so unzipping drops straight into
-# wp-content/plugins/wellactually), and zips it as
-# dist/wellactually-<version>.zip.
+# `well-actually/` folder (matching the assigned WordPress.org slug), so
+# unzipping drops straight into wp-content/plugins/well-actually, and zips it
+# as dist/well-actually-<version>.zip.
 #
 # Usage:
 #   bin/build-release.sh
 #
 # Output:
-#   dist/wellactually-<version>.zip
+#   dist/well-actually-<version>.zip
 
 set -euo pipefail
 
@@ -19,6 +19,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 MAIN_FILE="wellactually.php"
+PLUGIN_SLUG="well-actually"
 
 if [ ! -f "$MAIN_FILE" ]; then
 	echo "error: $MAIN_FILE not found — run this from the plugin repo." >&2
@@ -31,9 +32,9 @@ if [ -z "$VERSION" ]; then
 	exit 1
 fi
 
-BUILD_DIR="build/wellactually"
+BUILD_DIR="build/$PLUGIN_SLUG"
 DIST_DIR="dist"
-ZIP_PATH="$DIST_DIR/wellactually-$VERSION.zip"
+ZIP_PATH="$DIST_DIR/$PLUGIN_SLUG-$VERSION.zip"
 
 echo "Building WellActually v$VERSION..."
 
@@ -69,7 +70,7 @@ find "$BUILD_DIR" \( -name ".DS_Store" -o -name "*.orig" -o -name "*.bak" \) -de
 echo "Files staged in $BUILD_DIR:"
 find "$BUILD_DIR" -type f | sed "s#^$BUILD_DIR/#  #" | sort
 
-( cd build && zip -rq "../$ZIP_PATH" "wellactually" -x "*.DS_Store" )
+( cd build && zip -rq "../$ZIP_PATH" "$PLUGIN_SLUG" -x "*.DS_Store" )
 
 echo ""
 echo "Built: $ZIP_PATH"
