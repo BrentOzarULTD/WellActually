@@ -922,7 +922,7 @@ class WellActually_Bulk_Setup {
 		echo '<h2>' . esc_html__( 'Draft with AI', 'well-actually' ) . '</h2>';
 
 		if ( ! WellActually_AI::is_available() ) {
-			$settings_url = admin_url( 'options-general.php?page=wellactually' );
+			$settings_url = admin_url( 'options-general.php?page=' . WellActually_Settings::MENU_SLUG );
 			echo '<p>';
 			if ( empty( $providers ) ) {
 				esc_html_e( 'No AI provider is configured yet.', 'well-actually' );
@@ -966,7 +966,7 @@ class WellActually_Bulk_Setup {
 				esc_html__( '%s does not advertise schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent.', 'well-actually' ),
 				'<strong>' . esc_html( $effective ) . '</strong>'
 			);
-			echo ' <a href="' . esc_url( admin_url( 'options-general.php?page=wellactually&tab=setup' ) ) . '">' . esc_html__( 'Change the model', 'well-actually' ) . '</a>';
+			echo ' <a href="' . esc_url( admin_url( 'options-general.php?page=' . WellActually_Settings::MENU_SLUG . '&tab=setup' ) ) . '">' . esc_html__( 'Change the model', 'well-actually' ) . '</a>';
 			echo '</p>';
 		}
 		?>
@@ -1222,7 +1222,7 @@ class WellActually_Bulk_Setup {
 								<?php elseif ( WellActually_AI::STATUS_ERROR === $ai_status && '' !== $ai_error ) : ?>
 									<a
 										class="wa-ai-error"
-										href="<?php echo esc_url( admin_url( 'options-general.php?page=wellactually&tab=errors' ) ); ?>"
+										href="<?php echo esc_url( admin_url( 'options-general.php?page=' . WellActually_Settings::MENU_SLUG . '&tab=errors' ) ); ?>"
 										target="_blank"
 										rel="noopener"
 										title="<?php echo esc_attr( $ai_error ); ?>"

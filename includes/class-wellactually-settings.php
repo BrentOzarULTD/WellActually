@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WellActually_Settings {
 
 	const OPTION_NAME = 'wellactually_settings';
+	const MENU_SLUG   = 'wellactually';
 
 	/**
 	 * Singleton instance.
@@ -61,7 +62,7 @@ class WellActually_Settings {
 	 * @return string[]
 	 */
 	public function add_settings_link( $links ) {
-		$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=wellactually' ) ) . '">' . esc_html__( 'Settings', 'well-actually' ) . '</a>';
+		$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=' . self::MENU_SLUG ) ) . '">' . esc_html__( 'Settings', 'well-actually' ) . '</a>';
 		array_unshift( $links, $settings_link );
 		return $links;
 	}
@@ -221,7 +222,7 @@ class WellActually_Settings {
 			__( 'Well, Actually...', 'well-actually' ),
 			__( 'Well, Actually...', 'well-actually' ),
 			'manage_options',
-			'well-actually',
+			self::MENU_SLUG,
 			array( $this, 'render_settings_page' )
 		);
 	}
@@ -427,7 +428,7 @@ class WellActually_Settings {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'                 => 'well-actually',
+					'page'                 => self::MENU_SLUG,
 					'tab'                  => 'setup',
 					'wellactually_rebuilt' => (int) $fixed,
 				),
@@ -827,7 +828,7 @@ class WellActually_Settings {
 		}
 
 		$tab       = $this->current_tab();
-		$base_url  = admin_url( 'options-general.php?page=wellactually' );
+		$base_url  = admin_url( 'options-general.php?page=' . self::MENU_SLUG );
 		$tab_names = array(
 			'setup'      => __( 'Setup', 'well-actually' ),
 			'categories' => __( 'Categories', 'well-actually' ),

@@ -345,7 +345,7 @@ class WellActually_Reports {
 
 		$url = add_query_arg(
 			array(
-				'page'                     => 'well-actually',
+				'page'                     => WellActually_Settings::MENU_SLUG,
 				'tab'                      => 'reports',
 				'wellactually_rep_orderby' => $key,
 				'wellactually_rep_order'   => $next_order,
@@ -455,7 +455,7 @@ class WellActually_Reports {
 
 		$base = add_query_arg(
 			array(
-				'page'                     => 'well-actually',
+				'page'                     => WellActually_Settings::MENU_SLUG,
 				'tab'                      => 'reports',
 				'wellactually_rep_orderby' => $args['orderby'],
 				'wellactually_rep_order'   => $args['order'],
