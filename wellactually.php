@@ -3,13 +3,13 @@
  * Plugin Name:       Well, Actually...
  * Plugin URI:        https://github.com/BrentOzarULTD/WellActually
  * Description:       Swipe mode for your blog. Show readers a statement, let them swipe agree/disagree/not sure, and reveal the truth (and the post behind it) when they're wrong.
- * Version:           1.8.0
+ * Version:           1.8.1
  * Requires at least: 7.0
  * Requires PHP:      7.4
  * Author:            Brent Ozar
  * License:            GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       wellactually
+ * Text Domain:       well-actually
  * Domain Path:       /languages
  *
  * @package WellActually
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WELLACTUALLY_VERSION', '1.8.0' );
+define( 'WELLACTUALLY_VERSION', '1.8.1' );
 define( 'WELLACTUALLY_PLUGIN_FILE', __FILE__ );
 define( 'WELLACTUALLY_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WELLACTUALLY_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

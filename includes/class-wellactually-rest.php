@@ -299,7 +299,7 @@ class WellActually_Rest {
 	 */
 	public function handle_post_swipe( WP_REST_Request $request ) {
 		if ( ! self::check_rate_limit( 'swipe', 60, MINUTE_IN_SECONDS ) ) {
-			return new WP_Error( 'wellactually_rate_limited', __( 'Too many swipes, slow down.', 'wellactually' ), array( 'status' => 429 ) );
+			return new WP_Error( 'wellactually_rate_limited', __( 'Too many swipes, slow down.', 'well-actually' ), array( 'status' => 429 ) );
 		}
 
 		$post_id = (int) $request->get_param( 'post_id' );
@@ -308,19 +308,19 @@ class WellActually_Rest {
 
 		$valid_answers = array( 'agree', 'disagree', 'unsure' );
 		if ( ! in_array( $answer, $valid_answers, true ) ) {
-			return new WP_Error( 'wellactually_invalid_answer', __( 'Invalid answer.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_invalid_answer', __( 'Invalid answer.', 'well-actually' ), array( 'status' => 400 ) );
 		}
 
 		$post = get_post( $post_id );
 		if ( ! $post || 'publish' !== $post->post_status || 'post' !== $post->post_type ) {
-			return new WP_Error( 'wellactually_invalid_post', __( 'Post not found.', 'wellactually' ), array( 'status' => 404 ) );
+			return new WP_Error( 'wellactually_invalid_post', __( 'Post not found.', 'well-actually' ), array( 'status' => 404 ) );
 		}
 
 		$statement = get_post_meta( $post_id, WellActually_Meta::STATEMENT_KEY, true );
 		$verdict   = get_post_meta( $post_id, WellActually_Meta::VERDICT_KEY, true );
 
 		if ( '' === $statement || ! in_array( $verdict, array( 'true', 'false', 'debatable' ), true ) ) {
-			return new WP_Error( 'wellactually_invalid_post', __( 'Post is not in the swipe deck.', 'wellactually' ), array( 'status' => 404 ) );
+			return new WP_Error( 'wellactually_invalid_post', __( 'Post is not in the swipe deck.', 'well-actually' ), array( 'status' => 404 ) );
 		}
 
 		$correct   = $this->is_correct( $verdict, $answer );

@@ -236,7 +236,7 @@ class WellActually_Stats {
 	 * @return array
 	 */
 	public function add_column( $columns ) {
-		$columns['wellactually_swipe_stats'] = __( 'Swipe stats', 'wellactually' );
+		$columns['wellactually_swipe_stats'] = __( 'Swipe stats', 'well-actually' );
 		return $columns;
 	}
 
@@ -260,21 +260,21 @@ class WellActually_Stats {
 		$stats = self::get( $post_id );
 
 		if ( 0 === $stats['total'] ) {
-			esc_html_e( 'No swipes yet', 'wellactually' );
+			esc_html_e( 'No swipes yet', 'well-actually' );
 			return;
 		}
 
 		if ( null !== $stats['pct_agreed'] ) {
 			printf(
 				/* translators: 1: percent agreed, 2: total swipe count */
-				esc_html__( '%1$d%% agree · %2$d swipes', 'wellactually' ),
+				esc_html__( '%1$d%% agree · %2$d swipes', 'well-actually' ),
 				(int) $stats['pct_agreed'],
 				(int) $stats['total']
 			);
 		} else {
 			printf(
 				/* translators: %d: total swipe count */
-				esc_html__( '%d swipes', 'wellactually' ),
+				esc_html__( '%d swipes', 'well-actually' ),
 				(int) $stats['total']
 			);
 		}

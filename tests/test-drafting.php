@@ -35,6 +35,7 @@ class Test_WellActually_Drafting extends WP_UnitTestCase {
 		parent::set_up();
 		global $wpdb;
 		$wpdb->query( 'TRUNCATE ' . WellActually_AI_Queue::table_name() ); // phpcs:ignore WordPress.DB
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
 
 	/**
@@ -222,6 +223,74 @@ class Test_WellActually_Drafting extends WP_UnitTestCase {
 		foreach ( $data['ids'] as $post_id ) {
 			$this->assertSame( $selected_author, (int) get_post_field( 'post_author', $post_id ) );
 		}
+	}
+
+	/**
+	 * The edit_posts capability is not permission to change every post on the
+	 * site. An Author-level caller may draft their own published posts, but
+	 * must not queue or mark another author's posts.
+	 */
+	public function test_enqueue_only_queues_posts_the_caller_can_edit() {
+		$caller       = self::factory()->user->create( array( 'role' => 'author' ) );
+		$other_author = self::factory()->user->create( array( 'role' => 'author' ) );
+		$own_posts    = self::factory()->post->create_many(
+			3,
+			array(
+				'post_author' => $caller,
+				'post_status' => 'publish',
+			)
+		);
+		$other_posts  = self::factory()->post->create_many(
+			3,
+			array(
+				'post_author' => $other_author,
+				'post_status' => 'publish',
+			)
+		);
+
+		wp_set_current_user( $caller );
+
+		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/enqueue' );
+		$request->set_param( 'count', 10 );
+		$request->set_param( 'cat', 0 );
+		$request->set_param( 'batch', '' );
+
+		$data = WellActually_AI::instance()->handle_enqueue( $request )->get_data();
+
+		$this->assertSame( 3, $data['queued'] );
+		$this->assertEmpty( array_diff( $data['ids'], $own_posts ) );
+		$this->assertEmpty( array_intersect( $data['ids'], $other_posts ) );
+		foreach ( $other_posts as $post_id ) {
+			$this->assertSame( '', get_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, true ) );
+		}
+	}
+
+	/**
+	 * Processing re-checks the exact post capability instead of treating a
+	 * batch ID or the broad edit_posts capability as authorization.
+	 */
+	public function test_process_rejects_a_post_the_caller_cannot_edit() {
+		$owner   = self::factory()->user->create( array( 'role' => 'author' ) );
+		$caller  = self::factory()->user->create( array( 'role' => 'author' ) );
+		$post_id = self::factory()->post->create(
+			array(
+				'post_author' => $owner,
+				'post_status' => 'publish',
+			)
+		);
+		$batch   = WellActually_AI_Queue::new_batch_id();
+
+		WellActually_AI_Queue::admit( array( $post_id ), $batch );
+		wp_set_current_user( $caller );
+
+		$request = new WP_REST_Request( 'POST', '/wellactually/v1/ai/process' );
+		$request->set_param( 'batch', $batch );
+		$response = WellActually_AI::instance()->handle_process( $request );
+
+		$this->assertWPError( $response );
+		$this->assertSame( 403, $response->get_error_data()['status'] );
+		$this->assertSame( 1, WellActually_AI_Queue::batch_counts( $batch )['queued'] );
+		$this->assertSame( '', get_post_meta( $post_id, WellActually_Meta::AI_STATUS_KEY, true ) );
 	}
 
 	/**

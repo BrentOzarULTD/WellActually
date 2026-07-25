@@ -169,7 +169,7 @@ class WellActually_Template {
 	public static function default_social_title() {
 		return sprintf(
 			/* translators: %s: site name */
-			__( 'Well, Actually... — %s', 'wellactually' ),
+			__( 'Well, Actually... — %s', 'well-actually' ),
 			wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
 		);
 	}
@@ -182,7 +182,7 @@ class WellActually_Template {
 	public static function default_social_description() {
 		return sprintf(
 			/* translators: %s: site name */
-			__( 'How well do you know %s? Swipe through bold statements, make your call, and discover the posts that settle it.', 'wellactually' ),
+			__( 'How well do you know %s? Swipe through bold statements, make your call, and discover the posts that settle it.', 'well-actually' ),
 			wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES )
 		);
 	}
@@ -346,53 +346,53 @@ class WellActually_Template {
 	 */
 	private static function script_strings() {
 		return array(
-			'loading'            => __( 'Loading…', 'wellactually' ),
-			'error'              => __( 'Something went wrong loading swipe mode.', 'wellactually' ),
-			'retry'              => __( 'Try again', 'wellactually' ),
-			'agree'              => __( 'Agree', 'wellactually' ),
-			'disagree'           => __( 'Disagree', 'wellactually' ),
-			'unsure'             => __( 'Not sure', 'wellactually' ),
+			'loading'            => __( 'Loading…', 'well-actually' ),
+			'error'              => __( 'Something went wrong loading swipe mode.', 'well-actually' ),
+			'retry'              => __( 'Try again', 'well-actually' ),
+			'agree'              => __( 'Agree', 'well-actually' ),
+			'disagree'           => __( 'Disagree', 'well-actually' ),
+			'unsure'             => __( 'Not sure', 'well-actually' ),
 			/* translators: 1: number answered correctly, 2: number answered */
-			'scoreLabel'         => __( '%1$s/%2$s correct', 'wellactually' ),
+			'scoreLabel'         => __( '%1$s/%2$s correct', 'well-actually' ),
 			/* translators: 1: number answered correctly, 2: number answered */
-			'scoreSoFar'         => __( '%1$s/%2$s correct so far', 'wellactually' ),
+			'scoreSoFar'         => __( '%1$s/%2$s correct so far', 'well-actually' ),
 			/* translators: 1: number answered correctly, 2: number answered, 3: percentage correct */
-			'finalScore'         => __( '%1$s/%2$s correct (%3$s%)', 'wellactually' ),
+			'finalScore'         => __( '%1$s/%2$s correct (%3$s%)', 'well-actually' ),
 			/* translators: 1: current card number, 2: number of cards being replayed */
-			'replayPosition'     => __( 'Replay: %1$s of %2$s', 'wellactually' ),
+			'replayPosition'     => __( 'Replay: %1$s of %2$s', 'well-actually' ),
 			/* translators: 1: current card number, 2: number of cards in the deck */
-			'deckPosition'       => __( '%1$s of %2$s', 'wellactually' ),
+			'deckPosition'       => __( '%1$s of %2$s', 'well-actually' ),
 			/* translators: %1$s: percentage of readers who got this card wrong */
-			'pctWrong'           => __( '%1$s% got this one wrong', 'wellactually' ),
-			'startOver'          => __( 'Start over', 'wellactually' ),
-			'confirmReset'       => __( 'Start over? This clears your saved progress.', 'wellactually' ),
-			'keepSwiping'        => __( 'Keep swiping', 'wellactually' ),
-			'emptyDeck'          => __( 'No swipe statements yet — check back soon.', 'wellactually' ),
+			'pctWrong'           => __( '%1$s% got this one wrong', 'well-actually' ),
+			'startOver'          => __( 'Start over', 'well-actually' ),
+			'confirmReset'       => __( 'Start over? This clears your saved progress.', 'well-actually' ),
+			'keepSwiping'        => __( 'Keep swiping', 'well-actually' ),
+			'emptyDeck'          => __( 'No swipe statements yet — check back soon.', 'well-actually' ),
 			/* translators: %1$s: number of cards answered incorrectly */
-			'replayWrong'        => __( 'Replay the ones you got wrong (%1$s)', 'wellactually' ),
+			'replayWrong'        => __( 'Replay the ones you got wrong (%1$s)', 'well-actually' ),
 			/* translators: %1$s: number of newly added statements */
-			'moreAvailable'      => __( 'New statements have been added — %1$s more await', 'wellactually' ),
-			'copy'               => __( 'Copy', 'wellactually' ),
-			'copied'             => __( 'Copied!', 'wellactually' ),
-			'shareTextLabel'     => __( 'Share text', 'wellactually' ),
+			'moreAvailable'      => __( 'New statements have been added — %1$s more await', 'well-actually' ),
+			'copy'               => __( 'Copy', 'well-actually' ),
+			'copied'             => __( 'Copied!', 'well-actually' ),
+			'shareTextLabel'     => __( 'Share text', 'well-actually' ),
 			/* translators: 1: number answered correctly, 2: number answered, 3: percentage correct, 4: site name, 5: swipe page URL */
-			'shareText'          => __( 'I scored %1$s/%2$s (%3$s%) on the "Well, Actually..." swipe quiz on %4$s. Try it yourself: %5$s', 'wellactually' ),
-			'thisBlog'           => __( 'this blog', 'wellactually' ),
-			'tierGreat'          => __( 'Well, actually… you should be writing this blog.', 'wellactually' ),
-			'tierGood'           => __( 'Solid instincts. A few well-actuallys to go.', 'wellactually' ),
-			'tierOk'             => __( 'Halfway there — the archives are calling.', 'wellactually' ),
-			'tierPoor'           => __( 'Time to hit the archives.', 'wellactually' ),
-			'answerFailed'       => __( 'Couldn’t submit that — check your connection and try again.', 'wellactually' ),
-			'storageUnavailable' => __( 'Your progress won’t be saved in this browser.', 'wellactually' ),
-			'revealDebatable'    => __( '🤔 It’s debatable', 'wellactually' ),
-			'revealUnsure'       => __( 'Not sure? Here’s the answer', 'wellactually' ),
-			'revealWrong'        => __( '✗ Well, actually…', 'wellactually' ),
+			'shareText'          => __( 'I scored %1$s/%2$s (%3$s%) on the "Well, Actually..." swipe quiz on %4$s. Try it yourself: %5$s', 'well-actually' ),
+			'thisBlog'           => __( 'this blog', 'well-actually' ),
+			'tierGreat'          => __( 'Well, actually… you should be writing this blog.', 'well-actually' ),
+			'tierGood'           => __( 'Solid instincts. A few well-actuallys to go.', 'well-actually' ),
+			'tierOk'             => __( 'Halfway there — the archives are calling.', 'well-actually' ),
+			'tierPoor'           => __( 'Time to hit the archives.', 'well-actually' ),
+			'answerFailed'       => __( 'Couldn’t submit that — check your connection and try again.', 'well-actually' ),
+			'storageUnavailable' => __( 'Your progress won’t be saved in this browser.', 'well-actually' ),
+			'revealDebatable'    => __( '🤔 It’s debatable', 'well-actually' ),
+			'revealUnsure'       => __( 'Not sure? Here’s the answer', 'well-actually' ),
+			'revealWrong'        => __( '✗ Well, actually…', 'well-actually' ),
 			/* translators: %1$s: the verdict, "TRUE" or "FALSE" */
-			'revealVerdict'      => __( 'This one’s %1$s.', 'wellactually' ),
-			'verdictTrue'        => _x( 'TRUE', 'verdict shown in the reveal, deliberately shouty', 'wellactually' ),
-			'verdictFalse'       => _x( 'FALSE', 'verdict shown in the reveal, deliberately shouty', 'wellactually' ),
-			'readFullPost'       => __( 'Read the full post →', 'wellactually' ),
-			'continue'           => __( 'Continue', 'wellactually' ),
+			'revealVerdict'      => __( 'This one’s %1$s.', 'well-actually' ),
+			'verdictTrue'        => _x( 'TRUE', 'verdict shown in the reveal, deliberately shouty', 'well-actually' ),
+			'verdictFalse'       => _x( 'FALSE', 'verdict shown in the reveal, deliberately shouty', 'well-actually' ),
+			'readFullPost'       => __( 'Read the full post →', 'well-actually' ),
+			'continue'           => __( 'Continue', 'well-actually' ),
 		);
 	}
 

@@ -29,11 +29,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</a>
 
 	<div id="wa-app" aria-live="polite">
-		<div class="wa-loading"><?php esc_html_e( 'Loading…', 'wellactually' ); ?></div>
+		<div class="wa-loading"><?php esc_html_e( 'Loading…', 'well-actually' ); ?></div>
 	</div>
 
 	<noscript>
-		<p class="wa-noscript"><?php esc_html_e( 'Swipe mode needs JavaScript.', 'wellactually' ); ?></p>
+		<p class="wa-noscript"><?php esc_html_e( 'Swipe mode needs JavaScript.', 'well-actually' ); ?></p>
 	</noscript>
 
 	<?php WellActually_Template::instance()->print_footer_assets(); ?>

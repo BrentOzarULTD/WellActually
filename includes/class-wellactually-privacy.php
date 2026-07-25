@@ -60,15 +60,15 @@ class WellActually_Privacy {
 		}
 
 		$content =
-			'<h2>' . __( 'Well, Actually... swipe game', 'wellactually' ) . '</h2>' .
-			'<p>' . __( 'Anonymous visitors: your swipe progress (which statements you have seen and how you answered) is stored only in your own browser\'s local storage. It never leaves your device, and clearing your browser data resets it.', 'wellactually' ) . '</p>' .
-			'<p>' . __( 'Logged-in users: the same progress is saved to your account on this site so it follows you between devices. You can obtain or erase it with the personal-data export and erasure tools on this site.', 'wellactually' ) . '</p>' .
-			'<p>' . __( 'Aggregate statistics: each swipe increments an anonymous per-post counter (how many visitors agreed, disagreed, or were unsure). These totals contain no account, name, or address, and cannot be traced back to any person.', 'wellactually' ) . '</p>' .
-			'<p>' . __( 'Rate limiting: to prevent abuse, a short-lived counter keyed to a hashed form of the visitor\'s IP address is kept for a few minutes and then expires. The IP address itself is not stored.', 'wellactually' ) . '</p>' .
-			'<p>' . __( 'AI drafting (site editors only): when an administrator uses the optional "Draft with AI" feature, the affected post\'s title and an excerpt of its content are sent to the AI provider the administrator has configured. No visitor or account data is included. The chosen provider\'s own privacy policy governs that transfer.', 'wellactually' ) . '</p>';
+			'<h2>' . __( 'Well, Actually... swipe game', 'well-actually' ) . '</h2>' .
+			'<p>' . __( 'Anonymous visitors: your swipe progress (which statements you have seen and how you answered) is stored only in your own browser\'s local storage. It never leaves your device, and clearing your browser data resets it.', 'well-actually' ) . '</p>' .
+			'<p>' . __( 'Logged-in users: the same progress is saved to your account on this site so it follows you between devices. You can obtain or erase it with the personal-data export and erasure tools on this site.', 'well-actually' ) . '</p>' .
+			'<p>' . __( 'Aggregate statistics: each swipe increments an anonymous per-post counter (how many visitors agreed, disagreed, or were unsure). These totals contain no account, name, or address, and cannot be traced back to any person.', 'well-actually' ) . '</p>' .
+			'<p>' . __( 'Rate limiting: to prevent abuse, a short-lived counter keyed to a hashed form of the visitor\'s IP address is kept for a few minutes and then expires. The IP address itself is not stored.', 'well-actually' ) . '</p>' .
+			'<p>' . __( 'AI drafting (site editors only): when an administrator uses the optional "Draft with AI" feature, the affected post\'s title and an excerpt of its content are sent to the AI provider the administrator has configured. No visitor or account data is included. The chosen provider\'s own privacy policy governs that transfer.', 'well-actually' ) . '</p>';
 
 		wp_add_privacy_policy_content(
-			__( 'Well, Actually...', 'wellactually' ),
+			__( 'Well, Actually...', 'well-actually' ),
 			wp_kses_post( $content )
 		);
 	}
@@ -81,7 +81,7 @@ class WellActually_Privacy {
 	 */
 	public function register_exporter( $exporters ) {
 		$exporters['wellactually-progress'] = array(
-			'exporter_friendly_name' => __( 'Well, Actually... swipe progress', 'wellactually' ),
+			'exporter_friendly_name' => __( 'Well, Actually... swipe progress', 'well-actually' ),
 			'callback'               => array( $this, 'export_progress' ),
 		);
 		return $exporters;
@@ -95,7 +95,7 @@ class WellActually_Privacy {
 	 */
 	public function register_eraser( $erasers ) {
 		$erasers['wellactually-progress'] = array(
-			'eraser_friendly_name' => __( 'Well, Actually... swipe progress', 'wellactually' ),
+			'eraser_friendly_name' => __( 'Well, Actually... swipe progress', 'well-actually' ),
 			'callback'             => array( $this, 'erase_progress' ),
 		);
 		return $erasers;
@@ -131,23 +131,23 @@ class WellActually_Privacy {
 
 		$export['data'][] = array(
 			'group_id'    => 'wellactually-progress',
-			'group_label' => __( 'Well, Actually... swipe progress', 'wellactually' ),
+			'group_label' => __( 'Well, Actually... swipe progress', 'well-actually' ),
 			'item_id'     => 'wellactually-progress-' . $user->ID,
 			'data'        => array(
 				array(
-					'name'  => __( 'Statements answered', 'wellactually' ),
+					'name'  => __( 'Statements answered', 'well-actually' ),
 					'value' => (int) $progress['answered_count'],
 				),
 				array(
-					'name'  => __( 'Answered correctly', 'wellactually' ),
+					'name'  => __( 'Answered correctly', 'well-actually' ),
 					'value' => (int) $progress['correct_count'],
 				),
 				array(
-					'name'  => __( 'Post IDs seen', 'wellactually' ),
+					'name'  => __( 'Post IDs seen', 'well-actually' ),
 					'value' => implode( ', ', array_map( 'intval', $progress['seen'] ) ),
 				),
 				array(
-					'name'  => __( 'Post IDs answered incorrectly', 'wellactually' ),
+					'name'  => __( 'Post IDs answered incorrectly', 'well-actually' ),
 					'value' => implode( ', ', array_map( 'intval', $progress['wrong'] ) ),
 				),
 			),

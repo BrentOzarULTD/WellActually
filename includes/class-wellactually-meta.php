@@ -75,11 +75,11 @@ class WellActually_Meta {
 	 */
 	public static function verdict_choices() {
 		return array(
-			''                     => __( '— Not set up yet —', 'wellactually' ),
-			'true'                 => __( 'True (agree is correct)', 'wellactually' ),
-			'false'                => __( 'False (disagree is correct)', 'wellactually' ),
-			'debatable'            => __( 'Debatable (any answer is fine)', 'wellactually' ),
-			self::VERDICT_EXCLUDED => __( 'Never — exclude from swipe', 'wellactually' ),
+			''                     => __( '— Not set up yet —', 'well-actually' ),
+			'true'                 => __( 'True (agree is correct)', 'well-actually' ),
+			'false'                => __( 'False (disagree is correct)', 'well-actually' ),
+			'debatable'            => __( 'Debatable (any answer is fine)', 'well-actually' ),
+			self::VERDICT_EXCLUDED => __( 'Never — exclude from swipe', 'well-actually' ),
 		);
 	}
 
@@ -121,7 +121,7 @@ class WellActually_Meta {
 	public function add_meta_box() {
 		add_meta_box(
 			'wellactually_swipe_meta_box',
-			__( 'Well, Actually... Swipe', 'wellactually' ),
+			__( 'Well, Actually... Swipe', 'well-actually' ),
 			array( $this, 'render_meta_box' ),
 			'post',
 			'normal',
@@ -142,17 +142,17 @@ class WellActually_Meta {
 		$verdict   = get_post_meta( $post->ID, self::VERDICT_KEY, true );
 		?>
 		<p>
-			<label for="wellactually_statement"><strong><?php esc_html_e( 'Swipe Statement', 'wellactually' ); ?></strong></label><br />
+			<label for="wellactually_statement"><strong><?php esc_html_e( 'Swipe Statement', 'well-actually' ); ?></strong></label><br />
 			<textarea
 				id="wellactually_statement"
 				name="wellactually_statement"
 				rows="2"
 				style="width:100%;"
-				placeholder="<?php esc_attr_e( 'A one-line statement readers will agree or disagree with, e.g. Temp tables are faster than CTEs.', 'wellactually' ); ?>"
+				placeholder="<?php esc_attr_e( 'A one-line statement readers will agree or disagree with, e.g. Temp tables are faster than CTEs.', 'well-actually' ); ?>"
 			><?php echo esc_textarea( $statement ); ?></textarea>
 		</p>
 		<p>
-			<label for="wellactually_verdict"><strong><?php esc_html_e( 'Verdict', 'wellactually' ); ?></strong></label><br />
+			<label for="wellactually_verdict"><strong><?php esc_html_e( 'Verdict', 'well-actually' ); ?></strong></label><br />
 			<select id="wellactually_verdict" name="wellactually_verdict">
 				<?php foreach ( self::verdict_choices() as $value => $label ) : ?>
 					<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $verdict, $value ); ?>>
@@ -379,7 +379,7 @@ class WellActually_Meta {
 	 * @return array
 	 */
 	public function add_columns( $columns ) {
-		$columns['wellactually_swipe'] = __( 'Swipe', 'wellactually' );
+		$columns['wellactually_swipe'] = __( 'Swipe', 'well-actually' );
 		return $columns;
 	}
 
@@ -402,10 +402,10 @@ class WellActually_Meta {
 
 		$statement = get_post_meta( $post_id, self::STATEMENT_KEY, true );
 		$icons     = array(
-			'true'                 => '&#10003; ' . __( 'True', 'wellactually' ),
-			'false'                => '&#10007; ' . __( 'False', 'wellactually' ),
-			'debatable'            => '~ ' . __( 'Debatable', 'wellactually' ),
-			self::VERDICT_EXCLUDED => '&#8856; ' . __( 'Excluded', 'wellactually' ),
+			'true'                 => '&#10003; ' . __( 'True', 'well-actually' ),
+			'false'                => '&#10007; ' . __( 'False', 'well-actually' ),
+			'debatable'            => '~ ' . __( 'Debatable', 'well-actually' ),
+			self::VERDICT_EXCLUDED => '&#8856; ' . __( 'Excluded', 'well-actually' ),
 		);
 		$label     = isset( $icons[ $verdict ] ) ? $icons[ $verdict ] : $verdict;
 
@@ -458,13 +458,13 @@ class WellActually_Meta {
 		$current = isset( $_GET['wellactually_swipe_filter'] ) ? sanitize_text_field( wp_unslash( $_GET['wellactually_swipe_filter'] ) ) : '';
 
 		$options = array(
-			''            => __( 'All swipe statuses', 'wellactually' ),
-			'needs_setup' => __( 'Needs to be set up', 'wellactually' ),
-			'in_deck'     => __( 'In swipe deck', 'wellactually' ),
-			'true'        => __( 'True', 'wellactually' ),
-			'false'       => __( 'False', 'wellactually' ),
-			'debatable'   => __( 'Debatable', 'wellactually' ),
-			'excluded'    => __( 'Excluded', 'wellactually' ),
+			''            => __( 'All swipe statuses', 'well-actually' ),
+			'needs_setup' => __( 'Needs to be set up', 'well-actually' ),
+			'in_deck'     => __( 'In swipe deck', 'well-actually' ),
+			'true'        => __( 'True', 'well-actually' ),
+			'false'       => __( 'False', 'well-actually' ),
+			'debatable'   => __( 'Debatable', 'well-actually' ),
+			'excluded'    => __( 'Excluded', 'well-actually' ),
 		);
 		?>
 		<select name="wellactually_swipe_filter">
