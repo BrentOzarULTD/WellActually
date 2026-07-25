@@ -201,7 +201,22 @@ class WellActually_AI {
 				break;
 			}
 
-			$tried    = array_merge( $tried, $candidates );
+			// The route-level edit_posts check only establishes that the caller
+			// may edit some posts. Authors and custom roles may not edit every
+			// published post returned by a site-wide query, so verify the
+			// mapped capability for every candidate before changing queue or
+			// post meta. Keep rejected IDs in $tried so later rounds make
+			// progress instead of selecting them repeatedly.
+			$tried      = array_merge( $tried, $candidates );
+			$candidates = array_values(
+				array_filter(
+					$candidates,
+					static function ( $post_id ) {
+						return current_user_can( 'edit_post', $post_id );
+					}
+				)
+			);
+
 			$admitted = array_merge( $admitted, WellActually_AI_Queue::admit( $candidates, $batch_id ) );
 		}
 
@@ -287,13 +302,13 @@ class WellActually_AI {
 	 * REST: process the next queued post (one per call).
 	 *
 	 * @param WP_REST_Request $request Request.
-	 * @return WP_REST_Response
+	 * @return WP_REST_Response|WP_Error
 	 */
 	public function handle_process( WP_REST_Request $request ) {
 		$batch_id = (string) $request->get_param( 'batch' );
 
 		if ( '' === $batch_id ) {
-			return new WP_Error( 'wellactually_missing_batch', __( 'A batch id is required.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_missing_batch', __( 'A batch id is required.', 'well-actually' ), array( 'status' => 400 ) );
 		}
 
 		$claim = WellActually_AI_Queue::claim( $batch_id, WellActually_Settings::ai_concurrency() );
@@ -319,7 +334,22 @@ class WellActually_AI {
 
 		if ( is_array( $claim ) ) {
 			$post_id = (int) $claim['post_id'];
-			$result  = self::draft_for_post( $post_id, $claim['token'] );
+
+			// A batch identifier is not authorization. Another logged-in user
+			// could learn one, or a user's capabilities could change between
+			// enqueueing and processing. Release the claim untouched unless
+			// this caller may edit the exact post it would draft and update.
+			if ( ! current_user_can( 'edit_post', $post_id ) ) {
+				WellActually_AI_Queue::release( $post_id, $claim['token'] );
+
+				return new WP_Error(
+					'wellactually_cannot_edit_post',
+					__( 'You are not allowed to draft this post.', 'well-actually' ),
+					array( 'status' => 403 )
+				);
+			}
+
+			$result = self::draft_for_post( $post_id, $claim['token'] );
 
 			$processed = array_merge(
 				array(
@@ -704,7 +734,7 @@ class WellActually_AI {
 		if ( null !== $claim_token && ! WellActually_AI_Queue::complete( $post_id, $claim_token ) ) {
 			return array(
 				'status' => 'stale',
-				'error'  => __( 'This post was reassigned to another drafting run; result discarded.', 'wellactually' ),
+				'error'  => __( 'This post was reassigned to another drafting run; result discarded.', 'well-actually' ),
 			);
 		}
 
@@ -729,7 +759,7 @@ class WellActually_AI {
 	private static function generate_draft( $post_id ) {
 		$post = get_post( $post_id );
 		if ( ! $post || 'post' !== $post->post_type ) {
-			return array( 'error' => __( 'Invalid post.', 'wellactually' ) );
+			return array( 'error' => __( 'Invalid post.', 'well-actually' ) );
 		}
 
 		$provider = wellactually_get_setting( 'ai_provider', '' );
@@ -751,10 +781,10 @@ class WellActually_AI {
 		}
 
 		if ( ! function_exists( 'wp_supports_ai' ) || ! wp_supports_ai() ) {
-			return array( 'error' => __( 'AI is not available in this environment.', 'wellactually' ) );
+			return array( 'error' => __( 'AI is not available in this environment.', 'well-actually' ) );
 		}
 		if ( '' === $provider ) {
-			return array( 'error' => __( 'No AI provider is selected in settings.', 'wellactually' ) );
+			return array( 'error' => __( 'No AI provider is selected in settings.', 'well-actually' ) );
 		}
 
 		// The WP AI client wrapper uses snake_case method names (it translates
@@ -807,12 +837,12 @@ class WellActually_AI {
 			return self::describe_failure( $json->get_error_message() );
 		}
 		if ( ! is_string( $json ) ) {
-			return array( 'error' => __( 'The AI returned an unexpected response type.', 'wellactually' ) );
+			return array( 'error' => __( 'The AI returned an unexpected response type.', 'well-actually' ) );
 		}
 
 		$data = self::parse_json_object( $json );
 		if ( ! is_array( $data ) || empty( $data['statement'] ) || empty( $data['verdict'] ) ) {
-			return array( 'error' => __( 'The AI returned an unexpected response.', 'wellactually' ) );
+			return array( 'error' => __( 'The AI returned an unexpected response.', 'well-actually' ) );
 		}
 
 		return array( 'data' => $data );
@@ -865,7 +895,7 @@ class WellActually_AI {
 		$verdict   = isset( $data['verdict'] ) ? sanitize_text_field( $data['verdict'] ) : '';
 
 		if ( '' === $statement || ! in_array( $verdict, WellActually_Meta::deck_verdicts(), true ) ) {
-			return self::store_error( $post_id, __( 'The AI returned an incomplete draft.', 'wellactually' ) );
+			return self::store_error( $post_id, __( 'The AI returned an incomplete draft.', 'well-actually' ) );
 		}
 
 		update_post_meta( $post_id, WellActually_Meta::AI_STATEMENT_KEY, $statement );

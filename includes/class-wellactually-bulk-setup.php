@@ -61,8 +61,8 @@ class WellActually_Bulk_Setup {
 	public function register_page() {
 		$this->hook = add_submenu_page(
 			'edit.php',
-			__( 'Well, Actually...', 'wellactually' ),
-			__( 'Well, Actually...', 'wellactually' ),
+			__( 'Well, Actually...', 'well-actually' ),
+			__( 'Well, Actually...', 'well-actually' ),
 			'edit_posts',
 			self::MENU_SLUG,
 			array( $this, 'render_page' )
@@ -123,27 +123,27 @@ class WellActually_Bulk_Setup {
 					)
 				),
 				'i18n'        => array(
-					'queuing'           => __( 'Queuing…', 'wellactually' ),
-					'nothingToDraft'    => __( 'No un-drafted posts match this filter.', 'wellactually' ),
+					'queuing'           => __( 'Queuing…', 'well-actually' ),
+					'nothingToDraft'    => __( 'No un-drafted posts match this filter.', 'well-actually' ),
 					/* translators: %1$s: number of posts drafted so far */
-					'countDrafted'      => __( '%1$s drafted', 'wellactually' ),
+					'countDrafted'      => __( '%1$s drafted', 'well-actually' ),
 					/* translators: %1$s: number of posts that failed, always 1 here */
-					'countError'        => __( '%1$s error', 'wellactually' ),
+					'countError'        => __( '%1$s error', 'well-actually' ),
 					/* translators: %1$s: number of posts that failed */
-					'countErrors'       => __( '%1$s errors', 'wellactually' ),
+					'countErrors'       => __( '%1$s errors', 'well-actually' ),
 					/* translators: %1$s: number of posts whose outcome is unknown */
-					'countUnconfirmed'  => __( '%1$s unconfirmed', 'wellactually' ),
+					'countUnconfirmed'  => __( '%1$s unconfirmed', 'well-actually' ),
 					/* translators: separator between the parts of a progress summary, e.g. "3 drafted, 1 error" */
-					'listSeparator'     => __( ', ', 'wellactually' ),
+					'listSeparator'     => __( ', ', 'well-actually' ),
 					/* translators: 1: posts handled so far, 2: posts in this run, 3: summary such as "3 drafted, 1 error" */
-					'drafting'          => __( 'Drafting… %1$s of %2$s — %3$s', 'wellactually' ),
-					'rateLimited'       => __( 'Your AI provider said you’re sending too many requests at a time, so we stopped here. Try again later.', 'wellactually' ),
+					'drafting'          => __( 'Drafting… %1$s of %2$s — %3$s', 'well-actually' ),
+					'rateLimited'       => __( 'Your AI provider said you’re sending too many requests at a time, so we stopped here. Try again later.', 'well-actually' ),
 					/* translators: 1: summary such as "3 drafted, 1 error", 2: number of posts still queued */
-					'stoppedEarly'      => __( 'Stopped early — %1$s, %2$s still queued. Click Draft with AI again to resume.', 'wellactually' ),
+					'stoppedEarly'      => __( 'Stopped early — %1$s, %2$s still queued. Click Draft with AI again to resume.', 'well-actually' ),
 					/* translators: %1$s: summary such as "3 drafted, 1 error" */
-					'finished'          => __( 'Done — %1$s.', 'wellactually' ),
-					'reviewSuggestions' => __( 'Review suggestions', 'wellactually' ),
-					'startFailed'       => __( 'Could not start drafting. Please try again.', 'wellactually' ),
+					'finished'          => __( 'Done — %1$s.', 'well-actually' ),
+					'reviewSuggestions' => __( 'Review suggestions', 'well-actually' ),
+					'startFailed'       => __( 'Could not start drafting. Please try again.', 'well-actually' ),
 				),
 			)
 		);
@@ -704,7 +704,7 @@ class WellActually_Bulk_Setup {
 		}
 
 		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_die( esc_html__( 'You are not allowed to edit posts.', 'wellactually' ) );
+			wp_die( esc_html__( 'You are not allowed to edit posts.', 'well-actually' ) );
 		}
 
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each field is sanitized at the point of use below, and the verdict is allow-listed.
@@ -840,8 +840,8 @@ class WellActually_Bulk_Setup {
 		$query = $this->build_query( $args );
 
 		echo '<div class="wrap wa-bulk-setup">';
-		echo '<h1>' . esc_html__( 'Well, Actually...', 'wellactually' ) . '</h1>';
-		echo '<p class="description">' . esc_html__( 'Add a swipe statement and mark it True, False, or Debatable — or exclude a post from swipe mode entirely. Fill in as many as you like, then Save at the bottom.', 'wellactually' ) . '</p>';
+		echo '<h1>' . esc_html__( 'Well, Actually...', 'well-actually' ) . '</h1>';
+		echo '<p class="description">' . esc_html__( 'Add a swipe statement and mark it True, False, or Debatable — or exclude a post from swipe mode entirely. Fill in as many as you like, then Save at the bottom.', 'well-actually' ) . '</p>';
 
 		$this->render_notice();
 		$this->render_filters( $args, $query );
@@ -870,22 +870,22 @@ class WellActually_Bulk_Setup {
 		$parts = array();
 		if ( $configured ) {
 			/* translators: %d: number of posts */
-			$parts[] = sprintf( _n( '%d post set up', '%d posts set up', $configured, 'wellactually' ), $configured );
+			$parts[] = sprintf( _n( '%d post set up', '%d posts set up', $configured, 'well-actually' ), $configured );
 		}
 		if ( $excluded ) {
 			/* translators: %d: number of posts */
-			$parts[] = sprintf( _n( '%d excluded', '%d excluded', $excluded, 'wellactually' ), $excluded );
+			$parts[] = sprintf( _n( '%d excluded', '%d excluded', $excluded, 'well-actually' ), $excluded );
 		}
 		if ( $skipped ) {
 			/* translators: %d: number of posts */
-			$parts[] = sprintf( _n( '%d skipped', '%d skipped', $skipped, 'wellactually' ), $skipped );
+			$parts[] = sprintf( _n( '%d skipped', '%d skipped', $skipped, 'well-actually' ), $skipped );
 		}
 		if ( $cleared ) {
 			/* translators: %d: number of posts */
-			$parts[] = sprintf( _n( '%d cleared', '%d cleared', $cleared, 'wellactually' ), $cleared );
+			$parts[] = sprintf( _n( '%d cleared', '%d cleared', $cleared, 'well-actually' ), $cleared );
 		}
 
-		$message = $parts ? implode( ', ', $parts ) . '.' : __( 'No changes were made.', 'wellactually' );
+		$message = $parts ? implode( ', ', $parts ) . '.' : __( 'No changes were made.', 'well-actually' );
 
 		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $message ) . '</p></div>';
 
@@ -897,7 +897,7 @@ class WellActually_Bulk_Setup {
 						'%d post needs both a statement and a verdict — left unchanged.',
 						'%d posts need both a statement and a verdict — left unchanged.',
 						$incomplete,
-						'wellactually'
+						'well-actually'
 					),
 					$incomplete
 				)
@@ -919,17 +919,17 @@ class WellActually_Bulk_Setup {
 		}
 
 		echo '<div class="wa-ai-panel">';
-		echo '<h2>' . esc_html__( 'Draft with AI', 'wellactually' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Draft with AI', 'well-actually' ) . '</h2>';
 
 		if ( ! WellActually_AI::is_available() ) {
-			$settings_url = admin_url( 'options-general.php?page=wellactually' );
+			$settings_url = admin_url( 'options-general.php?page=' . WellActually_Settings::MENU_SLUG );
 			echo '<p>';
 			if ( empty( $providers ) ) {
-				esc_html_e( 'No AI provider is configured yet.', 'wellactually' );
+				esc_html_e( 'No AI provider is configured yet.', 'well-actually' );
 			} else {
-				esc_html_e( 'Choose a configured AI provider and model to enable drafting.', 'wellactually' );
+				esc_html_e( 'Choose a configured AI provider and model to enable drafting.', 'well-actually' );
 			}
-			echo ' <a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'Open Well, Actually... settings', 'wellactually' ) . '</a>';
+			echo ' <a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'Open Well, Actually... settings', 'well-actually' ) . '</a>';
 			echo '</p></div>';
 			return;
 		}
@@ -943,8 +943,8 @@ class WellActually_Bulk_Setup {
 			$default_model = WellActually_AI::preferred_model_for_provider( $provider_id );
 			$model_label   = '' !== $default_model
 				/* translators: %s: model id */
-				? sprintf( __( '%s, the provider default', 'wellactually' ), $default_model )
-				: __( 'provider default', 'wellactually' );
+				? sprintf( __( '%s, the provider default', 'well-actually' ), $default_model )
+				: __( 'provider default', 'well-actually' );
 		} else {
 			$model_label = $model;
 		}
@@ -952,7 +952,7 @@ class WellActually_Bulk_Setup {
 		echo '<p class="description">';
 		printf(
 			/* translators: 1: provider name, 2: model id */
-			esc_html__( 'Sends needs-setup posts to %1$s (%2$s) to draft a statement and verdict. Suggestions appear here for your review — nothing goes live until you Save it.', 'wellactually' ),
+			esc_html__( 'Sends needs-setup posts to %1$s (%2$s) to draft a statement and verdict. Suggestions appear here for your review — nothing goes live until you Save it.', 'well-actually' ),
 			'<strong>' . esc_html( $provider_name ) . '</strong>',
 			esc_html( $model_label )
 		);
@@ -963,24 +963,24 @@ class WellActually_Bulk_Setup {
 			echo '<p class="wa-ai-model-warning">';
 			printf(
 				/* translators: %s: model id */
-				esc_html__( '%s does not advertise schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent.', 'wellactually' ),
+				esc_html__( '%s does not advertise schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent.', 'well-actually' ),
 				'<strong>' . esc_html( $effective ) . '</strong>'
 			);
-			echo ' <a href="' . esc_url( admin_url( 'options-general.php?page=wellactually&tab=setup' ) ) . '">' . esc_html__( 'Change the model', 'wellactually' ) . '</a>';
+			echo ' <a href="' . esc_url( admin_url( 'options-general.php?page=' . WellActually_Settings::MENU_SLUG . '&tab=setup' ) ) . '">' . esc_html__( 'Change the model', 'well-actually' ) . '</a>';
 			echo '</p>';
 		}
 		?>
 		<div class="wa-ai-controls">
-			<label for="wa-ai-count"><?php esc_html_e( 'How many to draft:', 'wellactually' ); ?></label>
+			<label for="wa-ai-count"><?php esc_html_e( 'How many to draft:', 'well-actually' ); ?></label>
 			<input type="number" id="wa-ai-count" value="10" min="1" max="200" step="1" />
 			<?php if ( $args['cat'] > 0 && $args['author'] > 0 ) : ?>
-				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected category and author)', 'wellactually' ); ?></span>
+				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected category and author)', 'well-actually' ); ?></span>
 			<?php elseif ( $args['cat'] > 0 ) : ?>
-				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected category)', 'wellactually' ); ?></span>
+				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected category)', 'well-actually' ); ?></span>
 			<?php elseif ( $args['author'] > 0 ) : ?>
-				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected author)', 'wellactually' ); ?></span>
+				<span class="wa-ai-filter-note"><?php esc_html_e( '(limited to the selected author)', 'well-actually' ); ?></span>
 			<?php endif; ?>
-			<button type="button" class="button button-secondary" id="wa-ai-draft-btn"><?php esc_html_e( 'Draft with AI', 'wellactually' ); ?></button>
+			<button type="button" class="button button-secondary" id="wa-ai-draft-btn"><?php esc_html_e( 'Draft with AI', 'well-actually' ); ?></button>
 			<span class="wa-ai-progress" id="wa-ai-progress" aria-live="polite"></span>
 		</div>
 		<?php
@@ -998,10 +998,10 @@ class WellActually_Bulk_Setup {
 			echo '<p class="wa-ai-standing">';
 			printf(
 				/* translators: %d: number of ready suggestions */
-				esc_html( _n( '%d suggestion ready to review.', '%d suggestions ready to review.', $counts['ready'], 'wellactually' ) ),
+				esc_html( _n( '%d suggestion ready to review.', '%d suggestions ready to review.', $counts['ready'], 'well-actually' ) ),
 				(int) $counts['ready']
 			);
-			echo ' <a href="' . esc_url( $review_url ) . '">' . esc_html__( 'Review them', 'wellactually' ) . '</a>';
+			echo ' <a href="' . esc_url( $review_url ) . '">' . esc_html__( 'Review them', 'well-actually' ) . '</a>';
 			echo '</p>';
 		}
 
@@ -1016,29 +1016,29 @@ class WellActually_Bulk_Setup {
 	 */
 	private function render_filters( $args, $query ) {
 		$statuses = array(
-			'needs_setup' => __( 'Needs to be set up', 'wellactually' ),
-			'has_ai'      => __( 'Has AI suggestions', 'wellactually' ),
-			'in_deck'     => __( 'In swipe deck', 'wellactually' ),
-			'skipped'     => __( 'Skipped for Now', 'wellactually' ),
-			'excluded'    => __( 'Excluded', 'wellactually' ),
-			'all'         => __( 'All posts', 'wellactually' ),
+			'needs_setup' => __( 'Needs to be set up', 'well-actually' ),
+			'has_ai'      => __( 'Has AI suggestions', 'well-actually' ),
+			'in_deck'     => __( 'In swipe deck', 'well-actually' ),
+			'skipped'     => __( 'Skipped for Now', 'well-actually' ),
+			'excluded'    => __( 'Excluded', 'well-actually' ),
+			'all'         => __( 'All posts', 'well-actually' ),
 		);
 		?>
 		<form method="get" class="wa-filters">
 			<input type="hidden" name="page" value="<?php echo esc_attr( self::MENU_SLUG ); ?>" />
 
-			<label for="wellactually_status" class="screen-reader-text"><?php esc_html_e( 'Status', 'wellactually' ); ?></label>
+			<label for="wellactually_status" class="screen-reader-text"><?php esc_html_e( 'Status', 'well-actually' ); ?></label>
 			<select name="wellactually_status" id="wellactually_status">
 				<?php foreach ( $statuses as $value => $label ) : ?>
 					<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $args['status'], $value ); ?>><?php echo esc_html( $label ); ?></option>
 				<?php endforeach; ?>
 			</select>
 
-			<label for="wellactually_cat" class="screen-reader-text"><?php esc_html_e( 'Category', 'wellactually' ); ?></label>
+			<label for="wellactually_cat" class="screen-reader-text"><?php esc_html_e( 'Category', 'well-actually' ); ?></label>
 			<?php
 			wp_dropdown_categories(
 				array(
-					'show_option_all' => __( 'All categories', 'wellactually' ),
+					'show_option_all' => __( 'All categories', 'well-actually' ),
 					'name'            => 'wellactually_cat',
 					'id'              => 'wellactually_cat',
 					'selected'        => $args['cat'],
@@ -1049,11 +1049,11 @@ class WellActually_Bulk_Setup {
 			);
 			?>
 
-			<label for="wellactually_author" class="screen-reader-text"><?php esc_html_e( 'Author', 'wellactually' ); ?></label>
+			<label for="wellactually_author" class="screen-reader-text"><?php esc_html_e( 'Author', 'well-actually' ); ?></label>
 			<?php
 			wp_dropdown_users(
 				array(
-					'show_option_all'  => __( 'All authors', 'wellactually' ),
+					'show_option_all'  => __( 'All authors', 'well-actually' ),
 					'name'             => 'wellactually_author',
 					'id'               => 'wellactually_author',
 					'selected'         => $args['author'],
@@ -1065,29 +1065,29 @@ class WellActually_Bulk_Setup {
 			);
 			?>
 
-			<label for="wellactually_orderby" class="screen-reader-text"><?php esc_html_e( 'Sort by', 'wellactually' ); ?></label>
+			<label for="wellactually_orderby" class="screen-reader-text"><?php esc_html_e( 'Sort by', 'well-actually' ); ?></label>
 			<select name="wellactually_orderby" id="wellactually_orderby">
-				<option value="date" <?php selected( $args['orderby'], 'date' ); ?>><?php esc_html_e( 'Date published', 'wellactually' ); ?></option>
-				<option value="modified" <?php selected( $args['orderby'], 'modified' ); ?>><?php esc_html_e( 'Date modified', 'wellactually' ); ?></option>
-				<option value="comment_count" <?php selected( $args['orderby'], 'comment_count' ); ?>><?php esc_html_e( 'Comment count', 'wellactually' ); ?></option>
+				<option value="date" <?php selected( $args['orderby'], 'date' ); ?>><?php esc_html_e( 'Date published', 'well-actually' ); ?></option>
+				<option value="modified" <?php selected( $args['orderby'], 'modified' ); ?>><?php esc_html_e( 'Date modified', 'well-actually' ); ?></option>
+				<option value="comment_count" <?php selected( $args['orderby'], 'comment_count' ); ?>><?php esc_html_e( 'Comment count', 'well-actually' ); ?></option>
 				<?php if ( $this->has_jetpack_views() ) : ?>
-					<option value="views_30" <?php selected( $args['orderby'], 'views_30' ); ?>><?php esc_html_e( 'Views: 30 days', 'wellactually' ); ?></option>
+					<option value="views_30" <?php selected( $args['orderby'], 'views_30' ); ?>><?php esc_html_e( 'Views: 30 days', 'well-actually' ); ?></option>
 				<?php endif; ?>
 			</select>
 
-			<label for="wellactually_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'wellactually' ); ?></label>
+			<label for="wellactually_order" class="screen-reader-text"><?php esc_html_e( 'Order', 'well-actually' ); ?></label>
 			<select name="wellactually_order" id="wellactually_order">
-				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php esc_html_e( 'Descending', 'wellactually' ); ?></option>
-				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php esc_html_e( 'Ascending', 'wellactually' ); ?></option>
+				<option value="DESC" <?php selected( $args['order'], 'DESC' ); ?>><?php esc_html_e( 'Descending', 'well-actually' ); ?></option>
+				<option value="ASC" <?php selected( $args['order'], 'ASC' ); ?>><?php esc_html_e( 'Ascending', 'well-actually' ); ?></option>
 			</select>
 
-			<?php submit_button( __( 'Filter', 'wellactually' ), 'secondary', '', false ); ?>
+			<?php submit_button( __( 'Filter', 'well-actually' ), 'secondary', '', false ); ?>
 
 			<span class="wa-count">
 				<?php
 				printf(
 					/* translators: %d: number of matching posts */
-					esc_html( _n( '%d post', '%d posts', (int) $query->found_posts, 'wellactually' ) ),
+					esc_html( _n( '%d post', '%d posts', (int) $query->found_posts, 'well-actually' ) ),
 					(int) $query->found_posts
 				);
 				?>
@@ -1104,15 +1104,15 @@ class WellActually_Bulk_Setup {
 	 */
 	private function render_form( $args, $query ) {
 		if ( ! $query->have_posts() ) {
-			echo '<p>' . esc_html__( 'No posts match this filter.', 'wellactually' ) . '</p>';
+			echo '<p>' . esc_html__( 'No posts match this filter.', 'well-actually' ) . '</p>';
 			return;
 		}
 
 		$verdict_options = array(
-			''          => __( '— pick one —', 'wellactually' ),
-			'true'      => __( 'True', 'wellactually' ),
-			'false'     => __( 'False', 'wellactually' ),
-			'debatable' => __( 'Debatable', 'wellactually' ),
+			''          => __( '— pick one —', 'well-actually' ),
+			'true'      => __( 'True', 'well-actually' ),
+			'false'     => __( 'False', 'well-actually' ),
+			'debatable' => __( 'Debatable', 'well-actually' ),
 		);
 		$page_post_ids   = wp_list_pluck( $query->posts, 'ID' );
 		$views           = $this->jetpack_views_30_days( $page_post_ids );
@@ -1130,22 +1130,22 @@ class WellActually_Bulk_Setup {
 			<table class="widefat striped wa-bulk-table">
 				<thead>
 					<tr>
-						<th class="wa-col-post"><?php esc_html_e( 'Post', 'wellactually' ); ?></th>
-						<th class="wa-col-views"><?php esc_html_e( 'Views: 30 days', 'wellactually' ); ?></th>
-						<th class="wa-col-statement"><?php esc_html_e( 'Swipe Statement', 'wellactually' ); ?></th>
-						<th class="wa-col-verdict"><?php esc_html_e( 'Verdict', 'wellactually' ); ?></th>
+						<th class="wa-col-post"><?php esc_html_e( 'Post', 'well-actually' ); ?></th>
+						<th class="wa-col-views"><?php esc_html_e( 'Views: 30 days', 'well-actually' ); ?></th>
+						<th class="wa-col-statement"><?php esc_html_e( 'Swipe Statement', 'well-actually' ); ?></th>
+						<th class="wa-col-verdict"><?php esc_html_e( 'Verdict', 'well-actually' ); ?></th>
 						<th class="wa-col-skip">
-							<?php esc_html_e( 'Skip for Now', 'wellactually' ); ?>
+							<?php esc_html_e( 'Skip for Now', 'well-actually' ); ?>
 							<label class="wa-check-all-label">
-								<input type="checkbox" class="wa-check-all-skip" aria-label="<?php esc_attr_e( 'Select Skip for Now for all posts on this page', 'wellactually' ); ?>" />
-								<span><?php esc_html_e( 'All', 'wellactually' ); ?></span>
+								<input type="checkbox" class="wa-check-all-skip" aria-label="<?php esc_attr_e( 'Select Skip for Now for all posts on this page', 'well-actually' ); ?>" />
+								<span><?php esc_html_e( 'All', 'well-actually' ); ?></span>
 							</label>
 						</th>
 						<th class="wa-col-exclude">
-							<?php esc_html_e( 'Never', 'wellactually' ); ?>
+							<?php esc_html_e( 'Never', 'well-actually' ); ?>
 							<label class="wa-check-all-label">
-								<input type="checkbox" class="wa-check-all-exclude" aria-label="<?php esc_attr_e( 'Select Never for all posts on this page', 'wellactually' ); ?>" />
-								<span><?php esc_html_e( 'All', 'wellactually' ); ?></span>
+								<input type="checkbox" class="wa-check-all-exclude" aria-label="<?php esc_attr_e( 'Select Never for all posts on this page', 'well-actually' ); ?>" />
+								<span><?php esc_html_e( 'All', 'well-actually' ); ?></span>
 							</label>
 						</th>
 					</tr>
@@ -1192,13 +1192,13 @@ class WellActually_Bulk_Setup {
 						<tr class="<?php echo esc_attr( $row_classes ); ?>" data-post="<?php echo esc_attr( $post_id ); ?>">
 							<td class="wa-col-post">
 								<strong>
-									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? WellActually_Meta::plain_text( get_the_title() ) : __( '(no title)', 'wellactually' ) ); ?></a>
+									<a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>" target="_blank" rel="noopener"><?php echo esc_html( get_the_title() ? WellActually_Meta::plain_text( get_the_title() ) : __( '(no title)', 'well-actually' ) ); ?></a>
 								</strong>
 								<div class="wa-post-meta">
 									<?php
 									printf(
 										/* translators: 1: post date, 2: post author */
-										esc_html__( '%1$s - %2$s', 'wellactually' ),
+										esc_html__( '%1$s - %2$s', 'well-actually' ),
 										esc_html( get_the_date() ),
 										esc_html( get_the_author() )
 									);
@@ -1209,30 +1209,30 @@ class WellActually_Bulk_Setup {
 							<td class="wa-col-views">
 								<?php if ( $has_views ) : ?>
 									<span class="dashicons dashicons-visibility" aria-hidden="true"></span>
-									<span class="screen-reader-text"><?php esc_html_e( 'Views in the last 30 days:', 'wellactually' ); ?></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Views in the last 30 days:', 'well-actually' ); ?></span>
 									<?php echo esc_html( $this->format_view_count( isset( $views[ $post_id ] ) ? $views[ $post_id ] : 0 ) ); ?>
 								<?php else : ?>
 									<span aria-hidden="true">&mdash;</span>
-									<span class="screen-reader-text"><?php esc_html_e( 'Jetpack Stats is unavailable.', 'wellactually' ); ?></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Jetpack Stats is unavailable.', 'well-actually' ); ?></span>
 								<?php endif; ?>
 							</td>
 							<td class="wa-col-statement">
 								<?php if ( $is_ai ) : ?>
-									<span class="wa-ai-badge"><?php esc_html_e( 'AI suggestion', 'wellactually' ); ?></span>
+									<span class="wa-ai-badge"><?php esc_html_e( 'AI suggestion', 'well-actually' ); ?></span>
 								<?php elseif ( WellActually_AI::STATUS_ERROR === $ai_status && '' !== $ai_error ) : ?>
 									<a
 										class="wa-ai-error"
-										href="<?php echo esc_url( admin_url( 'options-general.php?page=wellactually&tab=errors' ) ); ?>"
+										href="<?php echo esc_url( admin_url( 'options-general.php?page=' . WellActually_Settings::MENU_SLUG . '&tab=errors' ) ); ?>"
 										target="_blank"
 										rel="noopener"
 										title="<?php echo esc_attr( $ai_error ); ?>"
-									><?php esc_html_e( 'AI error', 'wellactually' ); ?></a>
+									><?php esc_html_e( 'AI error', 'well-actually' ); ?></a>
 								<?php endif; ?>
 								<textarea
 									name="<?php echo esc_attr( $name ); ?>[statement]"
 									rows="2"
 									class="wa-statement-input"
-									placeholder="<?php esc_attr_e( 'e.g. Temp tables are faster than CTEs', 'wellactually' ); ?>"
+									placeholder="<?php esc_attr_e( 'e.g. Temp tables are faster than CTEs', 'well-actually' ); ?>"
 								><?php echo esc_textarea( $excluded ? '' : $statement ); ?></textarea>
 							</td>
 							<td class="wa-col-verdict">
@@ -1245,13 +1245,13 @@ class WellActually_Bulk_Setup {
 							<td class="wa-col-skip">
 								<label class="wa-skip-label">
 									<input type="checkbox" name="<?php echo esc_attr( $name ); ?>[skip]" value="1" class="wa-skip-input" <?php checked( $skipped ); ?> />
-									<span class="screen-reader-text"><?php esc_html_e( 'Skip for now (keep content)', 'wellactually' ); ?></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Skip for now (keep content)', 'well-actually' ); ?></span>
 								</label>
 							</td>
 							<td class="wa-col-exclude">
 								<label class="wa-exclude-label">
 									<input type="checkbox" name="<?php echo esc_attr( $name ); ?>[exclude]" value="1" class="wa-exclude-input" <?php checked( $excluded ); ?> />
-									<span class="screen-reader-text"><?php esc_html_e( 'Never set up for swipe', 'wellactually' ); ?></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Never set up for swipe', 'well-actually' ); ?></span>
 								</label>
 							</td>
 						</tr>
@@ -1261,7 +1261,7 @@ class WellActually_Bulk_Setup {
 
 			<div class="wa-bulk-footer">
 				<?php $this->render_pagination( $args, $query ); ?>
-				<?php submit_button( __( 'Save all on this page', 'wellactually' ), 'primary', 'wellactually_bulk_submit', false ); ?>
+				<?php submit_button( __( 'Save all on this page', 'well-actually' ), 'primary', 'wellactually_bulk_submit', false ); ?>
 			</div>
 		</form>
 		<?php
@@ -1298,8 +1298,8 @@ class WellActually_Bulk_Setup {
 				'format'    => '',
 				'current'   => $args['paged'],
 				'total'     => $total_pages,
-				'prev_text' => __( '&laquo; Previous', 'wellactually' ),
-				'next_text' => __( 'Next &raquo;', 'wellactually' ),
+				'prev_text' => __( '&laquo; Previous', 'well-actually' ),
+				'next_text' => __( 'Next &raquo;', 'well-actually' ),
 				'type'      => 'plain',
 			)
 		);

@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,7 +38,7 @@ The optional "Draft with AI" feature sends post content to an external AI servic
 
 **Where it goes:** to the AI provider *you* select and configure. This plugin does not bundle or default to any vendor — it talks to whatever provider plugin the site administrator has registered with the WordPress AI client (see the [WordPress AI documentation](https://make.wordpress.org/ai/)) and chosen in Settings → Well, Actually... Examples include Nano-GPT or any other AI-client-compatible provider. You will generally need your own account and API key with that provider.
 
-**Terms and privacy:** because the destination is your chosen provider, its terms of service and privacy policy govern the transfer — consult the documentation of the provider plugin you install (for example, [Nano-GPT's terms](https://nano-gpt.com/terms) and [privacy policy](https://nano-gpt.com/privacy) if you choose Nano-GPT). Review them before drafting content you consider sensitive.
+**Terms and privacy:** because the destination is your chosen provider, its terms of service and privacy policy govern the transfer — consult the documentation of the provider plugin you install (for example, [Nano-GPT's terms](https://nano-gpt.com/legal/terms-of-service) and [privacy policy](https://nano-gpt.com/legal/privacy-policy) if you choose Nano-GPT). Review them before drafting content you consider sensitive.
 
 **What comes back:** a suggested swipe statement and verdict, stored as a draft suggestion on the post. Nothing goes live until a human reviews and saves it.
 
@@ -80,6 +80,12 @@ Yes. Under Settings → "Well, Actually..." → Social sharing, set the preview 
 4. The Reports scoreboard shows total swipes and right and wrong percentages for every card in the deck.
 
 == Changelog ==
+
+= 1.8.1 =
+* Add configurable social-sharing preview title, description, and image for the swipe page.
+* Require per-post edit permission before AI drafting can queue or process a post.
+* Match the WordPress.org `well-actually` text domain and translation catalog name.
+* Update Nano-GPT's Terms of Service and Privacy Policy links.
 
 = 1.8.0 =
 * Internal rename, no change to how the plugin works. Everything the plugin owns behind the scenes — its settings, its database tables, the data stored against each post, and the names other plugins can hook into — moved from the two-letter "wa" prefix to the full "wellactually" one, because WordPress.org asks plugins to use a name that can't collide with anyone else's.

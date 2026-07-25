@@ -50,9 +50,9 @@ class WellActually_Reports {
 	 */
 	private static function verdict_labels() {
 		return array(
-			'true'      => __( 'True', 'wellactually' ),
-			'false'     => __( 'False', 'wellactually' ),
-			'debatable' => __( 'Debatable', 'wellactually' ),
+			'true'      => __( 'True', 'well-actually' ),
+			'false'     => __( 'False', 'well-actually' ),
+			'debatable' => __( 'Debatable', 'well-actually' ),
 		);
 	}
 
@@ -92,12 +92,12 @@ class WellActually_Reports {
 				'nonce'    => wp_create_nonce( 'wp_rest' ),
 				'verdicts' => self::verdict_labels(),
 				'i18n'     => array(
-					'statementLabel' => __( 'Swipe headline', 'wellactually' ),
-					'verdictLabel'   => __( 'Right answer', 'wellactually' ),
-					'update'         => __( 'Update', 'wellactually' ),
-					'cancel'         => __( 'Cancel', 'wellactually' ),
-					'saving'         => __( 'Saving…', 'wellactually' ),
-					'saveFailed'     => __( 'Could not save.', 'wellactually' ),
+					'statementLabel' => __( 'Swipe headline', 'well-actually' ),
+					'verdictLabel'   => __( 'Right answer', 'well-actually' ),
+					'update'         => __( 'Update', 'well-actually' ),
+					'cancel'         => __( 'Cancel', 'well-actually' ),
+					'saving'         => __( 'Saving…', 'well-actually' ),
+					'saveFailed'     => __( 'Could not save.', 'well-actually' ),
 				),
 			)
 		);
@@ -149,23 +149,23 @@ class WellActually_Reports {
 		// The route-level check covers "can edit posts at all"; this covers
 		// "can edit *this* post".
 		if ( ! current_user_can( 'edit_post', $post_id ) ) {
-			return new WP_Error( 'wellactually_forbidden', __( 'You are not allowed to edit that post.', 'wellactually' ), array( 'status' => 403 ) );
+			return new WP_Error( 'wellactually_forbidden', __( 'You are not allowed to edit that post.', 'well-actually' ), array( 'status' => 403 ) );
 		}
 
 		$post = get_post( $post_id );
 		if ( ! $post || 'post' !== $post->post_type ) {
-			return new WP_Error( 'wellactually_invalid_post', __( 'Post not found.', 'wellactually' ), array( 'status' => 404 ) );
+			return new WP_Error( 'wellactually_invalid_post', __( 'Post not found.', 'well-actually' ), array( 'status' => 404 ) );
 		}
 
 		$statement = (string) $request->get_param( 'statement' );
 		$verdict   = (string) $request->get_param( 'verdict' );
 
 		if ( ! in_array( $verdict, WellActually_Meta::deck_verdicts(), true ) ) {
-			return new WP_Error( 'wellactually_invalid_verdict', __( 'Pick True, False, or Debatable.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_invalid_verdict', __( 'Pick True, False, or Debatable.', 'well-actually' ), array( 'status' => 400 ) );
 		}
 
 		if ( '' === trim( $statement ) ) {
-			return new WP_Error( 'wellactually_empty_statement', __( 'The swipe headline can\'t be empty.', 'wellactually' ), array( 'status' => 400 ) );
+			return new WP_Error( 'wellactually_empty_statement', __( 'The swipe headline can\'t be empty.', 'well-actually' ), array( 'status' => 400 ) );
 		}
 
 		$result = WellActually_Meta::apply_meta( $post_id, $statement, $verdict );
@@ -345,7 +345,7 @@ class WellActually_Reports {
 
 		$url = add_query_arg(
 			array(
-				'page'                     => 'wellactually',
+				'page'                     => WellActually_Settings::MENU_SLUG,
 				'tab'                      => 'reports',
 				'wellactually_rep_orderby' => $key,
 				'wellactually_rep_order'   => $next_order,
@@ -375,10 +375,10 @@ class WellActually_Reports {
 		$args = $this->current_args();
 		$page = $this->get_page( $args );
 
-		echo '<p class="description">' . esc_html__( 'Every post currently in the swipe deck, and how players are doing on it. Percentages only mean much once a statement has been swiped a few times.', 'wellactually' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Every post currently in the swipe deck, and how players are doing on it. Percentages only mean much once a statement has been swiped a few times.', 'well-actually' ) . '</p>';
 
 		if ( empty( $page['rows'] ) ) {
-			echo '<p>' . esc_html__( 'No posts are set up for swipe mode yet.', 'wellactually' ) . '</p>';
+			echo '<p>' . esc_html__( 'No posts are set up for swipe mode yet.', 'well-actually' ) . '</p>';
 			return;
 		}
 
@@ -387,13 +387,13 @@ class WellActually_Reports {
 		<table class="widefat striped wa-reports-table">
 			<thead>
 				<tr>
-					<?php $this->sortable_th( 'title', __( 'Post', 'wellactually' ), $args, 'wa-col-post' ); ?>
-					<th class="wa-col-headline"><?php esc_html_e( 'Swipe headline', 'wellactually' ); ?></th>
-					<th class="wa-col-answer"><?php esc_html_e( 'Right answer', 'wellactually' ); ?></th>
+					<?php $this->sortable_th( 'title', __( 'Post', 'well-actually' ), $args, 'wa-col-post' ); ?>
+					<th class="wa-col-headline"><?php esc_html_e( 'Swipe headline', 'well-actually' ); ?></th>
+					<th class="wa-col-answer"><?php esc_html_e( 'Right answer', 'well-actually' ); ?></th>
 					<?php
-					$this->sortable_th( 'swipes', __( 'Swipes', 'wellactually' ), $args, 'wa-col-num' );
-					$this->sortable_th( 'pct_right', __( '% right', 'wellactually' ), $args, 'wa-col-num' );
-					$this->sortable_th( 'pct_wrong', __( '% wrong', 'wellactually' ), $args, 'wa-col-num' );
+					$this->sortable_th( 'swipes', __( 'Swipes', 'well-actually' ), $args, 'wa-col-num' );
+					$this->sortable_th( 'pct_right', __( '% right', 'well-actually' ), $args, 'wa-col-num' );
+					$this->sortable_th( 'pct_wrong', __( '% wrong', 'well-actually' ), $args, 'wa-col-num' );
 					?>
 				</tr>
 			</thead>
@@ -417,8 +417,8 @@ class WellActually_Reports {
 								</a>
 							</strong>
 							<div class="row-actions">
-								<span class="wa-quick-edit"><button type="button" class="button-link wa-quick-edit-btn"><?php esc_html_e( 'Quick Edit', 'wellactually' ); ?></button></span>
-								<span class="wa-edit"> | <a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>"><?php esc_html_e( 'Edit post', 'wellactually' ); ?></a></span>
+								<span class="wa-quick-edit"><button type="button" class="button-link wa-quick-edit-btn"><?php esc_html_e( 'Quick Edit', 'well-actually' ); ?></button></span>
+								<span class="wa-edit"> | <a href="<?php echo esc_url( get_edit_post_link( $post_id ) ); ?>"><?php esc_html_e( 'Edit post', 'well-actually' ); ?></a></span>
 							</div>
 						</td>
 						<td class="wa-col-headline">
@@ -455,7 +455,7 @@ class WellActually_Reports {
 
 		$base = add_query_arg(
 			array(
-				'page'                     => 'wellactually',
+				'page'                     => WellActually_Settings::MENU_SLUG,
 				'tab'                      => 'reports',
 				'wellactually_rep_orderby' => $args['orderby'],
 				'wellactually_rep_order'   => $args['order'],
@@ -470,8 +470,8 @@ class WellActually_Reports {
 				'format'    => '',
 				'current'   => $args['paged'],
 				'total'     => $pages,
-				'prev_text' => __( '&laquo; Previous', 'wellactually' ),
-				'next_text' => __( 'Next &raquo;', 'wellactually' ),
+				'prev_text' => __( '&laquo; Previous', 'well-actually' ),
+				'next_text' => __( 'Next &raquo;', 'well-actually' ),
 				'type'      => 'plain',
 			)
 		);
@@ -480,7 +480,7 @@ class WellActually_Reports {
 			echo '<div class="tablenav"><div class="tablenav-pages">';
 			printf(
 				'<span class="displaying-num">%s</span> ',
-				esc_html( sprintf( /* translators: %s: number of posts */ _n( '%s post', '%s posts', $total, 'wellactually' ), number_format_i18n( $total ) ) )
+				esc_html( sprintf( /* translators: %s: number of posts */ _n( '%s post', '%s posts', $total, 'well-actually' ), number_format_i18n( $total ) ) )
 			);
 			echo wp_kses_post( $links );
 			echo '</div></div>';

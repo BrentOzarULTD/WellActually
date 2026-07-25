@@ -203,7 +203,7 @@ composer test
 bin/build-release.sh
 ```
 
-The release script creates `dist/wellactually-<version>.zip` containing only the files required by a live WordPress installation.
+The release script creates `dist/well-actually-<version>.zip` containing only the files required by a live WordPress installation, packaged under the assigned WordPress.org slug.
 
 ## License
 

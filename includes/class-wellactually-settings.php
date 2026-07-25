@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class WellActually_Settings {
 
 	const OPTION_NAME = 'wellactually_settings';
+	const MENU_SLUG   = 'wellactually';
 
 	/**
 	 * Singleton instance.
@@ -61,7 +62,7 @@ class WellActually_Settings {
 	 * @return string[]
 	 */
 	public function add_settings_link( $links ) {
-		$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=wellactually' ) ) . '">' . esc_html__( 'Settings', 'wellactually' ) . '</a>';
+		$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=' . self::MENU_SLUG ) ) . '">' . esc_html__( 'Settings', 'well-actually' ) . '</a>';
 		array_unshift( $links, $settings_link );
 		return $links;
 	}
@@ -218,10 +219,10 @@ class WellActually_Settings {
 	 */
 	public function add_settings_page() {
 		$this->hook = add_options_page(
-			__( 'Well, Actually...', 'wellactually' ),
-			__( 'Well, Actually...', 'wellactually' ),
+			__( 'Well, Actually...', 'well-actually' ),
+			__( 'Well, Actually...', 'well-actually' ),
 			'manage_options',
-			'wellactually',
+			self::MENU_SLUG,
 			array( $this, 'render_settings_page' )
 		);
 	}
@@ -287,8 +288,8 @@ class WellActually_Settings {
 				'wellactually-admin-settings',
 				'wellactuallySettings',
 				array(
-					'imageTitle'  => __( 'Choose a social sharing image', 'wellactually' ),
-					'imageButton' => __( 'Use this image', 'wellactually' ),
+					'imageTitle'  => __( 'Choose a social sharing image', 'well-actually' ),
+					'imageButton' => __( 'Use this image', 'well-actually' ),
 				)
 			);
 		}
@@ -317,7 +318,7 @@ class WellActually_Settings {
 
 		add_settings_field(
 			'wellactually_slug',
-			__( 'Swipe page slug', 'wellactually' ),
+			__( 'Swipe page slug', 'well-actually' ),
 			array( $this, 'render_slug_field' ),
 			'wellactually_setup',
 			'wellactually_settings_section'
@@ -325,14 +326,14 @@ class WellActually_Settings {
 
 		add_settings_section(
 			'wellactually_social_section',
-			__( 'Social sharing', 'wellactually' ),
+			__( 'Social sharing', 'well-actually' ),
 			array( $this, 'render_social_section_intro' ),
 			'wellactually_setup'
 		);
 
 		add_settings_field(
 			'wellactually_social_title',
-			__( 'Preview title', 'wellactually' ),
+			__( 'Preview title', 'well-actually' ),
 			array( $this, 'render_social_title_field' ),
 			'wellactually_setup',
 			'wellactually_social_section'
@@ -340,7 +341,7 @@ class WellActually_Settings {
 
 		add_settings_field(
 			'wellactually_social_description',
-			__( 'Preview description', 'wellactually' ),
+			__( 'Preview description', 'well-actually' ),
 			array( $this, 'render_social_description_field' ),
 			'wellactually_setup',
 			'wellactually_social_section'
@@ -348,7 +349,7 @@ class WellActually_Settings {
 
 		add_settings_field(
 			'wellactually_social_image',
-			__( 'Preview image', 'wellactually' ),
+			__( 'Preview image', 'well-actually' ),
 			array( $this, 'render_social_image_field' ),
 			'wellactually_setup',
 			'wellactually_social_section'
@@ -356,14 +357,14 @@ class WellActually_Settings {
 
 		add_settings_section(
 			'wellactually_ai_section',
-			__( 'AI drafting', 'wellactually' ),
+			__( 'AI drafting', 'well-actually' ),
 			array( $this, 'render_ai_section_intro' ),
 			'wellactually_setup'
 		);
 
 		add_settings_field(
 			'wellactually_ai_provider',
-			__( 'AI provider', 'wellactually' ),
+			__( 'AI provider', 'well-actually' ),
 			array( $this, 'render_ai_provider_field' ),
 			'wellactually_setup',
 			'wellactually_ai_section'
@@ -371,7 +372,7 @@ class WellActually_Settings {
 
 		add_settings_field(
 			'wellactually_ai_model',
-			__( 'AI model', 'wellactually' ),
+			__( 'AI model', 'well-actually' ),
 			array( $this, 'render_ai_model_field' ),
 			'wellactually_setup',
 			'wellactually_ai_section'
@@ -379,7 +380,7 @@ class WellActually_Settings {
 
 		add_settings_field(
 			'wellactually_ai_system_prompt',
-			__( 'Drafting instructions', 'wellactually' ),
+			__( 'Drafting instructions', 'well-actually' ),
 			array( $this, 'render_ai_system_prompt_field' ),
 			'wellactually_setup',
 			'wellactually_ai_section'
@@ -387,7 +388,7 @@ class WellActually_Settings {
 
 		add_settings_field(
 			'wellactually_ai_concurrency',
-			__( 'Parallel requests', 'wellactually' ),
+			__( 'Parallel requests', 'well-actually' ),
 			array( $this, 'render_ai_concurrency_field' ),
 			'wellactually_setup',
 			'wellactually_ai_section'
@@ -395,14 +396,14 @@ class WellActually_Settings {
 
 		add_settings_section(
 			'wellactually_diagnostics_section',
-			__( 'Diagnostics', 'wellactually' ),
+			__( 'Diagnostics', 'well-actually' ),
 			'__return_false',
 			'wellactually_setup'
 		);
 
 		add_settings_field(
 			'wellactually_debug_logging',
-			__( 'Logging', 'wellactually' ),
+			__( 'Logging', 'well-actually' ),
 			array( $this, 'render_debug_logging_field' ),
 			'wellactually_setup',
 			'wellactually_diagnostics_section'
@@ -417,7 +418,7 @@ class WellActually_Settings {
 	 */
 	public function handle_rebuild_status() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to do that.', 'wellactually' ) );
+			wp_die( esc_html__( 'You are not allowed to do that.', 'well-actually' ) );
 		}
 
 		check_admin_referer( 'wellactually_rebuild_status' );
@@ -427,7 +428,7 @@ class WellActually_Settings {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
-					'page'                 => 'wellactually',
+					'page'                 => self::MENU_SLUG,
 					'tab'                  => 'setup',
 					'wellactually_rebuilt' => (int) $fixed,
 				),
@@ -446,7 +447,7 @@ class WellActually_Settings {
 	 * flatten into the outer one.
 	 */
 	public function render_rebuild_status_block() {
-		echo '<h2>' . esc_html__( 'Status index', 'wellactually' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Status index', 'well-actually' ) . '</h2>';
 
 		if ( isset( $_GET['wellactually_rebuilt'] ) ) {
 			$fixed = absint( $_GET['wellactually_rebuilt'] );
@@ -454,8 +455,8 @@ class WellActually_Settings {
 			echo esc_html(
 				$fixed > 0
 					/* translators: %d: number of posts corrected */
-					? sprintf( _n( 'Corrected %d post.', 'Corrected %d posts.', $fixed, 'wellactually' ), $fixed )
-					: __( 'Everything already matched — nothing to correct.', 'wellactually' )
+					? sprintf( _n( 'Corrected %d post.', 'Corrected %d posts.', $fixed, 'well-actually' ), $fixed )
+					: __( 'Everything already matched — nothing to correct.', 'well-actually' )
 			);
 			echo '</p>';
 		}
@@ -463,10 +464,10 @@ class WellActually_Settings {
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="wellactually_rebuild_status" />
 			<?php wp_nonce_field( 'wellactually_rebuild_status' ); ?>
-			<?php submit_button( __( 'Rebuild status index', 'wellactually' ), 'secondary', 'submit', false ); ?>
+			<?php submit_button( __( 'Rebuild status index', 'well-actually' ), 'secondary', 'submit', false ); ?>
 		</form>
 		<p class="description">
-			<?php esc_html_e( 'The "Well, Actually..." screen sorts posts into its Needs to be set up / Has AI suggestions / In swipe deck views using a summary field kept alongside each post. If that summary ever gets out of step — a post showing up as needing setup when it\'s already excluded, say, or a drafted suggestion you can\'t reach — this rebuilds it from scratch. Safe to run at any time.', 'wellactually' ); ?>
+			<?php esc_html_e( 'The "Well, Actually..." screen sorts posts into its Needs to be set up / Has AI suggestions / In swipe deck views using a summary field kept alongside each post. If that summary ever gets out of step — a post showing up as needing setup when it\'s already excluded, say, or a drafted suggestion you can\'t reach — this rebuilds it from scratch. Safe to run at any time.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -485,10 +486,10 @@ class WellActually_Settings {
 			placeholder="<?php echo esc_attr( $default ); ?>"
 		><?php echo esc_textarea( $settings['ai_system_prompt'] ); ?></textarea>
 		<p class="description">
-			<?php esc_html_e( 'What the AI is told before it sees each post — the place to describe your own voice, subject matter, and what makes a good swipe statement for your readers. Leave blank to use the wording shown above, which is what the plugin ships with.', 'wellactually' ); ?>
+			<?php esc_html_e( 'What the AI is told before it sees each post — the place to describe your own voice, subject matter, and what makes a good swipe statement for your readers. Leave blank to use the wording shown above, which is what the plugin ships with.', 'well-actually' ); ?>
 		</p>
 		<p class="description">
-			<?php esc_html_e( 'You don\'t need to mention the response format: the instruction below is always added for you, so a rewrite can\'t stop drafts being read back properly.', 'wellactually' ); ?>
+			<?php esc_html_e( 'You don\'t need to mention the response format: the instruction below is always added for you, so a rewrite can\'t stop drafts being read back properly.', 'well-actually' ); ?>
 		</p>
 		<p class="description"><code class="wa-prompt-contract"><?php echo esc_html( WellActually_AI::response_contract() ); ?></code></p>
 		<?php
@@ -528,7 +529,7 @@ class WellActually_Settings {
 			class="small-text"
 		/>
 		<p class="description">
-			<?php esc_html_e( 'How many posts to draft at the same time. Drafting spends nearly all of its time waiting on the AI provider, so sending several requests at once is much faster than one after another — 5 is roughly five times quicker than 1. Lower this if your provider starts refusing requests for being too frequent.', 'wellactually' ); ?>
+			<?php esc_html_e( 'How many posts to draft at the same time. Drafting spends nearly all of its time waiting on the AI provider, so sending several requests at once is much faster than one after another — 5 is roughly five times quicker than 1. Lower this if your provider starts refusing requests for being too frequent.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -555,10 +556,10 @@ class WellActually_Settings {
 				value="1"
 				<?php checked( ! empty( $settings['debug_logging'] ) ); ?>
 			/>
-			<?php esc_html_e( 'Log how the "Well, Actually..." screen builds each page', 'wellactually' ); ?>
+			<?php esc_html_e( 'Log how the "Well, Actually..." screen builds each page', 'well-actually' ); ?>
 		</label>
 		<p class="description">
-			<?php esc_html_e( 'Writes one line to your site\'s error log per page load of that screen, recording how many posts were examined, how many had out-of-date status information, how many were shown, and the total. Useful when that screen shows the wrong posts (or none at all) and you want real numbers rather than guesswork. Leave off for normal use.', 'wellactually' ); ?>
+			<?php esc_html_e( 'Writes one line to your site\'s error log per page load of that screen, recording how many posts were examined, how many had out-of-date status information, how many were shown, and the total. Useful when that screen shows the wrong posts (or none at all) and you want real numbers rather than guesswork. Leave off for normal use.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -643,12 +644,12 @@ class WellActually_Settings {
 		if ( function_exists( 'wp_supports_ai' ) && wp_supports_ai() ) {
 			$providers = self::ai_providers();
 			if ( empty( $providers ) ) {
-				echo '<p>' . esc_html__( 'No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting.', 'wellactually' ) . '</p>';
+				echo '<p>' . esc_html__( 'No AI providers are registered yet. Install and configure an AI provider (with an API key) to enable drafting.', 'well-actually' ) . '</p>';
 			} else {
-				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the "Well, Actually..." screen (under Posts). You can change these between batches.', 'wellactually' ) . '</p>';
+				echo '<p>' . esc_html__( 'Pick the provider and model used to draft swipe statements on the "Well, Actually..." screen (under Posts). You can change these between batches.', 'well-actually' ) . '</p>';
 			}
 		} else {
-			echo '<p>' . esc_html__( 'AI features are not available in this environment.', 'wellactually' ) . '</p>';
+			echo '<p>' . esc_html__( 'AI features are not available in this environment.', 'well-actually' ) . '</p>';
 		}
 	}
 
@@ -660,20 +661,20 @@ class WellActually_Settings {
 		$providers = self::ai_providers();
 		?>
 		<select name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_provider]">
-			<option value=""><?php esc_html_e( '— Select a provider —', 'wellactually' ); ?></option>
+			<option value=""><?php esc_html_e( '— Select a provider —', 'well-actually' ); ?></option>
 			<?php foreach ( $providers as $id => $name ) : ?>
 				<?php $configured = self::is_ai_provider_configured( $id ); ?>
 				<option value="<?php echo esc_attr( $id ); ?>" <?php selected( $settings['ai_provider'], $id ); ?>>
 					<?php
 					echo esc_html( $name );
 					if ( ! $configured ) {
-						echo ' ' . esc_html__( '(no API key set)', 'wellactually' );
+						echo ' ' . esc_html__( '(no API key set)', 'well-actually' );
 					}
 					?>
 				</option>
 			<?php endforeach; ?>
 		</select>
-		<p class="description"><?php esc_html_e( 'Providers come from your WordPress AI connector settings.', 'wellactually' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Providers come from your WordPress AI connector settings.', 'well-actually' ); ?></p>
 		<?php
 	}
 
@@ -683,8 +684,8 @@ class WellActually_Settings {
 	public function render_ai_model_field() {
 		$settings = self::get_settings();
 		?>
-		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'wellactually' ); ?>" />
-		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the default model you\'ve picked in that provider\'s own settings, if it has one.', 'wellactually' ); ?></p>
+		<input type="text" name="<?php echo esc_attr( self::OPTION_NAME ); ?>[ai_model]" value="<?php echo esc_attr( $settings['ai_model'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g. google/gemini-3.5-flash', 'well-actually' ); ?>" />
+		<p class="description"><?php esc_html_e( 'The model id to request from the provider. Leave blank to use the default model you\'ve picked in that provider\'s own settings, if it has one.', 'well-actually' ); ?></p>
 		<?php
 		$provider  = $settings['ai_provider'];
 		$effective = '' !== $provider ? WellActually_AI::effective_model( $provider ) : '';
@@ -693,7 +694,7 @@ class WellActually_Settings {
 			echo '<p class="wa-model-warning">';
 			printf(
 				/* translators: %s: model id */
-				esc_html__( 'Heads up: %s does not advertise support for schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent. A model that supports JSON/structured output is more reliable.', 'wellactually' ),
+				esc_html__( 'Heads up: %s does not advertise support for schema-enforced JSON output. Drafting still works — it asks for JSON in the prompt instead — but results can be less consistent. A model that supports JSON/structured output is more reliable.', 'well-actually' ),
 				'<strong>' . esc_html( $effective ) . '</strong>'
 			);
 			echo '</p>';
@@ -711,7 +712,7 @@ class WellActually_Settings {
 			<?php
 			printf(
 				/* translators: %s: example URL */
-				esc_html__( 'Visitors will play swipe mode at %s.', 'wellactually' ),
+				esc_html__( 'Visitors will play swipe mode at %s.', 'well-actually' ),
 				'<code>' . esc_html( home_url( '/' ) ) . '<strong>' . esc_html( $settings['slug'] ) . '</strong></code>'
 			);
 			?>
@@ -725,10 +726,10 @@ class WellActually_Settings {
 	public function render_social_section_intro() {
 		?>
 		<p>
-			<?php esc_html_e( 'Controls the link preview when someone shares the swipe page on social networks or in messaging apps. These tags are rendered directly in the page, so they work even though the swipe template does not load your theme or SEO plugin.', 'wellactually' ); ?>
+			<?php esc_html_e( 'Controls the link preview when someone shares the swipe page on social networks or in messaging apps. These tags are rendered directly in the page, so they work even though the swipe template does not load your theme or SEO plugin.', 'well-actually' ); ?>
 		</p>
 		<p class="description">
-			<?php esc_html_e( 'Social platforms cache link previews. After changing these fields, you may need to clear your site’s page cache and ask the platform to refresh the URL before an older preview changes.', 'wellactually' ); ?>
+			<?php esc_html_e( 'Social platforms cache link previews. After changing these fields, you may need to clear your site’s page cache and ask the platform to refresh the URL before an older preview changes.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -748,7 +749,7 @@ class WellActually_Settings {
 			placeholder="<?php echo esc_attr( WellActually_Template::default_social_title() ); ?>"
 		/>
 		<p class="description">
-			<?php esc_html_e( 'Leave blank to use the title shown above.', 'wellactually' ); ?>
+			<?php esc_html_e( 'Leave blank to use the title shown above.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -767,7 +768,7 @@ class WellActually_Settings {
 			placeholder="<?php echo esc_attr( WellActually_Template::default_social_description() ); ?>"
 		><?php echo esc_textarea( $settings['social_description'] ); ?></textarea>
 		<p class="description">
-			<?php esc_html_e( 'Leave blank to use the description shown above.', 'wellactually' ); ?>
+			<?php esc_html_e( 'Leave blank to use the description shown above.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -791,14 +792,14 @@ class WellActually_Settings {
 				id="wellactually-social-image-preview"
 				class="wa-social-image-preview"
 				src="<?php echo esc_url( $image_url ); ?>"
-				alt="<?php esc_attr_e( 'Current social sharing preview image', 'wellactually' ); ?>"
+				alt="<?php esc_attr_e( 'Current social sharing preview image', 'well-actually' ); ?>"
 				<?php if ( ! $image_url ) : ?>
 					hidden
 				<?php endif; ?>
 			/>
 			<p class="wa-social-image-actions">
 				<button type="button" class="button" id="wellactually-social-image-select">
-					<?php esc_html_e( 'Choose image', 'wellactually' ); ?>
+					<?php esc_html_e( 'Choose image', 'well-actually' ); ?>
 				</button>
 				<button
 					type="button"
@@ -808,12 +809,12 @@ class WellActually_Settings {
 						hidden
 					<?php endif; ?>
 				>
-					<?php esc_html_e( 'Remove image', 'wellactually' ); ?>
+					<?php esc_html_e( 'Remove image', 'well-actually' ); ?>
 				</button>
 			</p>
 		</div>
 		<p class="description">
-			<?php esc_html_e( 'A 1200 × 630 pixel landscape image works well across most platforms. If you leave this blank, the site icon is used when one is available.', 'wellactually' ); ?>
+			<?php esc_html_e( 'A 1200 × 630 pixel landscape image works well across most platforms. If you leave this blank, the site icon is used when one is available.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}
@@ -827,16 +828,16 @@ class WellActually_Settings {
 		}
 
 		$tab       = $this->current_tab();
-		$base_url  = admin_url( 'options-general.php?page=wellactually' );
+		$base_url  = admin_url( 'options-general.php?page=' . self::MENU_SLUG );
 		$tab_names = array(
-			'setup'      => __( 'Setup', 'wellactually' ),
-			'categories' => __( 'Categories', 'wellactually' ),
-			'reports'    => __( 'Reports', 'wellactually' ),
-			'errors'     => __( 'Errors', 'wellactually' ),
+			'setup'      => __( 'Setup', 'well-actually' ),
+			'categories' => __( 'Categories', 'well-actually' ),
+			'reports'    => __( 'Reports', 'well-actually' ),
+			'errors'     => __( 'Errors', 'well-actually' ),
 		);
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Well, Actually...', 'wellactually' ); ?></h1>
+			<h1><?php esc_html_e( 'Well, Actually...', 'well-actually' ); ?></h1>
 
 			<h2 class="nav-tab-wrapper">
 				<?php foreach ( $tab_names as $tab_key => $label ) : ?>
@@ -886,7 +887,7 @@ class WellActually_Settings {
 	 * with its post count and a "Skip This Category" checkbox.
 	 */
 	private function render_categories_tab() {
-		echo '<p class="description">' . esc_html__( 'Posts in a checked category are skipped entirely — they never show up as eligible in Posts → "Well, Actually..." (needs setup, AI drafting candidates, or any other status view there).', 'wellactually' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Posts in a checked category are skipped entirely — they never show up as eligible in Posts → "Well, Actually..." (needs setup, AI drafting candidates, or any other status view there).', 'well-actually' ) . '</p>';
 
 		$categories = get_categories(
 			array(
@@ -897,7 +898,7 @@ class WellActually_Settings {
 		);
 
 		if ( empty( $categories ) ) {
-			echo '<p>' . esc_html__( 'No categories yet.', 'wellactually' ) . '</p>';
+			echo '<p>' . esc_html__( 'No categories yet.', 'well-actually' ) . '</p>';
 			return;
 		}
 
@@ -911,9 +912,9 @@ class WellActually_Settings {
 		<table class="widefat striped wa-categories-table">
 			<thead>
 				<tr>
-					<th><?php esc_html_e( 'Name', 'wellactually' ); ?></th>
-					<th class="wa-col-count"><?php esc_html_e( 'Count', 'wellactually' ); ?></th>
-					<th class="wa-col-skip"><?php esc_html_e( 'Skip This Category', 'wellactually' ); ?></th>
+					<th><?php esc_html_e( 'Name', 'well-actually' ); ?></th>
+					<th class="wa-col-count"><?php esc_html_e( 'Count', 'well-actually' ); ?></th>
+					<th class="wa-col-skip"><?php esc_html_e( 'Skip This Category', 'well-actually' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -974,28 +975,28 @@ class WellActually_Settings {
 		WellActually_AI::prune_old_errors( 7 );
 		$errors = WellActually_AI::get_recent_errors( 7 );
 
-		echo '<p class="description">' . esc_html__( 'AI drafting errors from the last 7 days. Older errors are cleared automatically and the post becomes available to draft again.', 'wellactually' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'AI drafting errors from the last 7 days. Older errors are cleared automatically and the post becomes available to draft again.', 'well-actually' ) . '</p>';
 
 		if ( empty( $errors ) ) {
-			echo '<p>' . esc_html__( 'No drafting errors in the last 7 days.', 'wellactually' ) . '</p>';
+			echo '<p>' . esc_html__( 'No drafting errors in the last 7 days.', 'well-actually' ) . '</p>';
 			return;
 		}
 
 		echo '<table class="widefat striped wa-errors-table"><thead><tr>';
-		echo '<th>' . esc_html__( 'Post', 'wellactually' ) . '</th>';
-		echo '<th>' . esc_html__( 'Error', 'wellactually' ) . '</th>';
-		echo '<th>' . esc_html__( 'When', 'wellactually' ) . '</th>';
+		echo '<th>' . esc_html__( 'Post', 'well-actually' ) . '</th>';
+		echo '<th>' . esc_html__( 'Error', 'well-actually' ) . '</th>';
+		echo '<th>' . esc_html__( 'When', 'well-actually' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
 		foreach ( $errors as $error ) {
-			$title = '' !== $error['title'] ? $error['title'] : __( '(no title)', 'wellactually' );
+			$title = '' !== $error['title'] ? $error['title'] : __( '(no title)', 'well-actually' );
 			echo '<tr>';
 			echo '<td><a href="' . esc_url( $error['edit_url'] ) . '" target="_blank" rel="noopener">' . esc_html( $title ) . '</a></td>';
 			echo '<td>' . esc_html( $error['error'] ) . '</td>';
 			echo '<td>' . esc_html(
 				sprintf(
 					/* translators: %s: human-readable time difference, e.g. "3 hours" */
-					__( '%s ago', 'wellactually' ),
+					__( '%s ago', 'well-actually' ),
 					human_time_diff( $error['time'], time() )
 				)
 			) . '</td>';

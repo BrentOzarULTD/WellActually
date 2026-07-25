@@ -123,7 +123,7 @@ class WellActually_User_Progress {
 	 */
 	public function handle_put_progress( WP_REST_Request $request ) {
 		if ( ! WellActually_Rest::check_rate_limit( 'progress_put', 60, MINUTE_IN_SECONDS ) ) {
-			return new WP_Error( 'wellactually_rate_limited', __( 'Too many updates, slow down.', 'wellactually' ), array( 'status' => 429 ) );
+			return new WP_Error( 'wellactually_rate_limited', __( 'Too many updates, slow down.', 'well-actually' ), array( 'status' => 429 ) );
 		}
 
 		$params   = $request->get_json_params();

@@ -550,4 +550,18 @@ class Test_WellActually_Status extends WP_UnitTestCase {
 			"Nothing handles admin_post_{$posted_action}, so the button would do nothing."
 		);
 	}
+
+	/**
+	 * The WordPress.org text domain is hyphenated, but the existing admin
+	 * settings URL is public plugin state and must remain backward compatible.
+	 */
+	public function test_settings_menu_slug_remains_stable() {
+		$this->assertSame( 'wellactually', WellActually_Settings::MENU_SLUG );
+
+		$links = WellActually_Settings::instance()->add_settings_link( array() );
+
+		$this->assertCount( 1, $links );
+		$this->assertStringContainsString( 'options-general.php?page=wellactually', $links[0] );
+		$this->assertStringNotContainsString( 'options-general.php?page=well-actually', $links[0] );
+	}
 }
