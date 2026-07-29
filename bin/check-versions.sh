@@ -11,6 +11,7 @@ constant=$(grep -m1 "define( 'WELLACTUALLY_VERSION'" wellactually.php | sed -E "
 stable=$(grep -m1 -E '^Stable tag:' readme.txt | sed -E 's/Stable tag:[[:space:]]*//' | tr -d '[:space:]')
 text_domain=$(grep -m1 -E '^\s*\*\s*Text Domain:' wellactually.php | sed -E 's/.*Text Domain:[[:space:]]*//' | tr -d '[:space:]')
 expected_text_domain="well-actually"
+expected_support_url="https://wordpress.org/support/plugin/${expected_text_domain}"
 
 echo "  plugin header : ${header}"
 echo "  WELLACTUALLY_VERSION    : ${constant}"
@@ -37,4 +38,9 @@ if [ ! -f "languages/${expected_text_domain}.pot" ]; then
 	exit 1
 fi
 
-echo "Versions agree (${header}), the changelog has an entry, and the text domain matches WordPress.org."
+if ! grep -q "^\"Report-Msgid-Bugs-To: ${expected_support_url}\\\\n\"$" "languages/${expected_text_domain}.pot"; then
+	echo "Translation catalog support URL must use the WordPress.org slug: ${expected_support_url}." >&2
+	exit 1
+fi
+
+echo "Versions agree (${header}), and the text domain and translation support URL match WordPress.org."
