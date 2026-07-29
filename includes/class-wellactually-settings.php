@@ -78,6 +78,9 @@ class WellActually_Settings {
 			'social_title'        => '',
 			'social_description'  => '',
 			'social_image_id'     => 0,
+			'google_tag_id'       => '',
+			'meta_pixel_id'       => '',
+			'linkedin_partner_id' => '',
 			'ai_provider'         => '',
 			'ai_model'            => '',
 			'ai_system_prompt'    => '',
@@ -356,6 +359,37 @@ class WellActually_Settings {
 		);
 
 		add_settings_section(
+			'wellactually_tracking_section',
+			__( 'Analytics and advertising', 'well-actually' ),
+			array( $this, 'render_tracking_section_intro' ),
+			'wellactually_setup'
+		);
+
+		add_settings_field(
+			'wellactually_google_tag_id',
+			__( 'Google tag ID', 'well-actually' ),
+			array( $this, 'render_google_tag_id_field' ),
+			'wellactually_setup',
+			'wellactually_tracking_section'
+		);
+
+		add_settings_field(
+			'wellactually_meta_pixel_id',
+			__( 'Meta Pixel ID', 'well-actually' ),
+			array( $this, 'render_meta_pixel_id_field' ),
+			'wellactually_setup',
+			'wellactually_tracking_section'
+		);
+
+		add_settings_field(
+			'wellactually_linkedin_partner_id',
+			__( 'LinkedIn Partner ID', 'well-actually' ),
+			array( $this, 'render_linkedin_partner_id_field' ),
+			'wellactually_setup',
+			'wellactually_tracking_section'
+		);
+
+		add_settings_section(
 			'wellactually_ai_section',
 			__( 'AI drafting', 'well-actually' ),
 			array( $this, 'render_ai_section_intro' ),
@@ -607,6 +641,45 @@ class WellActually_Settings {
 			? $image_id
 			: 0;
 
+		$google_tag_id = isset( $input['google_tag_id'] )
+			? strtoupper( trim( sanitize_text_field( $input['google_tag_id'] ) ) )
+			: '';
+		if ( '' !== $google_tag_id && ! preg_match( '/\A(?:G|GT|AW)-[A-Z0-9]+\z/', $google_tag_id ) ) {
+			add_settings_error(
+				self::OPTION_NAME,
+				'wellactually_invalid_google_tag_id',
+				__( 'The Google tag ID was not saved. Enter an ID beginning with G-, GT-, or AW-.', 'well-actually' )
+			);
+			$google_tag_id = '';
+		}
+		$output['google_tag_id'] = $google_tag_id;
+
+		$meta_pixel_id = isset( $input['meta_pixel_id'] )
+			? trim( sanitize_text_field( $input['meta_pixel_id'] ) )
+			: '';
+		if ( '' !== $meta_pixel_id && ! preg_match( '/\A[0-9]{5,32}\z/', $meta_pixel_id ) ) {
+			add_settings_error(
+				self::OPTION_NAME,
+				'wellactually_invalid_meta_pixel_id',
+				__( 'The Meta Pixel ID was not saved. Enter the numeric ID shown in Meta Events Manager.', 'well-actually' )
+			);
+			$meta_pixel_id = '';
+		}
+		$output['meta_pixel_id'] = $meta_pixel_id;
+
+		$linkedin_partner_id = isset( $input['linkedin_partner_id'] )
+			? trim( sanitize_text_field( $input['linkedin_partner_id'] ) )
+			: '';
+		if ( '' !== $linkedin_partner_id && ! preg_match( '/\A[0-9]{3,32}\z/', $linkedin_partner_id ) ) {
+			add_settings_error(
+				self::OPTION_NAME,
+				'wellactually_invalid_linkedin_partner_id',
+				__( 'The LinkedIn Partner ID was not saved. Enter the numeric ID shown with your Insight Tag.', 'well-actually' )
+			);
+			$linkedin_partner_id = '';
+		}
+		$output['linkedin_partner_id'] = $linkedin_partner_id;
+
 		// AI provider must be one of the registered AI providers.
 		$provider              = isset( $input['ai_provider'] ) ? sanitize_text_field( $input['ai_provider'] ) : '';
 		$output['ai_provider'] = array_key_exists( $provider, self::ai_providers() ) ? $provider : '';
@@ -815,6 +888,83 @@ class WellActually_Settings {
 		</div>
 		<p class="description">
 			<?php esc_html_e( 'A 1200 × 630 pixel landscape image works well across most platforms. If you leave this blank, the site icon is used when one is available.', 'well-actually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Explain the optional tracking settings and their privacy impact.
+	 */
+	public function render_tracking_section_intro() {
+		?>
+		<p>
+			<?php esc_html_e( 'The swipe page uses an isolated template, so analytics added by your theme, Site Kit, or another plugin does not appear there automatically. Enter an ID below to add that provider’s standard page-view tag to the swipe page only.', 'well-actually' ); ?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'Leave every field blank to contact no tracking service. These services may set cookies or similar identifiers and receive visitor information, so configure your consent tools and privacy policy as required for your visitors.', 'well-actually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the Google tag identifier field.
+	 */
+	public function render_google_tag_id_field() {
+		$settings = self::get_settings();
+		?>
+		<input
+			type="text"
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[google_tag_id]"
+			value="<?php echo esc_attr( $settings['google_tag_id'] ); ?>"
+			class="regular-text code"
+			maxlength="32"
+			placeholder="G-XXXXXXXXXX"
+			autocomplete="off"
+		/>
+		<p class="description">
+			<?php esc_html_e( 'Accepts Google tag IDs beginning with G-, GT-, or AW-. The standard Google tag sends a page view when the swipe page opens.', 'well-actually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the Meta Pixel identifier field.
+	 */
+	public function render_meta_pixel_id_field() {
+		$settings = self::get_settings();
+		?>
+		<input
+			type="text"
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[meta_pixel_id]"
+			value="<?php echo esc_attr( $settings['meta_pixel_id'] ); ?>"
+			class="regular-text code"
+			maxlength="32"
+			inputmode="numeric"
+			autocomplete="off"
+		/>
+		<p class="description">
+			<?php esc_html_e( 'The numeric ID from Meta Events Manager. The standard pixel sends a PageView event when the swipe page opens.', 'well-actually' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the LinkedIn Insight Tag partner identifier field.
+	 */
+	public function render_linkedin_partner_id_field() {
+		$settings = self::get_settings();
+		?>
+		<input
+			type="text"
+			name="<?php echo esc_attr( self::OPTION_NAME ); ?>[linkedin_partner_id]"
+			value="<?php echo esc_attr( $settings['linkedin_partner_id'] ); ?>"
+			class="regular-text code"
+			maxlength="32"
+			inputmode="numeric"
+			autocomplete="off"
+		/>
+		<p class="description">
+			<?php esc_html_e( 'The numeric Partner ID from LinkedIn Campaign Manager’s Insight Tag screen.', 'well-actually' ); ?>
 		</p>
 		<?php
 	}

@@ -8,7 +8,8 @@
  * plus two counters). Everything else is either anonymous by construction
  * (aggregate per-post counts with no user attached), confined to the
  * visitor's own browser (localStorage), or ephemeral (rate-limit transients
- * keyed on a hashed IP that expire within minutes).
+ * keyed on a hashed IP that expire within minutes). Site owners may
+ * optionally configure third-party page-view tags for the swipe page.
  *
  * @package WellActually
  */
@@ -64,8 +65,29 @@ class WellActually_Privacy {
 			'<p>' . __( 'Anonymous visitors: your swipe progress (which statements you have seen and how you answered) is stored only in your own browser\'s local storage. It never leaves your device, and clearing your browser data resets it.', 'well-actually' ) . '</p>' .
 			'<p>' . __( 'Logged-in users: the same progress is saved to your account on this site so it follows you between devices. You can obtain or erase it with the personal-data export and erasure tools on this site.', 'well-actually' ) . '</p>' .
 			'<p>' . __( 'Aggregate statistics: each swipe increments an anonymous per-post counter (how many visitors agreed, disagreed, or were unsure). These totals contain no account, name, or address, and cannot be traced back to any person.', 'well-actually' ) . '</p>' .
-			'<p>' . __( 'Rate limiting: to prevent abuse, a short-lived counter keyed to a hashed form of the visitor\'s IP address is kept for a few minutes and then expires. The IP address itself is not stored.', 'well-actually' ) . '</p>' .
-			'<p>' . __( 'AI drafting (site editors only): when an administrator uses the optional "Draft with AI" feature, the affected post\'s title and an excerpt of its content are sent to the AI provider the administrator has configured. No visitor or account data is included. The chosen provider\'s own privacy policy governs that transfer.', 'well-actually' ) . '</p>';
+			'<p>' . __( 'Rate limiting: to prevent abuse, a short-lived counter keyed to a hashed form of the visitor\'s IP address is kept for a few minutes and then expires. The IP address itself is not stored.', 'well-actually' ) . '</p>';
+
+		$settings = WellActually_Settings::get_settings();
+		$services = array();
+		if ( '' !== $settings['google_tag_id'] ) {
+			$services[] = 'Google';
+		}
+		if ( '' !== $settings['meta_pixel_id'] ) {
+			$services[] = 'Meta';
+		}
+		if ( '' !== $settings['linkedin_partner_id'] ) {
+			$services[] = 'LinkedIn';
+		}
+
+		if ( ! empty( $services ) ) {
+			$content .= '<p>' . sprintf(
+				/* translators: %s: comma-separated names of configured tracking services */
+				__( 'Optional page-view tracking: this site has configured the swipe page to load tracking tags from %s. Those services receive ordinary web-request information such as the page URL, IP address, browser information, and referrer, and may set cookies or similar identifiers. Their respective privacy policies govern that processing.', 'well-actually' ),
+				esc_html( implode( ', ', $services ) )
+			) . '</p>';
+		}
+
+		$content .= '<p>' . __( 'AI drafting (site editors only): when an administrator uses the optional "Draft with AI" feature, the affected post\'s title and an excerpt of its content are sent to the AI provider the administrator has configured. No visitor or account data is included. The chosen provider\'s own privacy policy governs that transfer.', 'well-actually' ) . '</p>';
 
 		wp_add_privacy_policy_content(
 			__( 'Well, Actually...', 'well-actually' ),

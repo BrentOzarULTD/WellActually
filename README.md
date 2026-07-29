@@ -91,6 +91,16 @@ Set a custom preview title, description, and image under **Settings → Well, Ac
 
 Leave the text fields blank to use the plugin’s friendly defaults. Leave the image blank to use the WordPress site icon when one is available.
 
+### Measure swipe-page traffic
+
+The game’s focused template does not inherit analytics scripts from your theme, Site Kit, or another plugin. If you want page-view measurement there, enter any of these IDs under **Settings → Well, Actually... → Analytics and advertising**:
+
+- Google tag ID (`G-`, `GT-`, or `AW-`)
+- Meta Pixel ID
+- LinkedIn Insight Tag Partner ID
+
+Each option adds that provider’s standard page-view tag to the swipe page only. They are independent and disabled by default: leave an ID blank and that provider is not contacted. No swipe answers, scores, post content, WordPress accounts, or custom events are sent through these tags.
+
 ## Optional AI drafting
 
 Writing hundreds of short, provocative statements can be the slowest part. The optional **Draft with AI** workflow can suggest a statement and verdict from an existing post.
@@ -144,7 +154,9 @@ When Jetpack Stats is available, Swipe Setup displays its **Views: 30 days** fig
 
 ## Privacy and external services
 
-Playing the game does not contact an external service.
+By default, playing the game does not contact an external service. If a site administrator enables an optional Google tag, Meta Pixel, or LinkedIn Insight Tag, the configured providers receive a standard page-view signal when the swipe page opens.
+
+Like ordinary web requests, those providers can receive the page URL, IP address, browser information, and referrer, and may set cookies or similar identifiers. Their respective terms and privacy policies govern that processing. Site owners are responsible for any consent tools and privacy disclosures their visitors require.
 
 Aggregate swipe totals are stored by your WordPress site. Anonymous progress remains in the reader’s browser; logged-in progress is stored with the reader’s WordPress account.
 
@@ -170,10 +182,11 @@ Optional features require:
 
 - A WordPress AI-client-compatible provider plugin and API key for Draft with AI
 - Jetpack Stats for the 30-day view column and popularity sorting
+- An account and tag ID from Google, Meta, or LinkedIn for that provider’s optional page-view tracking
 
 ## Installation
 
-1. Upload the plugin to `wp-content/plugins/wellactually`, or install its ZIP through **Plugins → Add New**.
+1. Upload the plugin to `wp-content/plugins/well-actually`, or install its ZIP through **Plugins → Add New**.
 2. Activate **Well, Actually...**
 3. Open **Settings → Well, Actually...**
 4. Choose the game URL slug—the default is `/swipe`.
@@ -187,7 +200,7 @@ Well, Actually... uses plain PHP, JavaScript, and CSS with no frontend build ste
 See [TESTING.md](TESTING.md) for the testing checklist. A WP-CLI seeding script is included for archive-scale testing:
 
 ```bash
-wp eval-file wp-content/plugins/wellactually/bin/seed.php
+wp eval-file wp-content/plugins/well-actually/bin/seed.php
 ```
 
 Run the automated checks with Composer:

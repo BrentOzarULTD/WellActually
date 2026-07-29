@@ -184,4 +184,136 @@ class Test_WellActually_Template extends WP_UnitTestCase {
 		$this->assertStringNotContainsString( '<', $settings['social_description'] );
 		$this->assertSame( 0, $settings['social_image_id'] );
 	}
+
+	/**
+	 * Tracking remains completely inert until an administrator enters an ID.
+	 */
+	public function test_tracking_tags_are_blank_by_default() {
+		ob_start();
+		WellActually_Template::instance()->print_tracking_head();
+		$head = ob_get_clean();
+
+		ob_start();
+		WellActually_Template::instance()->print_tracking_body();
+		$body = ob_get_clean();
+
+		$this->assertSame( '', $head );
+		$this->assertSame( '', $body );
+	}
+
+	/**
+	 * Each configured provider receives its standard page-view tag.
+	 */
+	public function test_tracking_tags_render_for_configured_providers() {
+		update_option(
+			WellActually_Settings::OPTION_NAME,
+			array_merge(
+				WellActually_Settings::defaults(),
+				array(
+					'google_tag_id'       => 'GT-ABC123',
+					'meta_pixel_id'       => '1234567890',
+					'linkedin_partner_id' => '987654',
+				)
+			)
+		);
+
+		ob_start();
+		WellActually_Template::instance()->print_tracking_head();
+		$head = ob_get_clean();
+
+		ob_start();
+		WellActually_Template::instance()->print_tracking_body();
+		$body = ob_get_clean();
+
+		$this->assertStringContainsString( 'https://www.googletagmanager.com/gtag/js?id=GT-ABC123', $head );
+		$this->assertStringContainsString( "wellactuallyGtag('config', \"GT-ABC123\")", $head );
+		$this->assertStringContainsString( 'https://connect.facebook.net/en_US/fbevents.js', $head );
+		$this->assertStringContainsString( "fbq('init', \"1234567890\")", $head );
+		$this->assertStringContainsString( "fbq('track', 'PageView')", $head );
+		$this->assertStringContainsString( 'https://www.facebook.com/tr?id=1234567890', $body );
+		$this->assertStringContainsString( 'ev=PageView', $body );
+		$this->assertStringContainsString( 'noscript=1', $body );
+		$this->assertStringContainsString( 'window._linkedin_partner_id = "987654"', $body );
+		$this->assertStringContainsString( 'https://snap.licdn.com/li.lms-analytics/insight.min.js', $body );
+		$this->assertStringContainsString( 'https://px.ads.linkedin.com/collect/?pid=987654', $body );
+		$this->assertStringContainsString( 'fmt=gif', $body );
+	}
+
+	/**
+	 * Consent integrations can suppress all configured providers per request.
+	 */
+	public function test_tracking_allowed_filter_suppresses_all_tags() {
+		update_option(
+			WellActually_Settings::OPTION_NAME,
+			array_merge(
+				WellActually_Settings::defaults(),
+				array(
+					'google_tag_id'       => 'G-ABC123',
+					'meta_pixel_id'       => '1234567890',
+					'linkedin_partner_id' => '987654',
+				)
+			)
+		);
+
+		$deny = static function () {
+			return false;
+		};
+		add_filter( 'wellactually_tracking_allowed', $deny );
+
+		try {
+			ob_start();
+			WellActually_Template::instance()->print_tracking_head();
+			$head = ob_get_clean();
+
+			ob_start();
+			WellActually_Template::instance()->print_tracking_body();
+			$body = ob_get_clean();
+
+			$this->assertSame( '', $head );
+			$this->assertSame( '', $body );
+		} finally {
+			remove_filter( 'wellactually_tracking_allowed', $deny );
+		}
+	}
+
+	/**
+	 * Tracking IDs are normalized and invalid values are discarded.
+	 */
+	public function test_tracking_settings_are_sanitized() {
+		$valid = WellActually_Settings::instance()->sanitize_settings(
+			array(
+				'_tab'                => 'setup',
+				'slug'                => 'actually',
+				'google_tag_id'       => 'gt-abc123',
+				'meta_pixel_id'       => '1234567890',
+				'linkedin_partner_id' => '987654',
+				'ai_provider'         => '',
+				'ai_model'            => '',
+				'ai_system_prompt'    => '',
+				'ai_concurrency'      => 5,
+			)
+		);
+
+		$this->assertSame( 'GT-ABC123', $valid['google_tag_id'] );
+		$this->assertSame( '1234567890', $valid['meta_pixel_id'] );
+		$this->assertSame( '987654', $valid['linkedin_partner_id'] );
+
+		$invalid = WellActually_Settings::instance()->sanitize_settings(
+			array(
+				'_tab'                => 'setup',
+				'slug'                => 'actually',
+				'google_tag_id'       => 'GTM-CONTAINER',
+				'meta_pixel_id'       => 'not-a-pixel',
+				'linkedin_partner_id' => '12',
+				'ai_provider'         => '',
+				'ai_model'            => '',
+				'ai_system_prompt'    => '',
+				'ai_concurrency'      => 5,
+			)
+		);
+
+		$this->assertSame( '', $invalid['google_tag_id'] );
+		$this->assertSame( '', $invalid['meta_pixel_id'] );
+		$this->assertSame( '', $invalid['linkedin_partner_id'] );
+	}
 }

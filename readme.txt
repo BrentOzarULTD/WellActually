@@ -4,7 +4,7 @@ Tags: quiz, engagement, gamification, blog
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.1
+Stable tag: 1.8.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,9 +18,11 @@ Progress is tracked locally for anonymous visitors and synced to their account w
 
 The swipe page also includes configurable social sharing metadata. Pick its preview title, description, and image under Settings → "Well, Actually..." so links shared on social networks and messaging apps look intentional.
 
+Because the focused swipe template does not inherit analytics from your theme, it can optionally add a Google tag, Meta Pixel, or LinkedIn Insight Tag directly. All three are off until you enter an ID.
+
 == Installation ==
 
-1. Upload the plugin to `/wp-content/plugins/wellactually` or install via the Plugins screen.
+1. Upload the plugin to `/wp-content/plugins/well-actually` or install via the Plugins screen.
 2. Activate the plugin.
 3. Visit Settings → "Well, Actually..." to set the swipe page slug (default `swipe`).
 4. Edit any post and fill in the "Swipe Statement" and verdict fields to add it to the deck.
@@ -30,7 +32,21 @@ The optional "Draft with AI" feature uses the AI client APIs that ship in WordPr
 
 == External Services ==
 
-The optional "Draft with AI" feature sends post content to an external AI service. All external contact is confined to that feature and its admin screens: activating the plugin and the public swipe game your readers play never contact any external service.
+By default, activating the plugin and playing the public swipe game do not contact an external service. Administrators can optionally configure page-view tags for Google, Meta, or LinkedIn under Settings → "Well, Actually..." → Analytics and advertising. Blank fields load nothing.
+
+**Optional tracking services**
+
+When configured, the selected tags load when a visitor opens the swipe page. Like ordinary web requests, the providers can receive the page URL, IP address, browser information, and referrer, and may set cookies or similar identifiers. The plugin sends only each provider's standard page-view signal: it does not send swipe answers, scores, post content, WordPress accounts, or custom events.
+
+* **Google tag:** loads `https://www.googletagmanager.com/gtag/js` and sends the standard Google tag page-view configuration. [Google Analytics Terms](https://marketingplatform.google.com/about/analytics/terms/us/) and [Google Privacy Policy](https://policies.google.com/privacy).
+* **Meta Pixel:** loads `https://connect.facebook.net/en_US/fbevents.js`, sends a `PageView` event, and provides the standard no-script fallback at `https://www.facebook.com/tr`. [Meta Business Tools Terms](https://www.facebook.com/legal/technology_terms) and [Meta Privacy Policy](https://www.facebook.com/privacy/policy/).
+* **LinkedIn Insight Tag:** loads `https://snap.licdn.com/li.lms-analytics/insight.min.js` and provides the standard no-script fallback at `https://px.ads.linkedin.com/collect/`. [LinkedIn Ads Agreement](https://www.linkedin.com/legal/sas-terms) and [LinkedIn Privacy Policy](https://www.linkedin.com/legal/privacy-policy).
+
+Site owners are responsible for configuring consent tools and privacy disclosures appropriate for their visitors. Developers can return `false` from the `wellactually_tracking_allowed` filter to suppress every configured tag for a request.
+
+**Optional AI drafting service**
+
+The optional "Draft with AI" feature sends post content to an external AI service.
 
 **What is sent:** the post's title, plus either its manual excerpt (if one exists) or up to the first 3,000 characters of the post's body as plain text (HTML and code blocks stripped). No reader data, user accounts, or site credentials are ever sent.
 
@@ -72,6 +88,10 @@ Yes — the Posts list has a "Swipe stats" column showing the agree percentage a
 
 Yes. Under Settings → "Well, Actually..." → Social sharing, set the preview title, description, and image. Blank text fields use built-in defaults, and a blank image uses the WordPress site icon when one is available.
 
+= Can I add analytics to the swipe page? =
+
+Yes. Under Settings → "Well, Actually..." → Analytics and advertising, enter a Google tag ID, Meta Pixel ID, or LinkedIn Partner ID. The selected standard page-view tags load only on the swipe page. Leave every field blank to load none of them.
+
 == Screenshots ==
 
 1. The full-screen phone game: readers can Agree, Disagree, or choose Not sure.
@@ -80,6 +100,11 @@ Yes. Under Settings → "Well, Actually..." → Social sharing, set the preview 
 4. The Reports scoreboard shows total swipes and right and wrong percentages for every card in the deck.
 
 == Changelog ==
+
+= 1.8.2 =
+* Add optional Google tag, Meta Pixel, and LinkedIn Insight Tag settings for measuring swipe-page visits.
+* Tracking is disabled by default and no provider loads until its ID is configured.
+* Document the data each optional tag can send, link to provider terms and privacy policies, and add the configured services to WordPress's suggested privacy-policy text.
 
 = 1.8.1 =
 * Add configurable social-sharing preview title, description, and image for the swipe page.
