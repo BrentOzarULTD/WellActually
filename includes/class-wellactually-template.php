@@ -288,6 +288,135 @@ class WellActually_Template {
 	}
 
 	/**
+	 * Whether configured tracking tags may be printed for this request.
+	 *
+	 * Consent integrations can return false from this filter after inspecting
+	 * their own consent cookie or request state.
+	 *
+	 * @param array $settings Current plugin settings.
+	 * @return bool
+	 */
+	private function tracking_allowed( $settings ) {
+		/**
+		 * Filter whether Well, Actually may print its configured tracking tags.
+		 *
+		 * @param bool  $allowed  Whether tags may be printed.
+		 * @param array $settings Current plugin settings.
+		 */
+		return (bool) apply_filters( 'wellactually_tracking_allowed', true, $settings );
+	}
+
+	/**
+	 * Print configured tracking scripts that belong in the document head.
+	 *
+	 * Nothing is emitted unless an administrator configured the corresponding
+	 * identifier. IDs are validated on save and JSON encoded again here before
+	 * entering an inline script.
+	 */
+	public function print_tracking_head() {
+		$settings = WellActually_Settings::get_settings();
+		if ( ! $this->tracking_allowed( $settings ) ) {
+			return;
+		}
+
+		$google_tag_id = $settings['google_tag_id'];
+		$meta_pixel_id = $settings['meta_pixel_id'];
+
+		if ( '' !== $google_tag_id ) {
+			$google_src = add_query_arg( 'id', $google_tag_id, 'https://www.googletagmanager.com/gtag/js' );
+			?>
+			<!-- Google tag (gtag.js), configured by Well, Actually -->
+			<?php // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- The isolated template deliberately skips wp_head(); this is Google's configured external-service tag. ?>
+			<script async src="<?php echo esc_url( $google_src ); ?>"></script>
+			<script>
+				window.dataLayer = window.dataLayer || [];
+				function wellactuallyGtag(){window.dataLayer.push(arguments);}
+				wellactuallyGtag('js', new Date());
+				wellactuallyGtag('config', <?php echo wp_json_encode( $google_tag_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- validated identifier encoded as a JSON string. ?>);
+			</script>
+			<?php
+		}
+
+		if ( '' !== $meta_pixel_id ) {
+			?>
+			<!-- Meta Pixel, configured by Well, Actually -->
+			<script>
+				!function(f,b,e,v,n,t,s)
+				{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+				n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+				if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+				n.queue=[];t=b.createElement(e);t.async=!0;
+				t.src=v;s=b.getElementsByTagName(e)[0];
+				s.parentNode.insertBefore(t,s)}(window,document,'script',
+				'https://connect.facebook.net/en_US/fbevents.js');
+				fbq('init', <?php echo wp_json_encode( $meta_pixel_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- validated identifier encoded as a JSON string. ?>);
+				fbq('track', 'PageView');
+			</script>
+			<?php
+		}
+	}
+
+	/**
+	 * Print tracking fallbacks and scripts that belong in the document body.
+	 */
+	public function print_tracking_body() {
+		$settings = WellActually_Settings::get_settings();
+		if ( ! $this->tracking_allowed( $settings ) ) {
+			return;
+		}
+
+		$meta_pixel_id       = $settings['meta_pixel_id'];
+		$linkedin_partner_id = $settings['linkedin_partner_id'];
+
+		if ( '' !== $meta_pixel_id ) {
+			$meta_fallback = add_query_arg(
+				array(
+					'id'       => $meta_pixel_id,
+					'ev'       => 'PageView',
+					'noscript' => '1',
+				),
+				'https://www.facebook.com/tr'
+			);
+			?>
+			<noscript><img height="1" width="1" style="display:none" alt="" src="<?php echo esc_url( $meta_fallback ); ?>" /></noscript>
+			<?php
+		}
+
+		if ( '' !== $linkedin_partner_id ) {
+			$linkedin_fallback = add_query_arg(
+				array(
+					'pid' => $linkedin_partner_id,
+					'fmt' => 'gif',
+				),
+				'https://px.ads.linkedin.com/collect/'
+			);
+			?>
+			<!-- LinkedIn Insight Tag, configured by Well, Actually -->
+			<script>
+				window._linkedin_partner_id = <?php echo wp_json_encode( $linkedin_partner_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- validated identifier encoded as a JSON string. ?>;
+				window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+				window._linkedin_data_partner_ids.push(window._linkedin_partner_id);
+			</script>
+			<script>
+				(function(l) {
+					if (!l) {
+						window.lintrk = function(a,b){window.lintrk.q.push([a,b])};
+						window.lintrk.q = [];
+					}
+					var s = document.getElementsByTagName('script')[0];
+					var b = document.createElement('script');
+					b.type = 'text/javascript';
+					b.async = true;
+					b.src = 'https://snap.licdn.com/li.lms-analytics/insight.min.js';
+					s.parentNode.insertBefore(b, s);
+				})(window.lintrk);
+			</script>
+			<noscript><img height="1" width="1" style="display:none" alt="" src="<?php echo esc_url( $linkedin_fallback ); ?>" /></noscript>
+			<?php
+		}
+	}
+
+	/**
 	 * Register the swipe page's assets and their inline config.
 	 *
 	 * Called directly by the template (not hooked to wp_enqueue_scripts,

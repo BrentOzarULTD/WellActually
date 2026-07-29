@@ -35,7 +35,20 @@ class Test_WellActually_Privacy extends WP_UnitTestCase {
 	public function test_policy_text_registers_and_covers_the_data() {
 		set_current_screen( 'dashboard' );
 		$had_admin_init = did_action( 'admin_init' ) > 0;
+		$old_settings   = get_option( WellActually_Settings::OPTION_NAME );
 		try {
+			update_option(
+				WellActually_Settings::OPTION_NAME,
+				array_merge(
+					WellActually_Settings::defaults(),
+					array(
+						'google_tag_id'       => 'G-ABC123',
+						'meta_pixel_id'       => '1234567890',
+						'linkedin_partner_id' => '987654',
+					)
+				)
+			);
+
 			// Core only accepts policy text in admin context on/after
 			// admin_init. Firing the whole action here would run unrelated
 			// core admin_init callbacks (some send headers, which errors under
@@ -57,10 +70,15 @@ class Test_WellActually_Privacy extends WP_UnitTestCase {
 			$this->assertArrayHasKey( 'Well, Actually...', $ours );
 			$text = $ours['Well, Actually...'];
 
-			foreach ( array( 'local storage', 'personal-data export', 'hashed form', 'AI provider' ) as $needle ) {
+			foreach ( array( 'local storage', 'personal-data export', 'hashed form', 'Google', 'Meta', 'LinkedIn', 'AI provider' ) as $needle ) {
 				$this->assertStringContainsStringIgnoringCase( $needle, $text, "Policy text must cover: {$needle}" );
 			}
 		} finally {
+			if ( false === $old_settings ) {
+				delete_option( WellActually_Settings::OPTION_NAME );
+			} else {
+				update_option( WellActually_Settings::OPTION_NAME, $old_settings );
+			}
 			if ( ! $had_admin_init ) {
 				unset( $GLOBALS['wp_actions']['admin_init'] );
 			}

@@ -21,6 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php WellActually_Template::instance()->print_social_meta(); ?>
 	<?php $wellactually_title = WellActually_Template::social_title(); ?>
 	<title><?php echo esc_html( $wellactually_title ); ?></title>
+	<?php WellActually_Template::instance()->print_tracking_head(); ?>
 	<?php WellActually_Template::instance()->print_head_assets(); ?>
 </head>
 <body class="wa-swipe-body">
@@ -37,5 +38,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</noscript>
 
 	<?php WellActually_Template::instance()->print_footer_assets(); ?>
+	<?php WellActually_Template::instance()->print_tracking_body(); ?>
 </body>
 </html>
